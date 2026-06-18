@@ -104,8 +104,12 @@ class PomodoroTimerService : Service() {
         launchCountdown(currentRemaining)
         startForeground(NOTIF_ID, buildTimerNotification())
         
-        if (_state.value.phase == Phase.FOCUS && dndEnabled) {
-            blockNotifications(true)
+        if (_state.value.phase == Phase.FOCUS) {
+            if (dndEnabled) {
+                blockNotifications(true)
+            }
+            AppMonitorService.start(this)
+            FocusNotificationListenerService.refresh(this)
         }
     }
 
@@ -132,6 +136,7 @@ class PomodoroTimerService : Service() {
             if (dndEnabled) {
                 blockNotifications(false)
             }
+            AppMonitorService.stop(this)
         }
 
         advancePhase()
@@ -143,6 +148,7 @@ class PomodoroTimerService : Service() {
         if (dndEnabled) {
             blockNotifications(false)
         }
+        AppMonitorService.stop(this)
         _state.update {
             it.copy(
                 isRunning = false,
@@ -192,6 +198,7 @@ class PomodoroTimerService : Service() {
             if (dndEnabled) {
                 blockNotifications(false)
             }
+            AppMonitorService.stop(this)
             
             vibrateDevice()
             playAlertSound()

@@ -86,7 +86,10 @@ fun AppNavGraph(
                 ExamsScreen(viewModel = examsViewModel)
             }
             composable(Screen.Settings.route) {
-                SettingsScreen(viewModel = settingsViewModel)
+                SettingsScreen(viewModel = settingsViewModel, navController = navController)
+            }
+            composable("app_blocker") {
+                com.example.ui.screen.appblocker.AppBlockerScreen(navController = navController)
             }
         }
     }

@@ -22,6 +22,16 @@
     <!-- Vibration for session end -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- Read installed apps list -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
+    <!-- Usage stats — detect which app is in foreground (app launch blocking) -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+
+    <!-- Draw overlay (focus reminder screen on top of blocked app) -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
     <application
         android:name=".FocusFlowApplication"
         android:allowBackup="true"
@@ -53,6 +63,33 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Pomodoro timer service to track focused sessions and break cycles" />
         </service>
+
+        <!-- Notification listener (block notifications from specific apps) -->
+        <service
+            android:name=".service.FocusNotificationListenerService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <!-- App monitor foreground service -->
+        <service
+            android:name=".service.AppMonitorService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Monitors app launch to protect users focus sessions" />
+        </service>
+
+        <!-- Focus Overlay activity -->
+        <activity
+            android:name=".FocusOverlayActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyApplication"
+            android:launchMode="singleTop" />
 
         <!-- Home Screen Widget Receiver -->
         <receiver

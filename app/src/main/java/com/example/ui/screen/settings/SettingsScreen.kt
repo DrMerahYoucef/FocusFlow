@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.SaveAlt
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,7 +30,8 @@ import com.example.ui.theme.NeumorphicColors
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    navController: androidx.navigation.NavController? = null
 ) {
     val state by viewModel.state.collectAsState()
     val scrollState = rememberScrollState()
@@ -365,6 +367,62 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Section: App Blocker
+        Text(
+            text = "APP BLOCKER",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = NeumorphicColors.TextSecondary,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            textAlign = TextAlign.Start
+        )
+
+        val db = remember { com.example.FocusFlowApplication.instance.database }
+        val blockedList by db.blockedAppDao().getAllBlocked().collectAsState(initial = emptyList())
+        val blockedCount = blockedList.size
+
+        NeumorphicCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    navController?.navigate("app_blocker")
+                },
+            cornerRadius = 16.dp,
+            elevation = 6.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Focus App Blocker",
+                        fontWeight = FontWeight.Bold,
+                        color = NeumorphicColors.TextPrimary,
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        text = "$blockedCount apps configured",
+                        fontSize = 11.sp,
+                        color = NeumorphicColors.TextSecondary
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Default.Block,
+                    contentDescription = "Configure App Blocker",
+                    tint = NeumorphicColors.Primary,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
 
