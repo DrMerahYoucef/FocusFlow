@@ -1,10 +1,8 @@
 package com.example.ui.screen.radio
 
-import android.app.Application
+import android.content.Context
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,11 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,19 +25,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import coil.compose.AsyncImage
 import coil.compose.SubcomposeAsyncImage
 import com.example.R
 import com.example.data.RadioStation
-import com.example.data.StationCatalogue
+import com.example.data.db.entity.CategoryEntity
 import com.example.ui.components.NeumorphicButton
 import com.example.ui.components.NeumorphicCard
 import com.example.ui.components.neumorphicShadow
 import com.example.ui.theme.NeumorphicColors
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun RadioScreen(
     navController: NavController,
@@ -52,12 +46,22 @@ fun RadioScreen(
 ) {
     val context = LocalContext.current
     val favoriteIds by viewModel.favouriteIds.collectAsState()
-    val selectedCat by viewModel.selectedCategory.collectAsState()
+    val selectedCategoryId by viewModel.selectedCategoryId.collectAsState()
+    val categories by viewModel.categories.collectAsState()
     val displayedStations by viewModel.displayedStations.collectAsState()
     val currentStation by viewModel.currentStation.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
 
     var showOnlyFavorites by remember { mutableStateOf(false) }
+
+    // Dialog state controllers
+    var showAddCategoryDialog by remember { mutableStateOf(false) }
+    var showAddStationDialog by remember { mutableStateOf(false) }
+    var showConfirmDeleteCategory by remember { mutableStateOf(false) }
+    var showConfirmDeleteStation by remember { mutableStateOf(false) }
+
+    var categoryToDelete by remember { mutableStateOf<CategoryEntity?>(null) }
+    var stationToDelete by remember { mutableStateOf<RadioStation?>(null) }
 
     // Filtered list depending on the showOnlyFavorites toggle or category selection
     val activeStations = remember(displayedStations, favoriteIds, showOnlyFavorites) {
@@ -136,7 +140,7 @@ fun RadioScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Category Selector Tabs
+            // Category Selector Tabs + Add Category button
             FlowRow(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -154,7 +158,7 @@ fun RadioScreen(
                             isPressed = favTabSelected
                         )
                         .clip(RoundedCornerShape(12.dp))
-                        .background(if (favTabSelected) NeumorphicColors.Background else NeumorphicColors.Background)
+                        .background(NeumorphicColors.Background)
                         .clickable {
                             showOnlyFavorites = true
                             viewModel.setCategory(null)
@@ -170,7 +174,7 @@ fun RadioScreen(
                 }
 
                 // All Stations Tab
-                val allSelected = !showOnlyFavorites && selectedCat == null
+                val allSelected = !showOnlyFavorites && selectedCategoryId == null
                 Box(
                     modifier = Modifier
                         .neumorphicShadow(
@@ -189,13 +193,14 @@ fun RadioScreen(
                     Text("🌐 All", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (allSelected) NeumorphicColors.Primary else NeumorphicColors.TextPrimary)
                 }
 
-                // Category Tabs (ALGERIAN, STUDY, GLOBAL)
-                StationCatalogue.Category.values().forEach { cat ->
-                    val catSelected = !showOnlyFavorites && selectedCat == cat
-                    val label = when (cat) {
-                        StationCatalogue.Category.ALGERIAN -> "🇩🇿 Algerian"
-                        StationCatalogue.Category.STUDY -> "📚 Study"
-                        StationCatalogue.Category.GLOBAL -> "🌍 Global"
+                // Database categories flow with long-press delete triggers
+                categories.forEach { cat ->
+                    val catSelected = !showOnlyFavorites && selectedCategoryId == cat.id
+                    val label = when (cat.id) {
+                        "ALGERIAN" -> "🇩🇿 Algerian"
+                        "STUDY" -> "📚 Study"
+                        "GLOBAL" -> "🌍 Global"
+                        else -> "📁 ${cat.name}"
                     }
                     Box(
                         modifier = Modifier
@@ -206,18 +211,67 @@ fun RadioScreen(
                             )
                             .clip(RoundedCornerShape(12.dp))
                             .background(NeumorphicColors.Background)
-                            .clickable {
-                                showOnlyFavorites = false
-                                viewModel.setCategory(cat)
-                            }
+                            .combinedClickable(
+                                onClick = {
+                                    showOnlyFavorites = false
+                                    viewModel.setCategory(cat.id)
+                                },
+                                onLongClick = {
+                                    if (cat.isCustom) {
+                                        categoryToDelete = cat
+                                        showConfirmDeleteCategory = true
+                                    }
+                                }
+                            )
                             .padding(horizontal = 14.dp, vertical = 8.dp)
                     ) {
-                        Text(
-                            text = label,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (catSelected) NeumorphicColors.Primary else NeumorphicColors.TextPrimary
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = label,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (catSelected) NeumorphicColors.Primary else NeumorphicColors.TextPrimary
+                            )
+                            if (cat.isCustom) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete Category",
+                                    tint = Color.Red.copy(alpha = 0.6f),
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clickable {
+                                            categoryToDelete = cat
+                                            showConfirmDeleteCategory = true
+                                        }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Add Category Button
+                Box(
+                    modifier = Modifier
+                        .neumorphicShadow(cornerRadius = 12.dp, elevation = 4.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(NeumorphicColors.Background)
+                        .clickable { showAddCategoryDialog = true }
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add Category",
+                            tint = NeumorphicColors.Primary,
+                            modifier = Modifier.size(14.dp)
                         )
+                        Text("+ Category", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NeumorphicColors.Primary)
                     }
                 }
             }
@@ -304,7 +358,7 @@ fun RadioScreen(
                                             IconButton(
                                                 onClick = { viewModel.toggleFavourite(station.id) },
                                                 modifier = Modifier.size(24.dp)
-                                            ) {
+                                             ) {
                                                 Icon(
                                                     imageVector = if (isFav) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
                                                     contentDescription = "Favorite",
@@ -416,15 +470,32 @@ fun RadioScreen(
                     }
                 }
 
-                // Station List header
+                // Station List header with Add Station Trigger
                 item {
-                    Text(
-                        text = "STATIONS",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = NeumorphicColors.TextSecondary,
-                        modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "STATIONS",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = NeumorphicColors.TextSecondary
+                        )
+
+                        Text(
+                            text = "+ Add Station",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = NeumorphicColors.Primary,
+                            modifier = Modifier
+                                .clickable { showAddStationDialog = true }
+                                .padding(4.dp)
+                        )
+                    }
                 }
 
                 if (activeStations.isEmpty()) {
@@ -450,7 +521,13 @@ fun RadioScreen(
                             isFavourite = isFav,
                             isPlaying = isCurrentlyPlaying,
                             onPlay = { viewModel.selectStation(station, context) },
-                            onFavourite = { viewModel.toggleFavourite(station.id) }
+                            onFavourite = { viewModel.toggleFavourite(station.id) },
+                            onDelete = {
+                                if (station.isCustom) {
+                                    stationToDelete = station
+                                    showConfirmDeleteStation = true
+                                }
+                            }
                         )
                     }
                 }
@@ -468,15 +545,256 @@ fun RadioScreen(
             }
         }
     }
+
+    // Modal creation dialog for customizable category elements
+    if (showAddCategoryDialog) {
+        var catName by remember { mutableStateOf("") }
+        Dialog(onDismissRequest = { showAddCategoryDialog = false }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .neumorphicShadow(cornerRadius = 24.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(NeumorphicColors.Background)
+                    .padding(24.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text(
+                        text = "Add Custom Category",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = NeumorphicColors.TextPrimary
+                    )
+
+                    OutlinedTextField(
+                        value = catName,
+                        onValueChange = { catName = it },
+                        label = { Text("Category Name") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = NeumorphicColors.Primary,
+                            unfocusedBorderColor = NeumorphicColors.TextSecondary.copy(alpha = 0.3f),
+                            focusedLabelColor = NeumorphicColors.Primary,
+                            unfocusedLabelColor = NeumorphicColors.TextSecondary
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)
+                    ) {
+                        TextButton(onClick = { showAddCategoryDialog = false }) {
+                            Text("Cancel", color = NeumorphicColors.TextSecondary)
+                        }
+                        Button(
+                            onClick = {
+                                if (catName.isNotBlank()) {
+                                    viewModel.addCustomCategory(catName.trim())
+                                    showAddCategoryDialog = false
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
+                        ) {
+                            Text("Add", color = Color.White)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Modal creation dialog for customizable station triggers
+    if (showAddStationDialog) {
+        var stationName by remember { mutableStateOf("") }
+        var streamUrl by remember { mutableStateOf("") }
+        var dropdownExpanded by remember { mutableStateOf(false) }
+        var selectedCategoryForStation by remember {
+            mutableStateOf(categories.firstOrNull() ?: CategoryEntity("STUDY", "Study"))
+        }
+
+        Dialog(onDismissRequest = { showAddStationDialog = false }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .neumorphicShadow(cornerRadius = 24.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(NeumorphicColors.Background)
+                    .padding(24.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text(
+                        text = "Add Custom Station",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = NeumorphicColors.TextPrimary
+                    )
+
+                    OutlinedTextField(
+                        value = stationName,
+                        onValueChange = { stationName = it },
+                        label = { Text("Station Name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = NeumorphicColors.Primary,
+                            unfocusedBorderColor = NeumorphicColors.TextSecondary.copy(alpha = 0.3f),
+                            focusedLabelColor = NeumorphicColors.Primary,
+                            unfocusedLabelColor = NeumorphicColors.TextSecondary
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = streamUrl,
+                        onValueChange = { streamUrl = it },
+                        label = { Text("Stream URL") },
+                        singleLine = true,
+                        placeholder = { Text("https://...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = NeumorphicColors.Primary,
+                            unfocusedBorderColor = NeumorphicColors.TextSecondary.copy(alpha = 0.3f),
+                            focusedLabelColor = NeumorphicColors.Primary,
+                            unfocusedLabelColor = NeumorphicColors.TextSecondary
+                        )
+                    )
+
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "Assign Category:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = NeumorphicColors.TextSecondary,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .neumorphicShadow(cornerRadius = 12.dp, elevation = 2.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(NeumorphicColors.Background)
+                                .clickable { dropdownExpanded = true }
+                                .padding(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = selectedCategoryForStation.name,
+                                    color = NeumorphicColors.TextPrimary,
+                                    fontSize = 14.sp
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = null,
+                                    tint = NeumorphicColors.TextPrimary
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = dropdownExpanded,
+                                onDismissRequest = { dropdownExpanded = false }
+                            ) {
+                                categories.forEach { cat ->
+                                    DropdownMenuItem(
+                                        text = { Text(cat.name) },
+                                        onClick = {
+                                            selectedCategoryForStation = cat
+                                            dropdownExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)
+                    ) {
+                        TextButton(onClick = { showAddStationDialog = false }) {
+                            Text("Cancel", color = NeumorphicColors.TextSecondary)
+                        }
+                        Button(
+                            onClick = {
+                                if (stationName.isNotBlank() && streamUrl.isNotBlank()) {
+                                    viewModel.addCustomStation(
+                                        name = stationName.trim(),
+                                        url = streamUrl.trim(),
+                                        categoryId = selectedCategoryForStation.id
+                                    )
+                                    showAddStationDialog = false
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
+                        ) {
+                            Text("Add", color = Color.White)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Confirmation dialogues for secure cascade removals
+    if (showConfirmDeleteCategory && categoryToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDeleteCategory = false },
+            title = { Text("Delete Custom Category") },
+            text = { Text("Are you sure you want to delete category \"${categoryToDelete?.name}\"? This action will remove all streams and details inside it.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        categoryToDelete?.let { viewModel.removeCategory(it.id) }
+                        showConfirmDeleteCategory = false
+                    }
+                ) {
+                    Text("Delete", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDeleteCategory = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showConfirmDeleteStation && stationToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDeleteStation = false },
+            title = { Text("Delete Custom Station") },
+            text = { Text("Are you sure you want to delete station \"${stationToDelete?.name}\"?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        stationToDelete?.let { viewModel.removeStation(it.id) }
+                        showConfirmDeleteStation = false
+                    }
+                ) {
+                    Text("Delete", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDeleteStation = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun StationCard(
     station: RadioStation,
     isFavourite: Boolean,
     isPlaying: Boolean,
     onPlay: () -> Unit,
-    onFavourite: () -> Unit
+    onFavourite: () -> Unit,
+    onDelete: () -> Unit
 ) {
     val borderColor = if (isPlaying) NeumorphicColors.Primary else Color.Transparent
 
@@ -488,14 +806,16 @@ fun StationCard(
             .clip(RoundedCornerShape(16.dp))
             .background(NeumorphicColors.Background)
             .border(1.5.dp, borderColor, RoundedCornerShape(16.dp))
-            .clickable { onPlay() }
+            .combinedClickable(
+                onClick = { onPlay() },
+                onLongClick = { if (station.isCustom) onDelete() }
+            )
             .padding(12.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // Station logo or fallback emoji
             Box(
                 modifier = Modifier
                     .size(40.dp)
@@ -539,12 +859,20 @@ fun StationCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            // Playing wave visualizer animation
             if (isPlaying) {
                 PlayingWaveIndicator(color = NeumorphicColors.Primary)
                 Spacer(Modifier.width(8.dp))
             }
-            // Heart button
+            if (station.isCustom) {
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete Custom Station",
+                        tint = Color.Red.copy(alpha = 0.7f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
             IconButton(onClick = onFavourite) {
                 Icon(
                     imageVector = if (isFavourite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
@@ -580,7 +908,6 @@ fun NowPlayingBar(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // Pulsing live red dot
             LiveDot(color = NeumorphicColors.Accent)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
@@ -600,10 +927,9 @@ fun NowPlayingBar(
                     fontWeight = FontWeight.Black
                 )
             }
-            
+
             Spacer(Modifier.width(8.dp))
 
-            // Play/Pause miniature action button
             IconButton(
                 onClick = onToggle,
                 modifier = Modifier
@@ -666,6 +992,6 @@ fun LiveDot(color: Color) {
         modifier = Modifier
             .size(8.dp)
             .background(color.copy(alpha = alpha), CircleShape)
-            .border(1.dp, color, CircleShape)
+            .border(1.5.dp, color, CircleShape)
     )
 }

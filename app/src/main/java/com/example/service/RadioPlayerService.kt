@@ -9,13 +9,18 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import com.example.FocusFlowApplication
 import com.example.data.RadioStation
-import com.example.data.StationCatalogue
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 class RadioPlayerService : MediaSessionService() {
 
     private lateinit var player: ExoPlayer
     private lateinit var mediaSession: MediaSession
+    private val serviceScope = CoroutineScope(Dispatchers.Main)
 
     override fun onCreate() {
         super.onCreate()
@@ -31,7 +36,14 @@ class RadioPlayerService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(true)   // pause on headphone unplug
             .build()
 
+        val intent = packageManager.getLaunchIntentForPackage(packageName) ?: Intent()
+        val pendingIntent = android.app.PendingIntent.getActivity(
+            this, 0, intent,
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
         mediaSession = MediaSession.Builder(this, player)
+            .setSessionActivity(pendingIntent)
             .setCallback(object : MediaSession.Callback {})
             .build()
     }
@@ -41,9 +53,29 @@ class RadioPlayerService : MediaSessionService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val stationId = intent?.getStringExtra("station_id")
         if (stationId != null) {
-            val station = StationCatalogue.stations.find { it.id == stationId }
-            if (station != null) {
-                playStation(station)
+            serviceScope.launch {
+                try {
+                    val db = FocusFlowApplication.instance.database
+                    val stationsList = db.radioDao().getAllStations().first()
+                    val dbStation = stationsList.find { it.id == stationId }
+                    if (dbStation != null) {
+                        playStation(
+                            RadioStation(
+                                id = dbStation.id,
+                                name = dbStation.name,
+                                country = dbStation.country,
+                                categoryId = dbStation.categoryId,
+                                streamUrl = dbStation.streamUrl,
+                                fallbackUrl = dbStation.fallbackUrl,
+                                logoUrl = dbStation.logoUrl,
+                                description = dbStation.description,
+                                isCustom = dbStation.isCustom
+                            )
+                        )
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
         return super.onStartCommand(intent, flags, startId)
@@ -51,10 +83,12 @@ class RadioPlayerService : MediaSessionService() {
 
     fun playStation(station: RadioStation) {
         val item = MediaItem.Builder()
+            .setMediaId(station.id)
             .setUri(station.streamUrl)
             .setMediaMetadata(
                 MediaMetadata.Builder()
                     .setTitle(station.name)
+                    .setDisplayTitle(station.name)
                     .setArtist(station.country)
                     .setDescription(station.description)
                     .build()

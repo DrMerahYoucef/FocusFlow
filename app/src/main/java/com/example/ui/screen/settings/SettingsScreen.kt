@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -463,6 +464,141 @@ fun SettingsScreen(
                 modifier = Modifier.weight(1f),
                 accentColor = NeumorphicColors.Accent
             )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Section: Developer Credentials
+        Text(
+            text = "AUTHOR & DEVELOPER",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = NeumorphicColors.TextSecondary,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            textAlign = TextAlign.Start
+        )
+
+        NeumorphicCard(
+            modifier = Modifier.fillMaxWidth(),
+            cornerRadius = 16.dp,
+            elevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Profile & Bio
+                Text(
+                    text = "Dr Merah Youcef",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black,
+                    color = NeumorphicColors.TextPrimary,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "Orthopedic surgeon by profession, programmer at heart.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = NeumorphicColors.TextSecondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+                )
+
+                Text(
+                    text = "Tel: +213558460474",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = NeumorphicColors.Primary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // WhatsApp Button
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .neumorphicShadow(
+                                cornerRadius = 12.dp,
+                                elevation = 4.dp,
+                                isPressed = false
+                            )
+                            .clickable {
+                                try {
+                                    val waIntent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://wa.me/213558460474"))
+                                    context.startActivity(waIntent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Could not open WhatsApp: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(id = com.example.R.drawable.ic_whatsapp),
+                                contentDescription = "WhatsApp icon",
+                                tint = Color.Unspecified,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "contact me",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = NeumorphicColors.TextPrimary
+                            )
+                        }
+                    }
+
+                    // Facebook Button
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .neumorphicShadow(
+                                cornerRadius = 12.dp,
+                                elevation = 4.dp,
+                                isPressed = false
+                            )
+                            .clickable {
+                                try {
+                                    val fbIntent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.facebook.com/youcef.Merahh/"))
+                                    context.startActivity(fbIntent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Could not open Facebook: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(id = com.example.R.drawable.ic_facebook),
+                                contentDescription = "Facebook icon",
+                                tint = Color.Unspecified,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "contact me",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = NeumorphicColors.TextPrimary
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(100.dp)) // Safe padding for bottom items
