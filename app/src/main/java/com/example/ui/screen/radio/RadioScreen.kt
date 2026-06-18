@@ -1,6 +1,7 @@
 package com.example.ui.screen.radio
 
 import android.content.Context
+import android.widget.Toast
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -8,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -46,30 +48,15 @@ fun RadioScreen(
 ) {
     val context = LocalContext.current
     val favoriteIds by viewModel.favouriteIds.collectAsState()
-    val selectedCategoryId by viewModel.selectedCategoryId.collectAsState()
-    val categories by viewModel.categories.collectAsState()
     val displayedStations by viewModel.displayedStations.collectAsState()
     val currentStation by viewModel.currentStation.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
 
-    var showOnlyFavorites by remember { mutableStateOf(false) }
+    var showDiscover by remember { mutableStateOf(false) }
 
-    // Dialog state controllers
-    var showAddCategoryDialog by remember { mutableStateOf(false) }
-    var showAddStationDialog by remember { mutableStateOf(false) }
-    var showConfirmDeleteCategory by remember { mutableStateOf(false) }
-    var showConfirmDeleteStation by remember { mutableStateOf(false) }
-
-    var categoryToDelete by remember { mutableStateOf<CategoryEntity?>(null) }
-    var stationToDelete by remember { mutableStateOf<RadioStation?>(null) }
-
-    // Filtered list depending on the showOnlyFavorites toggle or category selection
-    val activeStations = remember(displayedStations, favoriteIds, showOnlyFavorites) {
-        if (showOnlyFavorites) {
-            displayedStations.filter { it.id in favoriteIds }
-        } else {
-            displayedStations
-        }
+    // Filtered list: show only favorited stations under the static Favorites tab
+    val activeStations = remember(displayedStations, favoriteIds) {
+        displayedStations.filter { it.id in favoriteIds }
     }
 
     Scaffold(
@@ -140,395 +127,330 @@ fun RadioScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Category Selector Tabs + Add Category button
-            FlowRow(
+            // Twin Sleek Neumorphic Tabs: Favorites vs Discover
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Favorites Filter Tab
-                val favTabSelected = showOnlyFavorites
+                val favSelected = !showDiscover
                 Box(
                     modifier = Modifier
+                        .weight(1f)
                         .neumorphicShadow(
-                            cornerRadius = 12.dp,
-                            elevation = if (favTabSelected) 1.dp else 4.dp,
-                            isPressed = favTabSelected
+                            cornerRadius = 16.dp,
+                            elevation = if (favSelected) 1.dp else 4.dp,
+                            isPressed = favSelected
                         )
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(16.dp))
                         .background(NeumorphicColors.Background)
-                        .clickable {
-                            showOnlyFavorites = true
-                            viewModel.setCategory(null)
-                        }
-                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                        .clickable { showDiscover = false }
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text("❤️ Favourites", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (favTabSelected) NeumorphicColors.Primary else NeumorphicColors.TextPrimary)
-                    }
-                }
-
-                // All Stations Tab
-                val allSelected = !showOnlyFavorites && selectedCategoryId == null
-                Box(
-                    modifier = Modifier
-                        .neumorphicShadow(
-                            cornerRadius = 12.dp,
-                            elevation = if (allSelected) 1.dp else 4.dp,
-                            isPressed = allSelected
-                        )
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(NeumorphicColors.Background)
-                        .clickable {
-                            showOnlyFavorites = false
-                            viewModel.setCategory(null)
-                        }
-                        .padding(horizontal = 14.dp, vertical = 8.dp)
-                ) {
-                    Text("🌐 All", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (allSelected) NeumorphicColors.Primary else NeumorphicColors.TextPrimary)
-                }
-
-                // Database categories flow with long-press delete triggers
-                categories.forEach { cat ->
-                    val catSelected = !showOnlyFavorites && selectedCategoryId == cat.id
-                    val label = when (cat.id) {
-                        "ALGERIAN" -> "🇩🇿 Algerian"
-                        "STUDY" -> "📚 Study"
-                        "GLOBAL" -> "🌍 Global"
-                        else -> "📁 ${cat.name}"
-                    }
-                    Box(
-                        modifier = Modifier
-                            .neumorphicShadow(
-                                cornerRadius = 12.dp,
-                                elevation = if (catSelected) 1.dp else 4.dp,
-                                isPressed = catSelected
-                            )
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(NeumorphicColors.Background)
-                            .combinedClickable(
-                                onClick = {
-                                    showOnlyFavorites = false
-                                    viewModel.setCategory(cat.id)
-                                },
-                                onLongClick = {
-                                    if (cat.isCustom) {
-                                        categoryToDelete = cat
-                                        showConfirmDeleteCategory = true
-                                    }
-                                }
-                            )
-                            .padding(horizontal = 14.dp, vertical = 8.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = label,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (catSelected) NeumorphicColors.Primary else NeumorphicColors.TextPrimary
-                            )
-                            if (cat.isCustom) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Delete Category",
-                                    tint = Color.Red.copy(alpha = 0.6f),
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .clickable {
-                                            categoryToDelete = cat
-                                            showConfirmDeleteCategory = true
-                                        }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Add Category Button
-                Box(
-                    modifier = Modifier
-                        .neumorphicShadow(cornerRadius = 12.dp, elevation = 4.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(NeumorphicColors.Background)
-                        .clickable { showAddCategoryDialog = true }
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Add Category",
-                            tint = NeumorphicColors.Primary,
-                            modifier = Modifier.size(14.dp)
+                            imageVector = Icons.Default.Favorite,
+                            contentDescription = null,
+                            tint = if (favSelected) NeumorphicColors.Primary else NeumorphicColors.TextSecondary,
+                            modifier = Modifier.size(16.dp)
                         )
-                        Text("+ Category", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NeumorphicColors.Primary)
+                        Text(
+                            text = "Favorites",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (favSelected) NeumorphicColors.Primary else NeumorphicColors.TextPrimary
+                        )
+                    }
+                }
+
+                val discoverSelected = showDiscover
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .neumorphicShadow(
+                            cornerRadius = 16.dp,
+                            elevation = if (discoverSelected) 1.dp else 4.dp,
+                            isPressed = discoverSelected
+                        )
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(NeumorphicColors.Background)
+                        .clickable { showDiscover = true }
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = if (discoverSelected) NeumorphicColors.Primary else NeumorphicColors.TextSecondary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "Discover",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (discoverSelected) NeumorphicColors.Primary else NeumorphicColors.TextPrimary
+                        )
                     }
                 }
             }
 
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentPadding = PaddingValues(bottom = 16.dp)
-            ) {
-                // Now Playing Hero layout
-                if (currentStation != null) {
-                    item {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp)
-                        ) {
-                            Text(
-                                text = "NOW PLAYING",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = NeumorphicColors.TextSecondary,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-
-                            val station = currentStation!!
-                            val isFav = station.id in favoriteIds
-
-                            NeumorphicCard(
-                                modifier = Modifier.fillMaxWidth(),
-                                cornerRadius = 24.dp,
-                                elevation = 6.dp
+            if (showDiscover) {
+                DiscoverPanel(
+                    viewModel = viewModel,
+                    favoriteIds = favoriteIds,
+                    currentStation = currentStation,
+                    isPlaying = isPlaying,
+                    onToggleFavourite = { station ->
+                        viewModel.toggleFavourite(station)
+                    }
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentPadding = PaddingValues(bottom = 16.dp)
+                ) {
+                    // Now Playing Hero layout
+                    if (currentStation != null) {
+                        item {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
                             ) {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                                ) {
-                                    // Station Logo / default fallback
-                                    Box(
-                                        modifier = Modifier
-                                            .size(72.dp)
-                                            .neumorphicShadow(cornerRadius = 20.dp, elevation = 4.dp)
-                                            .clip(RoundedCornerShape(20.dp))
-                                            .background(NeumorphicColors.Background),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        SubcomposeAsyncImage(
-                                            model = station.logoUrl.ifEmpty { null },
-                                            contentDescription = station.name,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .padding(6.dp)
-                                                .clip(RoundedCornerShape(14.dp)),
-                                            error = {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.ic_radio_default),
-                                                    contentDescription = station.name,
-                                                    tint = NeumorphicColors.TextPrimary,
-                                                    modifier = Modifier.fillMaxSize()
-                                                )
-                                            }
-                                        )
-                                    }
+                                Text(
+                                    text = "NOW PLAYING",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NeumorphicColors.TextSecondary,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
 
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                val station = currentStation!!
+                                val isFav = station.id in favoriteIds
+
+                                NeumorphicCard(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    cornerRadius = 24.dp,
+                                    elevation = 6.dp
+                                ) {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                                    ) {
+                                        // Station Logo / default fallback
+                                        Box(
+                                            modifier = Modifier
+                                                .size(72.dp)
+                                                .neumorphicShadow(cornerRadius = 20.dp, elevation = 4.dp)
+                                                .clip(RoundedCornerShape(20.dp))
+                                                .background(NeumorphicColors.Background),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            SubcomposeAsyncImage(
+                                                model = station.logoUrl.ifEmpty { null },
+                                                contentDescription = station.name,
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .padding(6.dp)
+                                                    .clip(RoundedCornerShape(14.dp)),
+                                                error = {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.ic_radio_default),
+                                                        contentDescription = station.name,
+                                                        tint = NeumorphicColors.TextPrimary,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    )
+                                                }
+                                            )
+                                        }
+
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.Center,
+                                                modifier = Modifier.padding(horizontal = 24.dp)
+                                            ) {
+                                                Text(
+                                                    text = station.name,
+                                                    style = MaterialTheme.typography.titleLarge,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = NeumorphicColors.TextPrimary,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    textAlign = TextAlign.Center,
+                                                    modifier = Modifier.weight(1f, fill = false)
+                                                )
+                                                Spacer(Modifier.width(8.dp))
+                                                IconButton(
+                                                    onClick = { viewModel.toggleFavourite(station) },
+                                                    modifier = Modifier.size(24.dp)
+                                                 ) {
+                                                    Icon(
+                                                        imageVector = if (isFav) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
+                                                        contentDescription = "Favorite",
+                                                        tint = if (isFav) NeumorphicColors.Accent else NeumorphicColors.TextSecondary,
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                text = station.country,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = NeumorphicColors.TextSecondary,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Text(
+                                                text = station.description,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = NeumorphicColors.TextSecondary.copy(alpha = 0.8f),
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                                            )
+                                        }
+
+                                        // Dynamic Pulsing Stream State Indicator
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.Center,
-                                            modifier = Modifier.padding(horizontal = 24.dp)
+                                            modifier = Modifier.fillMaxWidth()
                                         ) {
-                                            Text(
-                                                text = station.name,
-                                                style = MaterialTheme.typography.titleLarge,
-                                                fontWeight = FontWeight.Bold,
-                                                color = NeumorphicColors.TextPrimary,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                textAlign = TextAlign.Center,
-                                                modifier = Modifier.weight(1f, fill = false)
-                                            )
-                                            Spacer(Modifier.width(8.dp))
-                                            IconButton(
-                                                onClick = { viewModel.toggleFavourite(station.id) },
-                                                modifier = Modifier.size(24.dp)
-                                             ) {
-                                                Icon(
-                                                    imageVector = if (isFav) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
-                                                    contentDescription = "Favorite",
-                                                    tint = if (isFav) NeumorphicColors.Accent else NeumorphicColors.TextSecondary,
-                                                    modifier = Modifier.size(20.dp)
+                                            if (isPlaying) {
+                                                PlayingWaveIndicator(color = NeumorphicColors.Primary)
+                                                Spacer(Modifier.width(12.dp))
+                                                Text(
+                                                    text = "Streaming live...",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = NeumorphicColors.Primary,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            } else {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(6.dp)
+                                                        .background(NeumorphicColors.TextSecondary, CircleShape)
+                                                )
+                                                Spacer(Modifier.width(8.dp))
+                                                Text(
+                                                    text = "Paused",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = NeumorphicColors.TextSecondary
                                                 )
                                             }
                                         }
-                                        Text(
-                                            text = station.country,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = NeumorphicColors.TextSecondary,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                        Text(
-                                            text = station.description,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = NeumorphicColors.TextSecondary.copy(alpha = 0.8f),
-                                            textAlign = TextAlign.Center,
-                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                                        )
-                                    }
 
-                                    // Dynamic Pulsing Stream State Indicator
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        if (isPlaying) {
-                                            PlayingWaveIndicator(color = NeumorphicColors.Primary)
-                                            Spacer(Modifier.width(12.dp))
-                                            Text(
-                                                text = "Streaming live...",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = NeumorphicColors.Primary,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        } else {
-                                            Box(
+                                        // Controls: Next / Previous / Pause
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(24.dp)
+                                        ) {
+                                            // Previous Station
+                                            IconButton(
+                                                onClick = {
+                                                    val currIndex = activeStations.indexOfFirst { it.id == station.id }
+                                                    if (currIndex > 0) {
+                                                        viewModel.selectStation(activeStations[currIndex - 1], context)
+                                                    } else if (activeStations.isNotEmpty()) {
+                                                        viewModel.selectStation(activeStations.last(), context)
+                                                    }
+                                                },
                                                 modifier = Modifier
-                                                    .size(6.dp)
-                                                    .background(NeumorphicColors.TextSecondary, CircleShape)
-                                            )
-                                            Spacer(Modifier.width(8.dp))
-                                            Text(
-                                                text = "Paused",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = NeumorphicColors.TextSecondary
-                                            )
-                                        }
-                                    }
+                                                    .neumorphicShadow(cornerRadius = 16.dp, elevation = 3.dp)
+                                            ) {
+                                                Text("⏮", fontSize = 20.sp, color = NeumorphicColors.TextPrimary)
+                                            }
 
-                                    // Controls: Next / Previous / Pause
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(24.dp)
-                                    ) {
-                                        // Previous Station
-                                        IconButton(
-                                            onClick = {
-                                                val currIndex = activeStations.indexOfFirst { it.id == station.id }
-                                                if (currIndex > 0) {
-                                                    viewModel.selectStation(activeStations[currIndex - 1], context)
-                                                } else if (activeStations.isNotEmpty()) {
-                                                    viewModel.selectStation(activeStations.last(), context)
-                                                }
-                                            },
-                                            modifier = Modifier
-                                                .neumorphicShadow(cornerRadius = 16.dp, elevation = 3.dp)
-                                        ) {
-                                            Text("⏮", fontSize = 20.sp, color = NeumorphicColors.TextPrimary)
-                                        }
+                                            // Play / Pause Toggle
+                                            IconButton(
+                                                onClick = { viewModel.togglePlayback(context) },
+                                                modifier = Modifier
+                                                    .size(56.dp)
+                                                    .neumorphicShadow(cornerRadius = 28.dp, elevation = 4.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                                    contentDescription = if (isPlaying) "Pause" else "Play",
+                                                    tint = NeumorphicColors.Primary,
+                                                    modifier = Modifier.size(28.dp)
+                                                )
+                                            }
 
-                                        // Play / Pause Toggle
-                                        IconButton(
-                                            onClick = { viewModel.togglePlayback(context) },
-                                            modifier = Modifier
-                                                .size(56.dp)
-                                                .neumorphicShadow(cornerRadius = 28.dp, elevation = 4.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                                contentDescription = if (isPlaying) "Pause" else "Play",
-                                                tint = NeumorphicColors.Primary,
-                                                modifier = Modifier.size(28.dp)
-                                            )
-                                        }
-
-                                        // Next Station
-                                        IconButton(
-                                            onClick = {
-                                                val currIndex = activeStations.indexOfFirst { it.id == station.id }
-                                                if (currIndex != -1 && currIndex < activeStations.size - 1) {
-                                                    viewModel.selectStation(activeStations[currIndex + 1], context)
-                                                } else if (activeStations.isNotEmpty()) {
-                                                    viewModel.selectStation(activeStations.first(), context)
-                                                }
-                                            },
-                                            modifier = Modifier
-                                                .neumorphicShadow(cornerRadius = 16.dp, elevation = 3.dp)
-                                        ) {
-                                            Text("⏭", fontSize = 20.sp, color = NeumorphicColors.TextPrimary)
+                                            // Next Station
+                                            IconButton(
+                                                onClick = {
+                                                    val currIndex = activeStations.indexOfFirst { it.id == station.id }
+                                                    if (currIndex != -1 && currIndex < activeStations.size - 1) {
+                                                        viewModel.selectStation(activeStations[currIndex + 1], context)
+                                                    } else if (activeStations.isNotEmpty()) {
+                                                        viewModel.selectStation(activeStations.first(), context)
+                                                    }
+                                                },
+                                                modifier = Modifier
+                                                    .neumorphicShadow(cornerRadius = 16.dp, elevation = 3.dp)
+                                            ) {
+                                                Text("⏭", fontSize = 20.sp, color = NeumorphicColors.TextPrimary)
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                }
 
-                // Station List header with Add Station Trigger
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "STATIONS",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = NeumorphicColors.TextSecondary
-                        )
-
-                        Text(
-                            text = "+ Add Station",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = NeumorphicColors.Primary,
-                            modifier = Modifier
-                                .clickable { showAddStationDialog = true }
-                                .padding(4.dp)
-                        )
-                    }
-                }
-
-                if (activeStations.isEmpty()) {
+                    // Station List header
                     item {
-                        Text(
-                            text = if (showOnlyFavorites) "No favorite stations configured yet.\nTap ❤️ on any station below to save it!" else "No stations found here",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = NeumorphicColors.TextSecondary,
-                            textAlign = TextAlign.Center,
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 40.dp)
-                        )
+                                .padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "FAVORITE STATIONS",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = NeumorphicColors.TextSecondary
+                            )
+                        }
                     }
-                } else {
-                    items(activeStations, key = { it.id }) { station ->
-                        val isFav = station.id in favoriteIds
-                        val isCurrent = currentStation?.id == station.id
-                        val isCurrentlyPlaying = isCurrent && isPlaying
 
-                        StationCard(
-                            station = station,
-                            isFavourite = isFav,
-                            isPlaying = isCurrentlyPlaying,
-                            onPlay = { viewModel.selectStation(station, context) },
-                            onFavourite = { viewModel.toggleFavourite(station.id) },
-                            onDelete = {
-                                if (station.isCustom) {
-                                    stationToDelete = station
-                                    showConfirmDeleteStation = true
-                                }
-                            }
-                        )
+                    if (activeStations.isEmpty()) {
+                        item {
+                            Text(
+                                text = "No favorite stations yet.\nTap the heart ❤️ on any station under \"Discover\" tab to add them here!",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = NeumorphicColors.TextSecondary,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 40.dp, horizontal = 24.dp)
+                            )
+                        }
+                    } else {
+                        items(activeStations, key = { it.id }) { station ->
+                            val isFav = station.id in favoriteIds
+                            val isCurrent = currentStation?.id == station.id
+                            val isCurrentlyPlaying = isCurrent && isPlaying
+
+                            StationCard(
+                                station = station,
+                                isFavourite = isFav,
+                                isPlaying = isCurrentlyPlaying,
+                                onPlay = { viewModel.selectStation(station, context) },
+                                onFavourite = { viewModel.toggleFavourite(station) }
+                            )
+                        }
                     }
                 }
             }
@@ -545,246 +467,8 @@ fun RadioScreen(
             }
         }
     }
-
-    // Modal creation dialog for customizable category elements
-    if (showAddCategoryDialog) {
-        var catName by remember { mutableStateOf("") }
-        Dialog(onDismissRequest = { showAddCategoryDialog = false }) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .neumorphicShadow(cornerRadius = 24.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(NeumorphicColors.Background)
-                    .padding(24.dp)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(
-                        text = "Add Custom Category",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = NeumorphicColors.TextPrimary
-                    )
-
-                    OutlinedTextField(
-                        value = catName,
-                        onValueChange = { catName = it },
-                        label = { Text("Category Name") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = NeumorphicColors.Primary,
-                            unfocusedBorderColor = NeumorphicColors.TextSecondary.copy(alpha = 0.3f),
-                            focusedLabelColor = NeumorphicColors.Primary,
-                            unfocusedLabelColor = NeumorphicColors.TextSecondary
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)
-                    ) {
-                        TextButton(onClick = { showAddCategoryDialog = false }) {
-                            Text("Cancel", color = NeumorphicColors.TextSecondary)
-                        }
-                        Button(
-                            onClick = {
-                                if (catName.isNotBlank()) {
-                                    viewModel.addCustomCategory(catName.trim())
-                                    showAddCategoryDialog = false
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
-                        ) {
-                            Text("Add", color = Color.White)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Modal creation dialog for customizable station triggers
-    if (showAddStationDialog) {
-        var stationName by remember { mutableStateOf("") }
-        var streamUrl by remember { mutableStateOf("") }
-        var dropdownExpanded by remember { mutableStateOf(false) }
-        var selectedCategoryForStation by remember {
-            mutableStateOf(categories.firstOrNull() ?: CategoryEntity("STUDY", "Study"))
-        }
-
-        Dialog(onDismissRequest = { showAddStationDialog = false }) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .neumorphicShadow(cornerRadius = 24.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(NeumorphicColors.Background)
-                    .padding(24.dp)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(
-                        text = "Add Custom Station",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = NeumorphicColors.TextPrimary
-                    )
-
-                    OutlinedTextField(
-                        value = stationName,
-                        onValueChange = { stationName = it },
-                        label = { Text("Station Name") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = NeumorphicColors.Primary,
-                            unfocusedBorderColor = NeumorphicColors.TextSecondary.copy(alpha = 0.3f),
-                            focusedLabelColor = NeumorphicColors.Primary,
-                            unfocusedLabelColor = NeumorphicColors.TextSecondary
-                        )
-                    )
-
-                    OutlinedTextField(
-                        value = streamUrl,
-                        onValueChange = { streamUrl = it },
-                        label = { Text("Stream URL") },
-                        singleLine = true,
-                        placeholder = { Text("https://...") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = NeumorphicColors.Primary,
-                            unfocusedBorderColor = NeumorphicColors.TextSecondary.copy(alpha = 0.3f),
-                            focusedLabelColor = NeumorphicColors.Primary,
-                            unfocusedLabelColor = NeumorphicColors.TextSecondary
-                        )
-                    )
-
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            text = "Assign Category:",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = NeumorphicColors.TextSecondary,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .neumorphicShadow(cornerRadius = 12.dp, elevation = 2.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(NeumorphicColors.Background)
-                                .clickable { dropdownExpanded = true }
-                                .padding(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = selectedCategoryForStation.name,
-                                    color = NeumorphicColors.TextPrimary,
-                                    fontSize = 14.sp
-                                )
-                                Icon(
-                                    imageVector = Icons.Default.ArrowDropDown,
-                                    contentDescription = null,
-                                    tint = NeumorphicColors.TextPrimary
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = dropdownExpanded,
-                                onDismissRequest = { dropdownExpanded = false }
-                            ) {
-                                categories.forEach { cat ->
-                                    DropdownMenuItem(
-                                        text = { Text(cat.name) },
-                                        onClick = {
-                                            selectedCategoryForStation = cat
-                                            dropdownExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)
-                    ) {
-                        TextButton(onClick = { showAddStationDialog = false }) {
-                            Text("Cancel", color = NeumorphicColors.TextSecondary)
-                        }
-                        Button(
-                            onClick = {
-                                if (stationName.isNotBlank() && streamUrl.isNotBlank()) {
-                                    viewModel.addCustomStation(
-                                        name = stationName.trim(),
-                                        url = streamUrl.trim(),
-                                        categoryId = selectedCategoryForStation.id
-                                    )
-                                    showAddStationDialog = false
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
-                        ) {
-                            Text("Add", color = Color.White)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Confirmation dialogues for secure cascade removals
-    if (showConfirmDeleteCategory && categoryToDelete != null) {
-        AlertDialog(
-            onDismissRequest = { showConfirmDeleteCategory = false },
-            title = { Text("Delete Custom Category") },
-            text = { Text("Are you sure you want to delete category \"${categoryToDelete?.name}\"? This action will remove all streams and details inside it.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        categoryToDelete?.let { viewModel.removeCategory(it.id) }
-                        showConfirmDeleteCategory = false
-                    }
-                ) {
-                    Text("Delete", color = Color.Red)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showConfirmDeleteCategory = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
-    if (showConfirmDeleteStation && stationToDelete != null) {
-        AlertDialog(
-            onDismissRequest = { showConfirmDeleteStation = false },
-            title = { Text("Delete Custom Station") },
-            text = { Text("Are you sure you want to delete station \"${stationToDelete?.name}\"?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        stationToDelete?.let { viewModel.removeStation(it.id) }
-                        showConfirmDeleteStation = false
-                    }
-                ) {
-                    Text("Delete", color = Color.Red)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showConfirmDeleteStation = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
 }
+
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -793,8 +477,7 @@ fun StationCard(
     isFavourite: Boolean,
     isPlaying: Boolean,
     onPlay: () -> Unit,
-    onFavourite: () -> Unit,
-    onDelete: () -> Unit
+    onFavourite: () -> Unit
 ) {
     val borderColor = if (isPlaying) NeumorphicColors.Primary else Color.Transparent
 
@@ -806,10 +489,7 @@ fun StationCard(
             .clip(RoundedCornerShape(16.dp))
             .background(NeumorphicColors.Background)
             .border(1.5.dp, borderColor, RoundedCornerShape(16.dp))
-            .combinedClickable(
-                onClick = { onPlay() },
-                onLongClick = { if (station.isCustom) onDelete() }
-            )
+            .clickable { onPlay() }
             .padding(12.dp)
     ) {
         Row(
@@ -862,16 +542,6 @@ fun StationCard(
             if (isPlaying) {
                 PlayingWaveIndicator(color = NeumorphicColors.Primary)
                 Spacer(Modifier.width(8.dp))
-            }
-            if (station.isCustom) {
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete Custom Station",
-                        tint = Color.Red.copy(alpha = 0.7f),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
             }
             IconButton(onClick = onFavourite) {
                 Icon(
@@ -994,4 +664,315 @@ fun LiveDot(color: Color) {
             .background(color.copy(alpha = alpha), CircleShape)
             .border(1.5.dp, color, CircleShape)
     )
+}
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
+@Composable
+fun DiscoverPanel(
+    viewModel: RadioViewModel,
+    favoriteIds: Set<String>,
+    currentStation: RadioStation?,
+    isPlaying: Boolean,
+    onToggleFavourite: (RadioStation) -> Unit
+) {
+    val context = LocalContext.current
+    val searchQuery by viewModel.globalSearchQuery.collectAsState()
+    val searchResults by viewModel.globalSearchResults.collectAsState()
+    val trendingStations by viewModel.globalTrendingStations.collectAsState()
+    val isSearching by viewModel.isDiscoverSearching.collectAsState()
+    val isTrendingLoading by viewModel.isDiscoverTrendingLoading.collectAsState()
+    val searchError by viewModel.searchError.collectAsState()
+    val trendingError by viewModel.trendingError.collectAsState()
+
+    // Automatically load trending streams on enter
+    LaunchedEffect(Unit) {
+        viewModel.loadTrendingStations()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+    ) {
+        Text(
+            text = "SEARCH GLOBAL RADIO-BROWSER",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = NeumorphicColors.TextSecondary,
+            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
+                .neumorphicShadow(cornerRadius = 16.dp, elevation = 4.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(NeumorphicColors.Background)
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = null,
+                    tint = NeumorphicColors.TextSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                BasicTextField(
+                    value = searchQuery,
+                    onValueChange = { viewModel.searchGlobalStations(it) },
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = NeumorphicColors.TextPrimary),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    decorationBox = { innerTextField ->
+                        if (searchQuery.isEmpty()) {
+                            Text(
+                                "Search 40,000+ stations (e.g. Jazz, BBC...)",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = NeumorphicColors.TextSecondary.copy(alpha = 0.5f)
+                            )
+                        }
+                        innerTextField()
+                    }
+                )
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(
+                        onClick = { viewModel.searchGlobalStations("") },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = "Clear search",
+                            tint = NeumorphicColors.TextSecondary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        if (searchQuery.trim().length >= 2) {
+            Text(
+                text = "SEARCH RESULTS",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = NeumorphicColors.TextSecondary,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            if (isSearching) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 40.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        CircularProgressIndicator(color = NeumorphicColors.Primary, modifier = Modifier.size(24.dp))
+                        Text("Searching world-wide...", style = MaterialTheme.typography.bodySmall, color = NeumorphicColors.TextSecondary)
+                    }
+                }
+            } else if (searchError != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(searchError ?: "Error occurred", color = Color.Red.copy(alpha = 0.7f), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        NeumorphicButton(
+                            label = "Retry",
+                            icon = Icons.Default.Refresh,
+                            onClick = { viewModel.searchGlobalStations(searchQuery) }
+                        )
+                    }
+                }
+            } else if (searchResults.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 48.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "No stations found.\nTry a simpler keyword or check your network.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = NeumorphicColors.TextSecondary,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 120.dp)
+                ) {
+                    items(searchResults, key = { it.id }) { station ->
+                        val isPlayingCurrent = currentStation?.id == station.id && isPlaying
+                        val isFav = station.id in favoriteIds
+                        DiscoverStationItem(
+                            station = station,
+                            isFavourite = isFav,
+                            isPlaying = isPlayingCurrent,
+                            onPlay = { viewModel.selectStation(station, context) },
+                            onFavourite = { onToggleFavourite(station) }
+                        )
+                    }
+                }
+            }
+        } else {
+            Text(
+                text = "🔥 POPULAR INTERNATIONAL STREAMS",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = NeumorphicColors.TextSecondary,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            if (isTrendingLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 40.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        CircularProgressIndicator(color = NeumorphicColors.Primary, modifier = Modifier.size(24.dp))
+                        Text("Loading trending streams...", style = MaterialTheme.typography.bodySmall, color = NeumorphicColors.TextSecondary)
+                    }
+                }
+            } else if (trendingError != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(trendingError ?: "Error occurred", color = Color.Red.copy(alpha = 0.7f), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        NeumorphicButton(
+                            label = "Retry",
+                            icon = Icons.Default.Refresh,
+                            onClick = { viewModel.loadTrendingStations() }
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 120.dp)
+                ) {
+                    items(trendingStations, key = { it.id }) { station ->
+                        val isPlayingCurrent = currentStation?.id == station.id && isPlaying
+                        val isFav = station.id in favoriteIds
+                        DiscoverStationItem(
+                            station = station,
+                            isFavourite = isFav,
+                            isPlaying = isPlayingCurrent,
+                            onPlay = { viewModel.selectStation(station, context) },
+                            onFavourite = { onToggleFavourite(station) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DiscoverStationItem(
+    station: RadioStation,
+    isFavourite: Boolean,
+    isPlaying: Boolean,
+    onPlay: () -> Unit,
+    onFavourite: () -> Unit
+) {
+    val borderColor = if (isPlaying) NeumorphicColors.Primary else Color.Transparent
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 10.dp)
+            .neumorphicShadow(cornerRadius = 16.dp, isPressed = isPlaying)
+            .clip(RoundedCornerShape(16.dp))
+            .background(NeumorphicColors.Background)
+            .border(1.5.dp, borderColor, RoundedCornerShape(16.dp))
+            .clickable { onPlay() }
+            .padding(12.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(NeumorphicColors.Background.copy(alpha = 0.5f)),
+                contentAlignment = Alignment.Center
+            ) {
+                SubcomposeAsyncImage(
+                    model = station.logoUrl.ifEmpty { null },
+                    contentDescription = station.name,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(8.dp)),
+                    error = {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_radio_default),
+                            contentDescription = station.name,
+                            tint = NeumorphicColors.TextPrimary,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(6.dp)
+                        )
+                    }
+                )
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = station.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (isPlaying) NeumorphicColors.Primary else NeumorphicColors.TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = if (station.country.isNotBlank()) "${station.country} · ${station.description}" else station.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = NeumorphicColors.TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            if (isPlaying) {
+                PlayingWaveIndicator(color = NeumorphicColors.Primary)
+                Spacer(Modifier.width(12.dp))
+            }
+
+            // Favorite Button
+            IconButton(
+                onClick = onFavourite,
+                modifier = Modifier
+                    .size(36.dp)
+                    .neumorphicShadow(cornerRadius = 18.dp, elevation = 2.dp)
+            ) {
+                Icon(
+                    imageVector = if (isFavourite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    contentDescription = if (isFavourite) "Remove from favorites" else "Add to favorites",
+                    tint = if (isFavourite) NeumorphicColors.Primary else NeumorphicColors.TextSecondary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+    }
 }

@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.FocusFlowApplication
 import com.example.data.RadioStation
+import com.example.data.api.RadioBrowserClient
 import com.example.data.db.entity.CategoryEntity
 import com.example.data.db.entity.StationEntity
 import com.example.data.db.entity.FavouriteStationEntity
@@ -125,6 +126,11 @@ class RadioViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     )
                     db.radioDao().insertStations(defaultStations)
+                    
+                    // Pre-favourite all the default focus/study channels so they appear in Favorites by default
+                    defaultStations.forEach { station ->
+                        db.favouriteStationDao().add(FavouriteStationEntity(station.id))
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -176,11 +182,27 @@ class RadioViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun toggleFavourite(stationId: String) {
+    fun toggleFavourite(station: RadioStation) {
         viewModelScope.launch {
-            val isFav = db.favouriteStationDao().isFavourite(stationId) > 0
-            if (isFav) db.favouriteStationDao().remove(stationId)
-            else db.favouriteStationDao().add(FavouriteStationEntity(stationId))
+            val isFav = db.favouriteStationDao().isFavourite(station.id) > 0
+            if (isFav) {
+                db.favouriteStationDao().remove(station.id)
+            } else {
+                // Ensure station details are stored so we can show them offline/in local favorites
+                db.radioDao().insertStation(
+                    StationEntity(
+                        id = station.id,
+                        name = station.name,
+                        country = station.country,
+                        categoryId = "STUDY",
+                        streamUrl = station.streamUrl,
+                        logoUrl = station.logoUrl,
+                        description = station.description,
+                        isCustom = true
+                    )
+                )
+                db.favouriteStationDao().add(FavouriteStationEntity(station.id))
+            }
         }
     }
 
@@ -225,6 +247,106 @@ class RadioViewModel(application: Application) : AndroidViewModel(application) {
     fun removeStation(id: String) {
         viewModelScope.launch {
             db.radioDao().deleteCustomStation(id)
+        }
+    }
+
+    // Global Discover & Search properties
+    private val _globalSearchQuery = MutableStateFlow("")
+    val globalSearchQuery = _globalSearchQuery.asStateFlow()
+
+    private val _globalSearchResults = MutableStateFlow<List<RadioStation>>(emptyList())
+    val globalSearchResults = _globalSearchResults.asStateFlow()
+
+    private val _globalTrendingStations = MutableStateFlow<List<RadioStation>>(emptyList())
+    val globalTrendingStations = _globalTrendingStations.asStateFlow()
+
+    private val _isDiscoverSearching = MutableStateFlow(false)
+    val isDiscoverSearching = _isDiscoverSearching.asStateFlow()
+
+    private val _isDiscoverTrendingLoading = MutableStateFlow(false)
+    val isDiscoverTrendingLoading = _isDiscoverTrendingLoading.asStateFlow()
+
+    private val _searchError = MutableStateFlow<String?>(null)
+    val searchError = _searchError.asStateFlow()
+
+    private val _trendingError = MutableStateFlow<String?>(null)
+    val trendingError = _trendingError.asStateFlow()
+
+    fun searchGlobalStations(query: String) {
+        _globalSearchQuery.value = query
+        if (query.trim().length < 2) {
+            _globalSearchResults.value = emptyList()
+            _searchError.value = null
+            return
+        }
+
+        viewModelScope.launch {
+            _isDiscoverSearching.value = true
+            _searchError.value = null
+            try {
+                val results = RadioBrowserClient.api.searchStations(name = query, limit = 40)
+                _globalSearchResults.value = results.map { response ->
+                    RadioStation(
+                        id = response.stationuuid,
+                        name = response.name.takeIf { it.isNotBlank() } ?: "Unknown Station",
+                        country = response.country?.trim()?.takeIf { it.isNotBlank() } ?: "🌍 Global",
+                        categoryId = "",
+                        streamUrl = response.urlResolved ?: response.url ?: "",
+                        logoUrl = response.favicon ?: "",
+                        description = response.tags?.trim()?.takeIf { it.isNotBlank() } ?: response.language ?: "Global Stream",
+                        isCustom = false
+                    )
+                }
+            } catch (e: Exception) {
+                _searchError.value = "Failed to load search results: ${e.localizedMessage ?: "Network error"}"
+            } finally {
+                _isDiscoverSearching.value = false
+            }
+        }
+    }
+
+    fun loadTrendingStations() {
+        if (_globalTrendingStations.value.isNotEmpty()) return // already loaded or loading
+
+        viewModelScope.launch {
+            _isDiscoverTrendingLoading.value = true
+            _trendingError.value = null
+            try {
+                val topClicks = RadioBrowserClient.api.getTopClick(limit = 40)
+                _globalTrendingStations.value = topClicks.map { response ->
+                    RadioStation(
+                        id = response.stationuuid,
+                        name = response.name.takeIf { it.isNotBlank() } ?: "Unknown Station",
+                        country = response.country?.trim()?.takeIf { it.isNotBlank() } ?: "🌍 Global",
+                        categoryId = "",
+                        streamUrl = response.urlResolved ?: response.url ?: "",
+                        logoUrl = response.favicon ?: "",
+                        description = response.tags?.trim()?.takeIf { it.isNotBlank() } ?: response.language ?: "Popular Stream",
+                        isCustom = false
+                    )
+                }
+            } catch (e: Exception) {
+                _trendingError.value = "Failed to load trending stations: ${e.localizedMessage ?: "Network error"}"
+            } finally {
+                _isDiscoverTrendingLoading.value = false
+            }
+        }
+    }
+
+    fun saveDiscoveredStation(station: RadioStation, categoryId: String) {
+        viewModelScope.launch {
+            db.radioDao().insertStation(
+                StationEntity(
+                    id = station.id,
+                    name = station.name,
+                    country = station.country,
+                    categoryId = categoryId,
+                    streamUrl = station.streamUrl,
+                    logoUrl = station.logoUrl,
+                    description = station.description,
+                    isCustom = true
+                )
+            )
         }
     }
 }

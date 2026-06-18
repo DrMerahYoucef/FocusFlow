@@ -52,29 +52,52 @@ class RadioPlayerService : MediaSessionService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val stationId = intent?.getStringExtra("station_id")
+        val stationName = intent?.getStringExtra("station_name")
+        val stationUrl = intent?.getStringExtra("station_url")
+        val stationCountry = intent?.getStringExtra("station_country") ?: ""
+        val stationDesc = intent?.getStringExtra("station_desc") ?: ""
+        val logoUrl = intent?.getStringExtra("station_logo") ?: ""
+
         if (stationId != null) {
-            serviceScope.launch {
-                try {
-                    val db = FocusFlowApplication.instance.database
-                    val stationsList = db.radioDao().getAllStations().first()
-                    val dbStation = stationsList.find { it.id == stationId }
-                    if (dbStation != null) {
-                        playStation(
-                            RadioStation(
-                                id = dbStation.id,
-                                name = dbStation.name,
-                                country = dbStation.country,
-                                categoryId = dbStation.categoryId,
-                                streamUrl = dbStation.streamUrl,
-                                fallbackUrl = dbStation.fallbackUrl,
-                                logoUrl = dbStation.logoUrl,
-                                description = dbStation.description,
-                                isCustom = dbStation.isCustom
+            if (stationUrl != null && stationName != null) {
+                // Play directly from parameters (useful for global search previews)
+                playStation(
+                    RadioStation(
+                        id = stationId,
+                        name = stationName,
+                        country = stationCountry,
+                        categoryId = "",
+                        streamUrl = stationUrl,
+                        logoUrl = logoUrl,
+                        description = stationDesc,
+                        isCustom = false
+                    )
+                )
+            } else {
+                // Fallback to DB
+                serviceScope.launch {
+                    try {
+                        val db = FocusFlowApplication.instance.database
+                        val stationsList = db.radioDao().getAllStations().first()
+                        val dbStation = stationsList.find { it.id == stationId }
+                        if (dbStation != null) {
+                            playStation(
+                                RadioStation(
+                                    id = dbStation.id,
+                                    name = dbStation.name,
+                                    country = dbStation.country,
+                                    categoryId = dbStation.categoryId,
+                                    streamUrl = dbStation.streamUrl,
+                                    fallbackUrl = dbStation.fallbackUrl,
+                                    logoUrl = dbStation.logoUrl,
+                                    description = dbStation.description,
+                                    isCustom = dbStation.isCustom
+                                )
                             )
-                        )
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
-                } catch (e: Exception) {
-                    e.printStackTrace()
                 }
             }
         }
@@ -110,6 +133,11 @@ class RadioPlayerService : MediaSessionService() {
         fun play(context: Context, station: RadioStation) {
             val intent = Intent(context, RadioPlayerService::class.java).apply {
                 putExtra("station_id", station.id)
+                putExtra("station_name", station.name)
+                putExtra("station_url", station.streamUrl)
+                putExtra("station_country", station.country)
+                putExtra("station_desc", station.description)
+                putExtra("station_logo", station.logoUrl)
             }
             context.startService(intent)
         }

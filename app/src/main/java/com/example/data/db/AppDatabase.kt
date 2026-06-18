@@ -81,15 +81,10 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_radio_stations_categoryId ON radio_stations(categoryId)")
 
                 // Seed default categories
-                db.execSQL("INSERT OR IGNORE INTO radio_categories (id, name, isCustom) VALUES ('ALGERIAN', 'Algerian', 0)")
                 db.execSQL("INSERT OR IGNORE INTO radio_categories (id, name, isCustom) VALUES ('STUDY', 'Study', 0)")
                 db.execSQL("INSERT OR IGNORE INTO radio_categories (id, name, isCustom) VALUES ('GLOBAL', 'Global', 0)")
 
                 // Seed default stations
-                db.execSQL("INSERT OR IGNORE INTO radio_stations (id, name, country, categoryId, streamUrl, fallbackUrl, logoUrl, description, isCustom) VALUES ('dz_chaine3', 'Chaîne 3', '🇩🇿 Algeria', 'ALGERIAN', 'https://stream.radios-algerie.dz/chaine3', 'https://mediaserver.radios-algerie.dz/chaine3/mp3', 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/Cha%C3%AEne_3_logo.svg/200px-Cha%C3%AEne_3_logo.svg.png', 'French-language Algerian national radio', 0)")
-                db.execSQL("INSERT OR IGNORE INTO radio_stations (id, name, country, categoryId, streamUrl, fallbackUrl, logoUrl, description, isCustom) VALUES ('dz_radioalger', 'Radio Alger Internationale', '🇩🇿 Algeria', 'ALGERIAN', 'https://mediaserver.radios-algerie.dz/alger-international/mp3', '', '', 'International Algerian broadcast', 0)")
-                db.execSQL("INSERT OR IGNORE INTO radio_stations (id, name, country, categoryId, streamUrl, fallbackUrl, logoUrl, description, isCustom) VALUES ('dz_jil_fm', 'Jil FM', '🇩🇿 Algeria', 'ALGERIAN', 'https://mediaserver.radios-algerie.dz/jilfm/mp3', '', '', 'Popular Algerian music radio', 0)")
-                db.execSQL("INSERT OR IGNORE INTO radio_stations (id, name, country, categoryId, streamUrl, fallbackUrl, logoUrl, description, isCustom) VALUES ('dz_quran', 'Radio Coran', '🇩🇿 Algeria', 'ALGERIAN', 'https://mediaserver.radios-algerie.dz/coran/mp3', '', '', 'Algerian Holy Quran radio', 0)")
                 db.execSQL("INSERT OR IGNORE INTO radio_stations (id, name, country, categoryId, streamUrl, fallbackUrl, logoUrl, description, isCustom) VALUES ('lofi_hiphop', 'Lo-Fi Hip Hop', '🌍 Global', 'STUDY', 'https://streams.ilovemusic.de/iloveradio17.mp3', '', '', 'Chill beats to study and relax to', 0)")
                 db.execSQL("INSERT OR IGNORE INTO radio_stations (id, name, country, categoryId, streamUrl, fallbackUrl, logoUrl, description, isCustom) VALUES ('study_classical', 'Classical Focus', '🌍 Global', 'STUDY', 'https://live.musopen.org:8085/streamvbr0', '', '', 'Classical music — royalty free', 0)")
                 db.execSQL("INSERT OR IGNORE INTO radio_stations (id, name, country, categoryId, streamUrl, fallbackUrl, logoUrl, description, isCustom) VALUES ('cafe_jazz', 'Jazz Café', '🌍 Global', 'STUDY', 'https://streams.ilovemusic.de/iloveradio29.mp3', '', '', 'Smooth jazz for deep work', 0)")
