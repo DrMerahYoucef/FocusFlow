@@ -9,6 +9,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import com.example.ui.navigation.AppNavGraph
 import com.example.ui.theme.MyApplicationTheme
 
@@ -33,8 +35,17 @@ class MainActivity : ComponentActivity() {
         checkAndRequestNotifications()
 
         setContent {
-            MyApplicationTheme {
-                AppNavGraph()
+            val settingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel<com.example.ui.screen.settings.SettingsViewModel>()
+            val state by settingsViewModel.state.collectAsState()
+            val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
+            val darkTheme = when (state.themeMode) {
+                "light" -> false
+                "dark" -> true
+                else -> isSystemDark
+            }
+
+            MyApplicationTheme(darkTheme = darkTheme) {
+                AppNavGraph(settingsViewModel = settingsViewModel)
             }
         }
     }

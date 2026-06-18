@@ -53,8 +53,32 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
         CoroutineScope(Dispatchers.IO).launch {
             val nextExam = examDao.getNextExam(todayCalendar.timeInMillis)
 
+            val prefs = context.getSharedPreferences("focusflow_prefs", Context.MODE_PRIVATE)
+            val themeMode = prefs.getString("theme_mode", "system") ?: "system"
+            val isSystemDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            val isDark = when (themeMode) {
+                "light" -> false
+                "dark" -> true
+                else -> isSystemDark
+            }
+
             for (widgetId in appWidgetIds) {
                 val views = RemoteViews(context.packageName, R.layout.widget_countdown_layout)
+
+                // Apply correct backgrounds and text colors dynamically
+                if (isDark) {
+                    views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.widget_bg_dark)
+                    views.setTextColor(R.id.widget_title_label, android.graphics.Color.parseColor("#9EA4B0"))
+                    views.setTextColor(R.id.widget_exam_name, android.graphics.Color.parseColor("#ECF0F3"))
+                    views.setTextColor(R.id.widget_days_left, android.graphics.Color.parseColor("#8B84FF"))
+                    views.setTextColor(R.id.widget_label_days, android.graphics.Color.parseColor("#9EA4B0"))
+                } else {
+                    views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.widget_bg)
+                    views.setTextColor(R.id.widget_title_label, android.graphics.Color.parseColor("#8A94A6"))
+                    views.setTextColor(R.id.widget_exam_name, android.graphics.Color.parseColor("#2D3142"))
+                    views.setTextColor(R.id.widget_days_left, android.graphics.Color.parseColor("#6C63FF"))
+                    views.setTextColor(R.id.widget_label_days, android.graphics.Color.parseColor("#8A94A6"))
+                }
 
                 if (nextExam != null) {
                     val examCalendar = Calendar.getInstance().apply {

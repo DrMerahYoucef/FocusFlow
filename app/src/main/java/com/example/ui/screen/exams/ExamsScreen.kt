@@ -240,9 +240,20 @@ fun ExamsScreen(
 
         var validationError by remember { mutableStateOf("") }
 
+        val textFieldColors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = NeumorphicColors.TextPrimary,
+            unfocusedTextColor = NeumorphicColors.TextPrimary,
+            focusedLabelColor = NeumorphicColors.Primary,
+            unfocusedLabelColor = NeumorphicColors.TextSecondary,
+            focusedBorderColor = NeumorphicColors.Primary,
+            unfocusedBorderColor = NeumorphicColors.TextSecondary.copy(alpha = 0.5f),
+            focusedPlaceholderColor = NeumorphicColors.TextSecondary,
+            unfocusedPlaceholderColor = NeumorphicColors.TextSecondary.copy(alpha = 0.7f)
+        )
+
         AlertDialog(
             onDismissRequest = { isDialogOpen = false },
-            containerColor = Color(0xFFE0E5EC), // Matched to Neumorphic background
+            containerColor = NeumorphicColors.Background, // Dynamic to theme
             shape = RoundedCornerShape(20.dp),
             title = {
                 Text(
@@ -263,10 +274,7 @@ fun ExamsScreen(
                         value = name,
                         onValueChange = { name = it },
                         label = { Text("Exam Name (e.g. Physics)") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = NeumorphicColors.Primary,
-                            focusedLabelColor = NeumorphicColors.Primary
-                        ),
+                        colors = textFieldColors,
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -275,10 +283,7 @@ fun ExamsScreen(
                         value = subject,
                         onValueChange = { subject = it },
                         label = { Text("Subject (e.g. Thermodynamics)") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = NeumorphicColors.Primary,
-                            focusedLabelColor = NeumorphicColors.Primary
-                        ),
+                        colors = textFieldColors,
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -300,6 +305,7 @@ fun ExamsScreen(
                             onValueChange = { if (it.length <= 2) dayInput = it.filter { c -> c.isDigit() } },
                             label = { Text("Day") },
                             placeholder = { Text("15") },
+                            colors = textFieldColors,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1f)
                         )
@@ -308,6 +314,7 @@ fun ExamsScreen(
                             onValueChange = { if (it.length <= 2) monthInput = it.filter { c -> c.isDigit() } },
                             label = { Text("Month") },
                             placeholder = { Text("06") },
+                            colors = textFieldColors,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1f)
                         )
@@ -316,6 +323,7 @@ fun ExamsScreen(
                             onValueChange = { if (it.length <= 4) yearInput = it.filter { c -> c.isDigit() } },
                             label = { Text("Year") },
                             placeholder = { Text("2026") },
+                            colors = textFieldColors,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1.2f)
                         )

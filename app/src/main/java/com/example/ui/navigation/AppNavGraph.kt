@@ -47,7 +47,8 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
 @Composable
 fun AppNavGraph(
     modifier: Modifier = Modifier,
-    navController: NavHostController = rememberNavController()
+    navController: NavHostController = rememberNavController(),
+    settingsViewModel: SettingsViewModel = viewModel()
 ) {
     val items = listOf(
         Screen.Timer,
@@ -59,7 +60,6 @@ fun AppNavGraph(
     val timerViewModel: TimerViewModel = viewModel()
     val analyticsViewModel: AnalyticsViewModel = viewModel()
     val examsViewModel: ExamsViewModel = viewModel()
-    val settingsViewModel: SettingsViewModel = viewModel()
 
     Scaffold(
         modifier = modifier.fillMaxSize(),

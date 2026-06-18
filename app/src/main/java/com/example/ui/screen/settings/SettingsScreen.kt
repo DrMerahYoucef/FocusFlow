@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.NeumorphicButton
 import com.example.ui.components.NeumorphicCard
+import com.example.ui.components.neumorphicShadow
 import com.example.ui.theme.NeumorphicColors
 
 @Composable
@@ -303,6 +305,71 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Section: Theme Selection
+        Text(
+            text = "VISUAL MODE",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = NeumorphicColors.TextSecondary,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            textAlign = TextAlign.Start
+        )
+
+        NeumorphicCard(
+            modifier = Modifier.fillMaxWidth(),
+            cornerRadius = 16.dp,
+            elevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(4.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Choose Application Dark/Light Profile",
+                    fontWeight = FontWeight.Bold,
+                    color = NeumorphicColors.TextPrimary,
+                    fontSize = 14.sp
+                )
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    val modes = listOf("light" to "Light", "dark" to "Dark", "system" to "System")
+                    modes.forEach { (modeValue, modeLabel) ->
+                        val isSelected = state.themeMode == modeValue
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .neumorphicShadow(
+                                    cornerRadius = 12.dp,
+                                    elevation = if (isSelected) 3.dp else 5.dp,
+                                    isPressed = isSelected
+                                )
+                                .clickable {
+                                    viewModel.updateThemeMode(modeValue)
+                                }
+                                .padding(vertical = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = modeLabel,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSelected) NeumorphicColors.Primary else NeumorphicColors.TextSecondary,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         // Section: Data & Backup
         Text(
             text = "DATA & BACKUP",
@@ -348,7 +415,7 @@ fun SettingsScreen(
         val dialogContext = LocalContext.current
         AlertDialog(
             onDismissRequest = { isResetConfirmOpen = false },
-            containerColor = Color(0xFFE0E5EC),
+            containerColor = NeumorphicColors.Background,
             title = {
                 Text(
                     text = "Confirm Hard Reset",

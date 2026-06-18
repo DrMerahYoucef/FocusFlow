@@ -22,7 +22,8 @@ data class SettingsState(
     val longBreakMin: Int = 15,
     val sessionsBeforeLong: Int = 4,
     val blockNotifications: Boolean = true,
-    val vibrateOnComplete: Boolean = true
+    val vibrateOnComplete: Boolean = true,
+    val themeMode: String = "system"
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -46,9 +47,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 longBreakMin = sharedPrefs.getInt("long_break_min", 15),
                 sessionsBeforeLong = sharedPrefs.getInt("sessions_before_long", 4),
                 blockNotifications = sharedPrefs.getBoolean("block_notifications", true),
-                vibrateOnComplete = sharedPrefs.getBoolean("vibrate_on_complete", true)
+                vibrateOnComplete = sharedPrefs.getBoolean("vibrate_on_complete", true),
+                themeMode = sharedPrefs.getString("theme_mode", "system") ?: "system"
             )
         }
+    }
+
+    fun updateThemeMode(value: String) {
+        sharedPrefs.edit().putString("theme_mode", value).apply()
+        _state.update { it.copy(themeMode = value) }
+        // Let's also trigger an app widget update so the widget theme matches the app selection immediately
+        com.example.widget.ExamCountdownWidgetReceiver.triggerWidgetUpdate(getApplication())
     }
 
     fun updateFocusMin(value: Int) {
