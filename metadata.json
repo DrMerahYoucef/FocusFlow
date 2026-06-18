@@ -1,0 +1,6 @@
+{
+  "name": "FocusFlow",
+  "description": "A neumorphic Pomodoro timer and productivity analytics manager with exam countdowns.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

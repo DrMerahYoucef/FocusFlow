@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Tomato Body color coded Neumorphic primary violet -->
+    <path
+        android:fillColor="#6C63FF"
+        android:pathData="M54,28 C41.2,28 32,37 32,49 C32,61.8 41.2,73 54,73 C66.8,73 76,61.8 76,49 C76,37 66.8,28 54,28 Z" />
+
+    <!-- Stem Leafs colored vibrant Break coral code -->
+    <path
+        android:fillColor="#FF6584"
+        android:pathData="M54,28 C55.5,23 58,21 61,19 C58,23 56,25 55,28 Z M54,28 C52.5,23 50,21 47,19 C50,23 52,25 53,28 Z M54,28 C54,22 54,20 54,18 C55,21 55,24 54,28 Z" />
+
+    <!-- Timer tick accent inside tomato -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M53,36 h2 v14 h-2 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,49 h8 v2 h-8 z" />
+
+</vector>

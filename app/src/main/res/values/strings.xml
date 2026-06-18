@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">FocusFlow</string>
+    <string name="widget_label">FocusFlow Next Exam</string>
+    <string name="widget_description">Shows a countdown timeline of your closest academic trial.</string>
+</resources>
