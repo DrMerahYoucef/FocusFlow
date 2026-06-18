@@ -11,6 +11,13 @@ import com.example.data.db.entity.CategoryEntity
 import com.example.data.db.entity.StationEntity
 import com.example.data.db.entity.FavouriteStationEntity
 import com.example.service.RadioPlayerService
+import android.content.ComponentName
+import android.net.Uri
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Player
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -167,19 +174,108 @@ class RadioViewModel(application: Application) : AndroidViewModel(application) {
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying = _isPlaying.asStateFlow()
 
+    private var mediaController: MediaController? = null
+    private val pendingActions = mutableListOf<(MediaController) -> Unit>()
+
+    private fun initController(context: Context) {
+        if (mediaController != null) return
+        val sessionToken = SessionToken(
+            context,
+            ComponentName(context, RadioPlayerService::class.java)
+        )
+        val controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
+        controllerFuture.addListener({
+            try {
+                val controller = controllerFuture.get()
+                mediaController = controller
+                controller.addListener(object : Player.Listener {
+                    override fun onIsPlayingChanged(playing: Boolean) {
+                        _isPlaying.value = playing
+                    }
+
+                    override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                        mediaItem?.mediaMetadata?.let { meta ->
+                            val title = meta.title?.toString()
+                            if (title != null && _currentStation.value?.name != title) {
+                                _currentStation.value = RadioStation(
+                                    id = mediaItem.mediaId,
+                                    name = title,
+                                    country = meta.artist?.toString() ?: "",
+                                    categoryId = "",
+                                    streamUrl = mediaItem.localConfiguration?.uri?.toString() ?: "",
+                                    logoUrl = meta.artworkUri?.toString() ?: "",
+                                    description = meta.description?.toString() ?: "",
+                                    isCustom = false
+                                )
+                            }
+                        }
+                    }
+                })
+                _isPlaying.value = controller.isPlaying
+
+                val actions = ArrayList(pendingActions)
+                pendingActions.clear()
+                actions.forEach { it(controller) }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }, context.mainExecutor)
+    }
+
+    private fun executeWhenControllerReady(context: Context, action: (MediaController) -> Unit) {
+        initController(context)
+        val controller = mediaController
+        if (controller != null) {
+            action(controller)
+        } else {
+            pendingActions.add(action)
+        }
+    }
+
     fun selectStation(station: RadioStation, context: Context) {
         _currentStation.value = station
         _isPlaying.value = true
-        RadioPlayerService.play(context, station)
+        executeWhenControllerReady(context) { controller ->
+            val artwork = station.logoUrl.ifEmpty {
+                "android.resource://com.focusflow/drawable/ic_radio_default"
+            }
+            val mediaItem = MediaItem.Builder()
+                .setMediaId(station.id)
+                .setUri(station.streamUrl)
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setTitle(station.name)
+                        .setArtist(station.country)
+                        .setDescription(station.description)
+                        .setArtworkUri(Uri.parse(artwork))
+                        .build()
+                )
+                .build()
+
+            controller.setMediaItem(mediaItem)
+            controller.prepare()
+            controller.play()
+        }
     }
 
     fun togglePlayback(context: Context) {
-        if (_isPlaying.value) {
-            RadioPlayerService.stop(context)
-            _isPlaying.value = false
-        } else {
-            _currentStation.value?.let { selectStation(it, context) }
+        executeWhenControllerReady(context) { controller ->
+            if (controller.isPlaying) {
+                controller.pause()
+            } else {
+                if (controller.mediaItemCount > 0) {
+                    controller.play()
+                } else {
+                    _currentStation.value?.let { selectStation(it, context) }
+                }
+            }
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        mediaController?.release()
+        mediaController = null
     }
 
     fun toggleFavourite(station: RadioStation) {
