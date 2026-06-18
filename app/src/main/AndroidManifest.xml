@@ -22,6 +22,16 @@
     <!-- Vibration for session end -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- Internet for radio streams -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Foreground service for background audio -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
+    <!-- Keep WiFi alive during streaming -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+
     <!-- Read installed apps list -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
@@ -82,6 +92,17 @@
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Monitors app launch to protect users focus sessions" />
+        </service>
+
+        <!-- Media player service declaration -->
+        <service
+            android:name=".service.RadioPlayerService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
         </service>
 
         <!-- Focus Overlay activity -->

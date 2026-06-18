@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -40,6 +41,7 @@ import com.example.ui.theme.NeumorphicColors
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Timer : Screen("timer", "Timer", Icons.Default.Timer)
     object Analytics : Screen("analytics", "Stats", Icons.Default.Analytics)
+    object Radio : Screen("radio", "Radio", Icons.Default.Radio)
     object Exams : Screen("exams", "Exams", Icons.Default.CalendarMonth)
     object Settings : Screen("settings", "Config", Icons.Default.Settings)
 }
@@ -53,6 +55,7 @@ fun AppNavGraph(
     val items = listOf(
         Screen.Timer,
         Screen.Analytics,
+        Screen.Radio,
         Screen.Exams,
         Screen.Settings
     )
@@ -81,6 +84,9 @@ fun AppNavGraph(
             }
             composable(Screen.Analytics.route) {
                 AnalyticsScreen(viewModel = analyticsViewModel)
+            }
+            composable(Screen.Radio.route) {
+                com.example.ui.screen.radio.RadioScreen(navController = navController)
             }
             composable(Screen.Exams.route) {
                 ExamsScreen(viewModel = examsViewModel)
