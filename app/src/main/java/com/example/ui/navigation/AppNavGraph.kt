@@ -64,38 +64,53 @@ fun AppNavGraph(
     val analyticsViewModel: AnalyticsViewModel = viewModel()
     val examsViewModel: ExamsViewModel = viewModel()
 
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        containerColor = NeumorphicColors.Background,
-        bottomBar = {
-            NeumorphicBottomNavigation(
-                navController = navController,
-                items = items
-            )
-        }
-    ) { innerPadding ->
+    Box(modifier = modifier.fillMaxSize()) {
         NavHost(
             navController = navController,
             startDestination = Screen.Timer.route,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.fillMaxSize()
         ) {
             composable(Screen.Timer.route) {
-                TimerScreen(viewModel = timerViewModel)
+                com.example.ui.components.ForestScaffold(
+                    bottomBar = { NeumorphicBottomNavigation(navController = navController, items = items) }
+                ) { padding ->
+                    TimerScreen(viewModel = timerViewModel, modifier = Modifier.padding(padding))
+                }
             }
             composable(Screen.Analytics.route) {
-                AnalyticsScreen(viewModel = analyticsViewModel)
+                com.example.ui.components.ForestScaffold(
+                    bottomBar = { NeumorphicBottomNavigation(navController = navController, items = items) }
+                ) { padding ->
+                    AnalyticsScreen(viewModel = analyticsViewModel, modifier = Modifier.padding(padding))
+                }
             }
             composable(Screen.Radio.route) {
-                com.example.ui.screen.radio.RadioScreen(navController = navController)
+                com.example.ui.components.ForestScaffold(
+                    bottomBar = { NeumorphicBottomNavigation(navController = navController, items = items) }
+                ) { padding ->
+                    com.example.ui.screen.radio.RadioScreen(navController = navController, modifier = Modifier.padding(padding))
+                }
             }
             composable(Screen.Exams.route) {
-                ExamsScreen(viewModel = examsViewModel)
+                com.example.ui.components.ForestScaffold(
+                    bottomBar = { NeumorphicBottomNavigation(navController = navController, items = items) }
+                ) { padding ->
+                    ExamsScreen(viewModel = examsViewModel, modifier = Modifier.padding(padding))
+                }
             }
             composable(Screen.Settings.route) {
-                SettingsScreen(viewModel = settingsViewModel, navController = navController)
+                com.example.ui.components.ForestScaffold(
+                    bottomBar = { NeumorphicBottomNavigation(navController = navController, items = items) }
+                ) { padding ->
+                    SettingsScreen(viewModel = settingsViewModel, navController = navController, modifier = Modifier.padding(padding))
+                }
             }
             composable("app_blocker") {
-                com.example.ui.screen.appblocker.AppBlockerScreen(navController = navController)
+                com.example.ui.components.ForestScaffold(
+                    bottomBar = { NeumorphicBottomNavigation(navController = navController, items = items) }
+                ) { padding ->
+                    com.example.ui.screen.appblocker.AppBlockerScreen(navController = navController, modifier = Modifier.padding(padding))
+                }
             }
         }
     }

@@ -93,13 +93,11 @@ fun NeumorphicCard(
     isPressed: Boolean = false,
     content: @Composable BoxScope.() -> Unit
 ) {
-    Box(
-        modifier = modifier
-            .neumorphicShadow(cornerRadius, elevation, isPressed)
-            .padding(16.dp)
-    ) {
-        content()
-    }
+    GlassCard(
+        modifier = modifier,
+        cornerRadius = cornerRadius,
+        content = content
+    )
 }
 
 @Composable
@@ -110,36 +108,13 @@ fun NeumorphicButton(
     modifier: Modifier = Modifier,
     accentColor: Color = NeumorphicColors.Primary
 ) {
-    var isPressed by remember { mutableStateOf(false) }
-
-    Box(
-        modifier = modifier
-            .neumorphicShadow(cornerRadius = 20.dp, elevation = 5.dp, isPressed = isPressed)
-            .clip(RoundedCornerShape(20.dp))
-            .clickable {
-                onClick()
-            }
-            .padding(horizontal = 24.dp, vertical = 14.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = accentColor,
-                modifier = Modifier.size(20.dp)
-            )
-            Text(
-                text = label,
-                color = NeumorphicColors.TextPrimary,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp
-            )
-        }
-    }
+    GlassButton(
+        label = label,
+        icon = icon,
+        onClick = onClick,
+        modifier = modifier,
+        accentColor = accentColor
+    )
 }
 
 @Composable

@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -465,6 +466,20 @@ fun SettingsScreen(
                 accentColor = NeumorphicColors.Accent
             )
         }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        NeumorphicButton(
+            label = "Plant 100 Forest Trees",
+            icon = Icons.Default.Eco,
+            onClick = {
+                viewModel.seed100Sessions {
+                    Toast.makeText(context, "🌲 100 Trees planted in your forest!", Toast.LENGTH_SHORT).show()
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            accentColor = NeumorphicColors.Primary
+        )
 
         Spacer(modifier = Modifier.height(32.dp))
 

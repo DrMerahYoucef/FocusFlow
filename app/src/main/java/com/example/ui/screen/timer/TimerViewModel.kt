@@ -5,13 +5,32 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.service.PomodoroTimerService
 import com.example.service.TimerState
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 
 class TimerViewModel(application: Application) : AndroidViewModel(application) {
 
     val timerState: StateFlow<TimerState> = PomodoroTimerService.state
+
+    private val _treePlanted = MutableSharedFlow<Int>()
+    val treePlanted = _treePlanted.asSharedFlow()
+
+    init {
+        var lastCount = -1
+        timerState
+            .map { it.sessionCount }
+            .distinctUntilChanged()
+            .onEach { count ->
+                if (lastCount != -1 && count > lastCount) {
+                    _treePlanted.emit(count)
+                }
+                lastCount = count
+            }
+            .launchIn(viewModelScope)
+    }
 
     fun startTimer() {
         sendCommand(PomodoroTimerService.ACTION_START)

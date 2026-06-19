@@ -111,4 +111,26 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             onCompleted()
         }
     }
+
+    fun seed100Sessions(onCompleted: () -> Unit) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            for (i in 1..100) {
+                // Spread over past 10 days, 10 sessions per day
+                val dayOffset = (i - 1) / 10
+                val timeOffset = ((i - 1) % 10) * 60 * 60 * 1000L // 1 hour apart
+                val date = now - (dayOffset * 24 * 60 * 60 * 1000L) - timeOffset - (15 * 60 * 1000L)
+                val duration = 1500 // 25 minutes = 1500 seconds
+                database.sessionDao().insert(
+                    SessionEntity(
+                        date = date,
+                        durationSeconds = duration,
+                        completed = true,
+                        focusScore = duration / 60
+                    )
+                )
+            }
+            onCompleted()
+        }
+    }
 }

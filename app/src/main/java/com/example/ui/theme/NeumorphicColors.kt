@@ -32,7 +32,7 @@ object NeumorphicColors {
     // Dynamic properties responding to custom LocalIsDarkTheme composition local
     val Background: Color
         @Composable
-        get() = if (LocalIsDarkTheme.current) BackgroundDark else BackgroundLight
+        get() = Color.Transparent
 
     val SurfaceLight: Color
         @Composable

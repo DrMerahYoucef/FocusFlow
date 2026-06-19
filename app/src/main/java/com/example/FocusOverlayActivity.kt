@@ -28,10 +28,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.NeumorphicButton
 import com.example.ui.components.neumorphicShadow
+import androidx.compose.ui.graphics.Color
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.NeumorphicColors
 
 class FocusOverlayActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val blockedPkg = intent.getStringExtra("blocked_package") ?: ""
@@ -75,10 +77,12 @@ class FocusOverlayActivity : ComponentActivity() {
 
 @Composable
 fun FocusOverlayScreen(appName: String, onDismiss: () -> Unit, onGoBack: () -> Unit) {
+    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val solidBgColor = if (isDark) Color(0xFF1E222B) else Color(0xFFE0E5EC)
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(NeumorphicColors.Background),
+            .background(solidBgColor),
         contentAlignment = Alignment.Center
     ) {
         Column(
