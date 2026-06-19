@@ -39,7 +39,8 @@ fun Modifier.neumorphicShadow(
     isPressed: Boolean = false
 ): Modifier = this.composed {
     val isDark = LocalIsDarkTheme.current
-    val bg = if (isDark) Color(0xFF1E222B) else Color(0xFFE0E5EC)
+    // Cohesive, high-contrast glassy translucent colors with reduced transparency
+    val bg = if (isDark) Color(0xCC1E222B) else Color(0xDDE0E5EC)
     val highlightColor = if (isDark) Color(0xFF2E333F) else Color(0xFFFFFFFF)
     val shadowColor = if (isDark) Color(0xFF14161C) else Color(0xFFA3B1C6)
 
@@ -71,6 +72,13 @@ fun Modifier.neumorphicShadow(
             )
         } else {
             // Pressed (inset shadow effect)
+            // Draw glassy background first to preserve text contrast
+            drawRoundRect(
+                color = bg,
+                topLeft = Offset.Zero,
+                size = size,
+                cornerRadius = CornerRadius(rPx, rPx)
+            )
             drawRoundRect(
                 color = shadowColor.copy(alpha = if (isDark) 0.6f else 0.4f),
                 topLeft = Offset.Zero,
@@ -134,8 +142,8 @@ fun NeumorphicProgressArc(
         Phase.LONG_BREAK -> if (isDark) Color(0xFFFF829C) else Color(0xFFE71D36)
     }
 
-    val glassColor  = if (isDark) Color(0x19FFFFFF) else Color(0x26FFFFFF)
-    val borderColor = if (isDark) Color(0x26FFFFFF) else Color(0x4DFFFFFF)
+    val glassColor  = if (isDark) Color(0xCC1E222B) else Color(0xDDE0E5EC)
+    val borderColor = if (isDark) Color(0x26FFFFFF) else Color(0x1F000000)
     val shadowColor = Color(0x22000000)
 
     val animatedProgress by animateFloatAsState(

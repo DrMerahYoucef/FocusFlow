@@ -31,6 +31,9 @@ import com.example.ui.components.neumorphicShadow
 import androidx.compose.ui.graphics.Color
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.NeumorphicColors
+import com.example.ui.theme.LocalIsDarkTheme
+import com.example.ui.components.ForestScaffold
+import com.example.ui.components.GlassCard
 
 class FocusOverlayActivity : ComponentActivity() {
 
@@ -71,69 +74,75 @@ class FocusOverlayActivity : ComponentActivity() {
 
 @Composable
 fun FocusOverlayScreen(appName: String, onDismiss: () -> Unit, onGoBack: () -> Unit) {
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
-    val solidBgColor = if (isDark) Color(0xFF1E222B) else Color(0xFFE0E5EC)
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(solidBgColor),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-            modifier = Modifier.padding(40.dp)
+    val isDark = LocalIsDarkTheme.current
+
+    ForestScaffold { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .size(100.dp)
-                    .neumorphicShadow(cornerRadius = 50.dp, elevation = 10.dp),
-                contentAlignment = Alignment.Center
+            GlassCard(
+                modifier = Modifier.padding(24.dp)
             ) {
-                Text("🔒", fontSize = 42.sp)
-            }
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(24.dp),
+                    modifier = Modifier.padding(24.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(100.dp)
+                            .neumorphicShadow(cornerRadius = 50.dp, elevation = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("🔒", fontSize = 42.sp)
+                    }
 
-            Text(
-                text = "Stay focused!",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = NeumorphicColors.TextPrimary
-            )
-            Text(
-                text = "$appName is blocked\nduring your focus session.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = NeumorphicColors.TextSecondary,
-                textAlign = TextAlign.Center
-            )
+                    Text(
+                        text = "Stay focused!",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = NeumorphicColors.TextPrimary
+                    )
+                    Text(
+                        text = "$appName is blocked\nduring your focus session.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = NeumorphicColors.TextSecondary,
+                        textAlign = TextAlign.Center
+                    )
 
-            val quotes = listOf(
-                "Every minute counts. You've got this.",
-                "The phone can wait. Your goals can't.",
-                "Deep work is your superpower.",
-                "Focus now, scroll later.",
-                "You're building something great."
-            )
-            Text(
-                text = "\"${quotes.random()}\"",
-                style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
-                color = NeumorphicColors.Primary,
-                textAlign = TextAlign.Center
-            )
+                    val quotes = listOf(
+                        "Every minute counts. You've got this.",
+                        "The phone can wait. Your goals can't.",
+                        "Deep work is your superpower.",
+                        "Focus now, scroll later.",
+                        "You're building something great."
+                    )
+                    Text(
+                        text = "\"${quotes.random()}\"",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
+                        color = NeumorphicColors.Primary,
+                        textAlign = TextAlign.Center
+                    )
 
-            Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(8.dp))
 
-            NeumorphicButton(
-                label = "Go Back to Focus",
-                icon = Icons.Default.ArrowBack,
-                onClick = onGoBack,
-                accentColor = NeumorphicColors.Primary
-            )
-            TextButton(onClick = onDismiss) {
-                Text(
-                    "Dismiss (not recommended)",
-                    fontSize = 12.sp,
-                    color = NeumorphicColors.TextSecondary
-                )
+                    NeumorphicButton(
+                        label = "Go Back to Focus",
+                        icon = Icons.Default.ArrowBack,
+                        onClick = onGoBack,
+                        accentColor = NeumorphicColors.Primary
+                    )
+                    TextButton(onClick = onDismiss) {
+                        Text(
+                            "Dismiss (not recommended)",
+                            fontSize = 12.sp,
+                            color = NeumorphicColors.TextSecondary
+                        )
+                    }
+                }
             }
         }
     }

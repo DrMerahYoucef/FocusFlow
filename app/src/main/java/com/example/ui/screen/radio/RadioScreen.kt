@@ -62,13 +62,13 @@ fun RadioScreen(
     Scaffold(
         modifier = modifier
             .fillMaxSize()
-            .background(NeumorphicColors.Background)
             .statusBarsPadding(),
+        containerColor = Color.Transparent,
         topBar = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -98,7 +98,6 @@ fun RadioScreen(
                     modifier = Modifier
                         .neumorphicShadow(cornerRadius = 12.dp, elevation = 4.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(NeumorphicColors.Background)
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Row(
@@ -131,7 +130,7 @@ fun RadioScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 val favSelected = !showDiscover
@@ -144,9 +143,8 @@ fun RadioScreen(
                             isPressed = favSelected
                         )
                         .clip(RoundedCornerShape(16.dp))
-                        .background(NeumorphicColors.Background)
                         .clickable { showDiscover = false }
-                        .padding(vertical = 12.dp),
+                        .padding(vertical = 14.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(
@@ -178,9 +176,8 @@ fun RadioScreen(
                             isPressed = discoverSelected
                         )
                         .clip(RoundedCornerShape(16.dp))
-                        .background(NeumorphicColors.Background)
                         .clickable { showDiscover = true }
-                        .padding(vertical = 12.dp),
+                        .padding(vertical = 14.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(
@@ -245,17 +242,18 @@ fun RadioScreen(
                                     elevation = 6.dp
                                 ) {
                                     Column(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(24.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                                        verticalArrangement = Arrangement.spacedBy(20.dp)
                                     ) {
                                         // Station Logo / default fallback
                                         Box(
                                             modifier = Modifier
                                                 .size(72.dp)
                                                 .neumorphicShadow(cornerRadius = 20.dp, elevation = 4.dp)
-                                                .clip(RoundedCornerShape(20.dp))
-                                                .background(NeumorphicColors.Background),
+                                                .clip(RoundedCornerShape(20.dp)),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             SubcomposeAsyncImage(
@@ -480,17 +478,17 @@ fun StationCard(
     onFavourite: () -> Unit
 ) {
     val borderColor = if (isPlaying) NeumorphicColors.Primary else Color.Transparent
+    val isDark = com.example.ui.theme.LocalIsDarkTheme.current
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .padding(horizontal = 24.dp, vertical = 8.dp)
             .neumorphicShadow(cornerRadius = 16.dp, isPressed = isPlaying)
             .clip(RoundedCornerShape(16.dp))
-            .background(NeumorphicColors.Background)
             .border(1.5.dp, borderColor, RoundedCornerShape(16.dp))
             .clickable { onPlay() }
-            .padding(12.dp)
+            .padding(16.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -498,9 +496,9 @@ fun StationCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(44.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(NeumorphicColors.Background.copy(alpha = 0.5f)),
+                    .background(if (isDark) Color(0x26FFFFFF) else Color(0x11000000)),
                 contentAlignment = Alignment.Center
             ) {
                 SubcomposeAsyncImage(
@@ -525,7 +523,7 @@ fun StationCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = station.name,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleMedium,
                     color = if (isPlaying) NeumorphicColors.Primary else NeumorphicColors.TextPrimary,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
@@ -567,12 +565,11 @@ fun NowPlayingBar(
         modifier = Modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(12.dp)
+            .padding(horizontal = 24.dp, vertical = 12.dp)
             .neumorphicShadow(cornerRadius = 20.dp)
             .clip(RoundedCornerShape(20.dp))
-            .background(NeumorphicColors.Background)
             .clickable { onExpand() }
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 20.dp, vertical = 14.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -583,7 +580,7 @@ fun NowPlayingBar(
             Column(Modifier.weight(1f)) {
                 Text(
                     text = station.name,
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     color = NeumorphicColors.TextPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -603,8 +600,8 @@ fun NowPlayingBar(
             IconButton(
                 onClick = onToggle,
                 modifier = Modifier
-                    .size(36.dp)
-                    .neumorphicShadow(cornerRadius = 18.dp, elevation = 2.dp)
+                    .size(40.dp)
+                    .neumorphicShadow(cornerRadius = 20.dp, elevation = 2.dp)
             ) {
                 Icon(
                     imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
@@ -692,7 +689,7 @@ fun DiscoverPanel(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 24.dp)
     ) {
         Text(
             text = "SEARCH GLOBAL RADIO-BROWSER",
@@ -705,11 +702,10 @@ fun DiscoverPanel(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 16.dp)
+                .padding(bottom = 20.dp)
                 .neumorphicShadow(cornerRadius = 16.dp, elevation = 4.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(NeumorphicColors.Background)
-                .padding(horizontal = 12.dp, vertical = 4.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             contentAlignment = Alignment.CenterStart
         ) {
             Row(
@@ -895,17 +891,17 @@ fun DiscoverStationItem(
     onFavourite: () -> Unit
 ) {
     val borderColor = if (isPlaying) NeumorphicColors.Primary else Color.Transparent
+    val isDark = com.example.ui.theme.LocalIsDarkTheme.current
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 10.dp)
+            .padding(vertical = 8.dp)
             .neumorphicShadow(cornerRadius = 16.dp, isPressed = isPlaying)
             .clip(RoundedCornerShape(16.dp))
-            .background(NeumorphicColors.Background)
             .border(1.5.dp, borderColor, RoundedCornerShape(16.dp))
             .clickable { onPlay() }
-            .padding(12.dp)
+            .padding(16.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -913,9 +909,9 @@ fun DiscoverStationItem(
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(44.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(NeumorphicColors.Background.copy(alpha = 0.5f)),
+                    .background(if (isDark) Color(0x26FFFFFF) else Color(0x11000000)),
                 contentAlignment = Alignment.Center
             ) {
                 SubcomposeAsyncImage(
@@ -940,7 +936,7 @@ fun DiscoverStationItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = station.name,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleMedium,
                     color = if (isPlaying) NeumorphicColors.Primary else NeumorphicColors.TextPrimary,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
@@ -963,8 +959,8 @@ fun DiscoverStationItem(
             IconButton(
                 onClick = onFavourite,
                 modifier = Modifier
-                    .size(36.dp)
-                    .neumorphicShadow(cornerRadius = 18.dp, elevation = 2.dp)
+                    .size(40.dp)
+                    .neumorphicShadow(cornerRadius = 20.dp, elevation = 2.dp)
             ) {
                 Icon(
                     imageVector = if (isFavourite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,

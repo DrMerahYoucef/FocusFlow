@@ -1,9 +1,13 @@
 package com.example.ui.navigation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -123,31 +127,51 @@ fun NeumorphicBottomNavigation(
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val isDark = com.example.ui.theme.LocalIsDarkTheme.current
+
+    val glassColor  = if (isDark) Color(0xCC1E222B) else Color(0xDDE0E5EC)
+    val borderColor = if (isDark) Color(0x26FFFFFF) else Color(0x1F000000)
+    val shadowColor = if (isDark) Color(0x40000000) else Color(0x22000000)
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars) // Safeguard notch / bottom nav gesture bar overlap!
             .padding(horizontal = 16.dp, vertical = 12.dp)
-            .neumorphicShadow(cornerRadius = 24.dp, elevation = 4.dp, isPressed = false)
+            .shadow(
+                elevation = 12.dp,
+                shape = RoundedCornerShape(24.dp),
+                clip = false,
+                ambientColor = shadowColor,
+                spotColor = shadowColor
+            )
             .clip(RoundedCornerShape(24.dp))
+            .background(glassColor)
+            .border(1.dp, borderColor, RoundedCornerShape(24.dp))
             .padding(8.dp),
         horizontalArrangement = Arrangement.SpaceAround,
         verticalAlignment = Alignment.CenterVertically
     ) {
         items.forEach { screen ->
             val isSelected = currentRoute == screen.route
+            val itemBackground = if (isSelected) {
+                if (isDark) Color(0x33FFFFFF) else Color(0x4DFFFFFF)
+            } else {
+                Color.Transparent
+            }
+            val itemBorder = if (isSelected) {
+                if (isDark) Color(0x4DFFFFFF) else Color(0x80FFFFFF)
+            } else {
+                Color.Transparent
+            }
 
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .padding(4.dp)
-                    .neumorphicShadow(
-                        cornerRadius = 16.dp,
-                        elevation = if (isSelected) 2.dp else 4.dp,
-                        isPressed = isSelected
-                    )
                     .clip(RoundedCornerShape(16.dp))
+                    .background(itemBackground)
+                    .border(1.dp, itemBorder, RoundedCornerShape(16.dp))
                     .clickable {
                         if (currentRoute != screen.route) {
                             navController.navigate(screen.route) {

@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -15,7 +16,11 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewModelScope
 import com.example.FocusFlowApplication
 import kotlinx.coroutines.delay
@@ -88,17 +93,32 @@ fun ForestBackground(
         animationSpec = tween(3000), label = "fog"
     )
 
-    // ── Wavy fog/mist phase animator ──────────────────────────────────
-    val infiniteTransition = rememberInfiniteTransition(label = "fogAnimation")
-    val wavePhase by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1000f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(120000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "wavePhase"
-    )
+    // ── Lifecycle-aware Animation Driver (Pause when off-screen) ─────
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var isAppResumed by remember { mutableStateOf(true) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            isAppResumed = event.targetState.isAtLeast(Lifecycle.State.RESUMED)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    val wavePhase = remember { Animatable(0f) }
+    LaunchedEffect(isAppResumed) {
+        if (isAppResumed) {
+            while (true) {
+                wavePhase.animateTo(
+                    targetValue = wavePhase.value + 1000f,
+                    animationSpec = tween(120000, easing = LinearEasing)
+                )
+            }
+        } else {
+            wavePhase.stop()
+        }
+    }
 
     // ── Tree scale-in animation when new tree is planted ─────────────
     val newestTreeScale = remember { Animatable(0f) }
@@ -109,12 +129,17 @@ fun ForestBackground(
         }
     }
 
-    // ── Deterministic Forest Layout ──────────────────────────────────
-    // Generates static, organic positions and sizes for background layers dynamically.
-    // Handles any number of trees seamlessly, preventing limits at 100 or 400 trees.
-    val treesToDraw = remember(treeCount) {
+    // ── Path pooling caches to prevent garbage collector allocations in onDraw ──
+    val cachedTreePath = remember { Path() }
+    val cachedShadowPath = remember { Path() }
+    val cachedHighlightPath = remember { Path() }
+    val cachedFogPath = remember { Path() }
+
+    // ── Deterministic Forest Layout (Optimal O(N) grouping) ──────────
+    val treesByLayer = remember(treeCount) {
         val count = maxOf(treeCount, 1)
-        List(count) { i ->
+        val layers = List(6) { ArrayList<DeterministicTree>() }
+        for (i in 0 until count) {
             val iLong = i.toLong()
             val seedX = (iLong * 19349663L) xor 0x5DEECE66DL
             val seedH = (iLong * 38260237L) xor 0x5DEECE66DL
@@ -134,14 +159,17 @@ fun ForestBackground(
             val heightScale = 0.70f + randH * 0.45f
             val widthScale = 0.75f + randW * 0.35f
 
-            DeterministicTree(
-                xFraction = xFraction,
-                heightScale = heightScale,
-                horizontalSpacing = widthScale,
-                layerIndex = layerIdx,
-                itemIndex = i
+            layers[layerIdx].add(
+                DeterministicTree(
+                    xFraction = xFraction,
+                    heightScale = heightScale,
+                    horizontalSpacing = widthScale,
+                    layerIndex = layerIdx,
+                    itemIndex = i
+                )
             )
-        }.sortedWith(compareBy({ it.layerIndex }, { it.itemIndex }))
+        }
+        layers
     }
 
     // Twinkling stars position (Night mode)
@@ -154,71 +182,80 @@ fun ForestBackground(
         }
     }
 
-    Canvas(modifier = modifier.fillMaxSize()) {
-        val W = size.width
-        val H = size.height
+    Box(modifier = modifier.fillMaxSize()) {
+        // 1. Static Sky, Celestial Moon/Sun Layer (graphicsLayer caches drawn output on GPU)
+        Canvas(modifier = Modifier.fillMaxSize().graphicsLayer()) {
+            val W = size.width
+            val H = size.height
 
-        // 1. Sky Gradient
-        drawRect(
-            brush = Brush.verticalGradient(
-                colors = listOf(skyTop, skyBottom),
-                startY = 0f, endY = H
-            )
-        )
-
-        // 2. Cosmic elements: Star field & Moon (Night) OR sun glow & beams (Day)
-        if (!isDay) {
-            // Stars field
-            starPositions.forEachIndexed { idx, pos ->
-                val xVal = pos.x * W
-                val yVal = pos.y * H
-                val starA = 0.3f + 0.5f * sin(wavePhase * 0.1f + idx * 1.2f)
-                drawCircle(
-                    color = Color.White.copy(alpha = starA.coerceIn(0f, 1f)),
-                    radius = 2.dp.toPx(),
-                    center = Offset(xVal, yVal)
+            // Sky Gradient
+            drawRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(skyTop, skyBottom),
+                    startY = 0f, endY = H
                 )
-            }
+            )
 
-            // Moon with outer halo & silver-white core
-            val moonCenter = Offset(W * 0.8f, H * 0.12f)
-            // Outer halo
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color(0x22ADC6D1), Color.Transparent),
-                    center = moonCenter, radius = W * 0.45f
-                ),
-                radius = W * 0.45f, center = moonCenter
-            )
-            // Inner halo
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color(0x3DDCF1F5), Color.Transparent),
-                    center = moonCenter, radius = W * 0.18f
-                ),
-                radius = W * 0.18f, center = moonCenter
-            )
-            // Moon Core
-            drawCircle(
-                color = Color(0xFFE9F5F8),
-                radius = W * 0.06f,
-                center = moonCenter
-            )
-        } else {
-            // Day Sun glow & warm sun beams
-            val sunCenter = Offset(W * 0.5f, H * 0.05f)
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color(0x3DFFEFA8), Color.Transparent),
-                    center = sunCenter, radius = W * 0.55f
-                ),
-                radius = W * 0.55f, center = sunCenter
-            )
-            drawSunRays(W, H, sunCenter)
+            if (!isDay) {
+                // Moon with outer halo & silver-white core
+                val moonCenter = Offset(W * 0.8f, H * 0.12f)
+                // Outer halo
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color(0x22ADC6D1), Color.Transparent),
+                        center = moonCenter, radius = W * 0.45f
+                    ),
+                    radius = W * 0.45f, center = moonCenter
+                )
+                // Inner halo
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color(0x3DDCF1F5), Color.Transparent),
+                        center = moonCenter, radius = W * 0.18f
+                    ),
+                    radius = W * 0.18f, center = moonCenter
+                )
+                // Moon Core
+                drawCircle(
+                    color = Color(0xFFE9F5F8),
+                    radius = W * 0.06f,
+                    center = moonCenter
+                )
+            } else {
+                // Day Sun glow & warm sun beams
+                val sunCenter = Offset(W * 0.5f, H * 0.05f)
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color(0x3DFFEFA8), Color.Transparent),
+                        center = sunCenter, radius = W * 0.55f
+                    ),
+                    radius = W * 0.55f, center = sunCenter
+                )
+                drawSunRays(W, H, sunCenter)
+            }
+        }
+
+        // 2. Animated Starfield Layer
+        if (!isDay) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val W = size.width
+                val H = size.height
+                val currentPhase = wavePhase.value
+                // Stars field
+                starPositions.forEachIndexed { idx, pos ->
+                    val xVal = pos.x * W
+                    val yVal = pos.y * H
+                    val starA = 0.3f + 0.5f * sin(currentPhase * 0.1f + idx * 1.2f)
+                    drawCircle(
+                        color = Color.White.copy(alpha = starA.coerceIn(0f, 1f)),
+                        radius = 2.dp.toPx(),
+                        center = Offset(xVal, yVal)
+                    )
+                }
+            }
         }
 
         // 3. Draw dynamic layered forest with wavy mist/fog in between
-        // Rendering 6 discrete depth levels for supreme parallax visual rich depth
         for (layerIdx in 0..5) {
             // Base parameters for drawing layer
             val scale = when (layerIdx) {
@@ -246,90 +283,192 @@ fun ForestBackground(
                 else -> if (isDay) Color(0xFF286532) else Color(0xFF030D0C)
             }
 
-            val treeH = H * scale * 0.28f
-            val treeW = treeH * 0.45f
-            val baseY = H * (1f - yFraction)
-
-            // Draw trees of current layer
-            val treesInLayer = if (treeCount > 0) treesToDraw.filter { it.layerIndex == layerIdx } else emptyList()
-            treesInLayer.forEach { tree ->
-                val x = tree.xFraction * W
-                val y = baseY + (tree.itemIndex % 2) * treeH * 0.04f // Stagger vertically for maximum natural beauty
-                val finalH = treeH * tree.heightScale
-                val finalW = treeW * tree.horizontalSpacing
-
-                val isActive = tree.itemIndex < treeCount
-                val extraScale = if (isActive && tree.itemIndex == treeCount - 1) newestTreeScale.value else 1f
-
-                withTransform({ scale(extraScale, extraScale, pivot = Offset(x, y)) }) {
-                    drawDetailedPineTree(
-                        drawScope = this,
-                        x = x,
-                        tipY = y - finalH,
-                        baseY = y,
-                        width = finalW,
-                        color = baseColor,
-                        isDay = isDay
-                    )
-                }
-
-                // If active tree, spawn floating spark bio-particles on a select subset of trees to keep the screen serene
-                if (isActive && tree.itemIndex % 15 == 0) {
-                    drawFairyFireflies(
-                        x = x,
-                        y = y,
-                        treeW = finalW,
-                        treeH = finalH,
-                        wavePhase = wavePhase,
-                        isDay = isDay
-                    )
+            // --- Smart capping/culling logic to maintain constant render-time ---
+            val list = if (treeCount > 0) treesByLayer[layerIdx] else emptyList()
+            val ceiling = when (layerIdx) {
+                0 -> 15
+                1 -> 20
+                2 -> 25
+                3 -> 30
+                4 -> 35
+                else -> 40
+            }
+            val treesInLayer = remember(list, ceiling, treeCount) {
+                if (list.size <= ceiling) {
+                    list
+                } else {
+                    val newest = list.lastOrNull()
+                    if (newest != null && newest.itemIndex == treeCount - 1) {
+                        list.take(ceiling - 1) + newest
+                    } else {
+                        list.take(ceiling)
+                    }
                 }
             }
 
-            // Draw wavy fog layer behind the next closer tree layer
-            val fogY = H * (1f - yFraction) - H * 0.02f
-            val fogAlpha = when (layerIdx) {
-                0 -> 0.16f
-                1 -> 0.13f
-                2 -> 0.11f
-                3 -> 0.09f
-                4 -> 0.07f
-                else -> 0.05f
-            }
-            val fogScale = when (layerIdx) {
-                0 -> 1.2f
-                1 -> 1.0f
-                2 -> 0.85f
-                3 -> 0.70f
-                4 -> 0.55f
-                else -> 0.40f
-            }
-            val speedMultiplier = when (layerIdx) {
-                0 -> 0.03f
-                1 -> -0.04f
-                2 -> 0.05f
-                3 -> -0.06f
-                4 -> 0.07f
-                else -> -0.08f
+            // Static tree drawing Canvas for local layer (GPU RenderNode Cached)
+            val treeScaleVal = newestTreeScale.value
+            Canvas(modifier = Modifier.fillMaxSize().graphicsLayer()) {
+                val W = size.width
+                val H = size.height
+
+                val treeH = H * scale * 0.28f
+                val treeW = treeH * 0.45f
+                val baseY = H * (1f - yFraction)
+
+                // Dynamic Level of Detail (LOD) optimization for buttery smooth 120 FPS
+                val useSimplified = when (layerIdx) {
+                    0, 1, 2 -> true
+                    3, 4 -> treeCount > 120
+                    else -> false
+                }
+
+                treesInLayer.forEach { tree ->
+                    val x = tree.xFraction * W
+                    val y = baseY + (tree.itemIndex % 2) * treeH * 0.04f
+                    val finalH = treeH * tree.heightScale
+                    val finalW = treeW * tree.horizontalSpacing
+
+                    val isActive = tree.itemIndex < treeCount
+                    val isNewest = isActive && tree.itemIndex == treeCount - 1
+                    val extraScale = if (isNewest) treeScaleVal else 1f
+
+                    // matrix transform only for the animating newest tree!
+                    if (isNewest && extraScale != 1f) {
+                        withTransform({ scale(extraScale, extraScale, pivot = Offset(x, y)) }) {
+                            if (useSimplified) {
+                                drawSimplifiedPineTree(
+                                    drawScope = this,
+                                    x = x,
+                                    tipY = y - finalH,
+                                    baseY = y,
+                                    width = finalW,
+                                    color = baseColor,
+                                    path = cachedTreePath
+                                )
+                            } else {
+                                drawDetailedPineTree(
+                                    drawScope = this,
+                                    x = x,
+                                    tipY = y - finalH,
+                                    baseY = y,
+                                    width = finalW,
+                                    color = baseColor,
+                                    isDay = isDay,
+                                    path = cachedTreePath,
+                                    rightSidePath = cachedShadowPath,
+                                    highlightPath = cachedHighlightPath
+                                )
+                            }
+                        }
+                    } else {
+                        if (useSimplified) {
+                            drawSimplifiedPineTree(
+                                drawScope = this,
+                                x = x,
+                                tipY = y - finalH,
+                                baseY = y,
+                                width = finalW,
+                                color = baseColor,
+                                path = cachedTreePath
+                            )
+                        } else {
+                            drawDetailedPineTree(
+                                drawScope = this,
+                                x = x,
+                                tipY = y - finalH,
+                                baseY = y,
+                                width = finalW,
+                                color = baseColor,
+                                isDay = isDay,
+                                path = cachedTreePath,
+                                rightSidePath = cachedShadowPath,
+                                highlightPath = cachedHighlightPath
+                            )
+                        }
+                    }
+                }
             }
 
-            drawWavyFog(
-                baseY = fogY,
-                fogColor = fogColor,
-                wavePhase = wavePhase,
-                alphaMultiplier = fogAlpha,
-                waveScale = fogScale,
-                speedMultiplier = speedMultiplier
-            )
+            // Animated Overlay layer draw Canvas (Wavy fog and bioluminescent spark fireflies)
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val W = size.width
+                val H = size.height
+                val currentPhase = wavePhase.value
+
+                val treeH = H * scale * 0.28f
+                val treeW = treeH * 0.45f
+                val baseY = H * (1f - yFraction)
+
+                // Particles on active trees
+                treesInLayer.forEach { tree ->
+                    val isActive = tree.itemIndex < treeCount
+                    if (isActive && tree.itemIndex % 15 == 0) {
+                        val x = tree.xFraction * W
+                        val y = baseY + (tree.itemIndex % 2) * treeH * 0.04f
+                        val finalH = treeH * tree.heightScale
+                        val finalW = treeW * tree.horizontalSpacing
+
+                        drawFairyFireflies(
+                            x = x,
+                            y = y,
+                            treeW = finalW,
+                            treeH = finalH,
+                            wavePhase = currentPhase,
+                            isDay = isDay
+                        )
+                    }
+                }
+
+                // Draw wavy fog layer
+                val fogY = H * (1f - yFraction) - H * 0.02f
+                val fogAlpha = when (layerIdx) {
+                    0 -> 0.16f
+                    1 -> 0.13f
+                    2 -> 0.11f
+                    3 -> 0.09f
+                    4 -> 0.07f
+                    else -> 0.05f
+                }
+                val fogScale = when (layerIdx) {
+                    0 -> 1.2f
+                    1 -> 1.0f
+                    2 -> 0.85f
+                    3 -> 0.70f
+                    4 -> 0.55f
+                    else -> 0.40f
+                }
+                val speedMultiplier = when (layerIdx) {
+                    0 -> 0.03f
+                    1 -> -0.04f
+                    2 -> 0.05f
+                    3 -> -0.06f
+                    4 -> 0.07f
+                    else -> -0.08f
+                }
+
+                drawWavyFog(
+                    baseY = fogY,
+                    fogColor = fogColor,
+                    wavePhase = currentPhase,
+                    alphaMultiplier = fogAlpha,
+                    waveScale = fogScale,
+                    speedMultiplier = speedMultiplier,
+                    fogPath = cachedFogPath
+                )
+            }
         }
 
-        // 4. Bottom Vignette for soft shading transitions
-        drawRect(
-            brush = Brush.verticalGradient(
-                colors = listOf(Color.Transparent, Color(0xBB000000)),
-                startY = H * 0.70f, endY = H
+        // 4. Front Vignette Layer for shading transitions (Static, cached)
+        Canvas(modifier = Modifier.fillMaxSize().graphicsLayer()) {
+            val H = size.height
+            drawRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(Color.Transparent, Color(0xBB000000)),
+                    startY = H * 0.70f, endY = H
+                )
             )
-        )
+        }
     }
 }
 
@@ -373,113 +512,161 @@ private fun DrawScope.drawDetailedPineTree(
     baseY: Float,
     width: Float,
     color: Color,
-    isDay: Boolean
+    isDay: Boolean,
+    path: Path,
+    rightSidePath: Path,
+    highlightPath: Path
 ) {
     val h = baseY - tipY
     val w = width
 
     // 1. Draw the full left-to-right symmetric pine tree shape in base color
-    val path = Path().apply {
-        moveTo(x, tipY)
+    path.reset()
+    path.moveTo(x, tipY)
 
-        // Left side segments (Top to bottom)
-        lineTo(x - w * 0.14f, tipY + h * 0.10f)
-        lineTo(x - w * 0.07f, tipY + h * 0.12f)
-        lineTo(x - w * 0.23f, tipY + h * 0.22f)
-        lineTo(x - w * 0.11f, tipY + h * 0.25f)
-        lineTo(x - w * 0.33f, tipY + h * 0.36f)
-        lineTo(x - w * 0.16f, tipY + h * 0.39f)
-        lineTo(x - w * 0.43f, tipY + h * 0.49f)
-        lineTo(x - w * 0.21f, tipY + h * 0.52f)
-        lineTo(x - w * 0.53f, tipY + h * 0.64f)
-        lineTo(x - w * 0.26f, tipY + h * 0.67f)
-        lineTo(x - w * 0.63f, tipY + h * 0.78f)
-        lineTo(x - w * 0.30f, tipY + h * 0.82f)
-        lineTo(x - w * 0.72f, tipY + h * 0.94f)
-        lineTo(x - w * 0.33f, baseY)
+    // Left side segments (Top to bottom)
+    path.lineTo(x - w * 0.14f, tipY + h * 0.10f)
+    path.lineTo(x - w * 0.07f, tipY + h * 0.12f)
+    path.lineTo(x - w * 0.23f, tipY + h * 0.22f)
+    path.lineTo(x - w * 0.11f, tipY + h * 0.25f)
+    path.lineTo(x - w * 0.33f, tipY + h * 0.36f)
+    path.lineTo(x - w * 0.16f, tipY + h * 0.39f)
+    path.lineTo(x - w * 0.43f, tipY + h * 0.49f)
+    path.lineTo(x - w * 0.21f, tipY + h * 0.52f)
+    path.lineTo(x - w * 0.53f, tipY + h * 0.64f)
+    path.lineTo(x - w * 0.26f, tipY + h * 0.67f)
+    path.lineTo(x - w * 0.63f, tipY + h * 0.78f)
+    path.lineTo(x - w * 0.30f, tipY + h * 0.82f)
+    path.lineTo(x - w * 0.72f, tipY + h * 0.94f)
+    path.lineTo(x - w * 0.33f, baseY)
 
-        // Under-canopy tuck in
-        lineTo(x - w * 0.08f, baseY)
+    // Under-canopy tuck in
+    path.lineTo(x - w * 0.08f, baseY)
 
-        // Trunk left
-        lineTo(x - w * 0.08f, baseY + h * 0.12f)
-        // Trunk bottom
-        lineTo(x + w * 0.08f, baseY + h * 0.12f)
-        // Trunk right
-        lineTo(x + w * 0.08f, baseY)
+    // Trunk left
+    path.lineTo(x - w * 0.08f, baseY + h * 0.12f)
+    // Trunk bottom
+    path.lineTo(x + w * 0.08f, baseY + h * 0.12f)
+    // Trunk right
+    path.lineTo(x + w * 0.08f, baseY)
 
-        // Under-canopy tuck in right
-        lineTo(x + w * 0.33f, baseY)
+    // Under-canopy tuck in right
+    path.lineTo(x + w * 0.33f, baseY)
 
-        // Right side segments (symmetric going up)
-        lineTo(x + w * 0.72f, tipY + h * 0.94f)
-        lineTo(x + w * 0.30f, tipY + h * 0.82f)
-        lineTo(x + w * 0.63f, tipY + h * 0.78f)
-        lineTo(x + w * 0.26f, tipY + h * 0.67f)
-        lineTo(x + w * 0.53f, tipY + h * 0.64f)
-        lineTo(x + w * 0.21f, tipY + h * 0.52f)
-        lineTo(x + w * 0.43f, tipY + h * 0.49f)
-        lineTo(x + w * 0.16f, tipY + h * 0.39f)
-        lineTo(x + w * 0.33f, tipY + h * 0.36f)
-        lineTo(x + w * 0.11f, tipY + h * 0.25f)
-        lineTo(x + w * 0.23f, tipY + h * 0.22f)
-        lineTo(x + w * 0.07f, tipY + h * 0.12f)
-        lineTo(x + w * 0.14f, tipY + h * 0.10f)
+    // Right side segments (symmetric going up)
+    path.lineTo(x + w * 0.72f, tipY + h * 0.94f)
+    path.lineTo(x + w * 0.30f, tipY + h * 0.82f)
+    path.lineTo(x + w * 0.63f, tipY + h * 0.78f)
+    path.lineTo(x + w * 0.26f, tipY + h * 0.67f)
+    path.lineTo(x + w * 0.53f, tipY + h * 0.64f)
+    path.lineTo(x + w * 0.21f, tipY + h * 0.52f)
+    path.lineTo(x + w * 0.43f, tipY + h * 0.49f)
+    path.lineTo(x + w * 0.16f, tipY + h * 0.39f)
+    path.lineTo(x + w * 0.33f, tipY + h * 0.36f)
+    path.lineTo(x + w * 0.11f, tipY + h * 0.25f)
+    path.lineTo(x + w * 0.23f, tipY + h * 0.22f)
+    path.lineTo(x + w * 0.07f, tipY + h * 0.12f)
+    path.lineTo(x + w * 0.14f, tipY + h * 0.10f)
 
-        close()
-    }
+    path.close()
     drawScope.drawPath(path, color)
 
     // 2. Draw the shadow side (Right side) path with dark overlay for depth shading!
-    val rightSidePath = Path().apply {
-        moveTo(x, tipY)
-        lineTo(x + w * 0.14f, tipY + h * 0.10f)
-        lineTo(x + w * 0.07f, tipY + h * 0.12f)
-        lineTo(x + w * 0.23f, tipY + h * 0.22f)
-        lineTo(x + w * 0.11f, tipY + h * 0.25f)
-        lineTo(x + w * 0.33f, tipY + h * 0.36f)
-        lineTo(x + w * 0.16f, tipY + h * 0.39f)
-        lineTo(x + w * 0.43f, tipY + h * 0.49f)
-        lineTo(x + w * 0.21f, tipY + h * 0.52f)
-        lineTo(x + w * 0.53f, tipY + h * 0.64f)
-        lineTo(x + w * 0.26f, tipY + h * 0.67f)
-        lineTo(x + w * 0.63f, tipY + h * 0.78f)
-        lineTo(x + w * 0.30f, tipY + h * 0.82f)
-        lineTo(x + w * 0.72f, tipY + h * 0.94f)
-        lineTo(x + w * 0.33f, baseY)
-        // Under trunk right
-        lineTo(x + w * 0.08f, baseY)
-        lineTo(x + w * 0.08f, baseY + h * 0.12f)
-        lineTo(x, baseY + h * 0.12f)
-        lineTo(x, baseY)
-        lineTo(x, tipY)
-        close()
-    }
+    rightSidePath.reset()
+    rightSidePath.moveTo(x, tipY)
+    rightSidePath.lineTo(x + w * 0.14f, tipY + h * 0.10f)
+    rightSidePath.lineTo(x + w * 0.07f, tipY + h * 0.12f)
+    rightSidePath.lineTo(x + w * 0.23f, tipY + h * 0.22f)
+    rightSidePath.lineTo(x + w * 0.11f, tipY + h * 0.25f)
+    rightSidePath.lineTo(x + w * 0.33f, tipY + h * 0.36f)
+    rightSidePath.lineTo(x + w * 0.16f, tipY + h * 0.39f)
+    rightSidePath.lineTo(x + w * 0.43f, tipY + h * 0.49f)
+    rightSidePath.lineTo(x + w * 0.21f, tipY + h * 0.52f)
+    rightSidePath.lineTo(x + w * 0.53f, tipY + h * 0.64f)
+    rightSidePath.lineTo(x + w * 0.26f, tipY + h * 0.67f)
+    rightSidePath.lineTo(x + w * 0.63f, tipY + h * 0.78f)
+    rightSidePath.lineTo(x + w * 0.30f, tipY + h * 0.82f)
+    rightSidePath.lineTo(x + w * 0.72f, tipY + h * 0.94f)
+    rightSidePath.lineTo(x + w * 0.33f, baseY)
+    // Under trunk right
+    rightSidePath.lineTo(x + w * 0.08f, baseY)
+    rightSidePath.lineTo(x + w * 0.08f, baseY + h * 0.12f)
+    rightSidePath.lineTo(x, baseY + h * 0.12f)
+    rightSidePath.lineTo(x, baseY)
+    rightSidePath.lineTo(x, tipY)
+    rightSidePath.close()
     val shadowOpacity = if (isDay) 0.22f else 0.28f
     drawScope.drawPath(rightSidePath, Color.Black.copy(alpha = shadowOpacity))
 
     // 3. Draw a gorgeous left rim highlight to make the edges pop in 3D
-    val highlightPath = Path().apply {
-        moveTo(x, tipY)
-        lineTo(x - w * 0.14f, tipY + h * 0.10f)
-        lineTo(x - w * 0.07f, tipY + h * 0.12f)
-        lineTo(x - w * 0.23f, tipY + h * 0.22f)
-        lineTo(x - w * 0.11f, tipY + h * 0.25f)
-        lineTo(x - w * 0.33f, tipY + h * 0.36f)
-        lineTo(x - w * 0.16f, tipY + h * 0.39f)
-        lineTo(x - w * 0.43f, tipY + h * 0.49f)
-        lineTo(x - w * 0.21f, tipY + h * 0.52f)
-        lineTo(x - w * 0.53f, tipY + h * 0.64f)
-        lineTo(x - w * 0.26f, tipY + h * 0.67f)
-        lineTo(x - w * 0.63f, tipY + h * 0.78f)
-        lineTo(x - w * 0.30f, tipY + h * 0.82f)
-        lineTo(x - w * 0.72f, tipY + h * 0.94f)
-        lineTo(x - w * 0.33f, baseY)
-        lineTo(x, baseY)
-        close()
-    }
+    highlightPath.reset()
+    highlightPath.moveTo(x, tipY)
+    highlightPath.lineTo(x - w * 0.14f, tipY + h * 0.10f)
+    highlightPath.lineTo(x - w * 0.07f, tipY + h * 0.12f)
+    highlightPath.lineTo(x - w * 0.23f, tipY + h * 0.22f)
+    highlightPath.lineTo(x - w * 0.11f, tipY + h * 0.25f)
+    highlightPath.lineTo(x - w * 0.33f, tipY + h * 0.36f)
+    highlightPath.lineTo(x - w * 0.16f, tipY + h * 0.39f)
+    highlightPath.lineTo(x - w * 0.43f, tipY + h * 0.49f)
+    highlightPath.lineTo(x - w * 0.21f, tipY + h * 0.52f)
+    highlightPath.lineTo(x - w * 0.53f, tipY + h * 0.64f)
+    highlightPath.lineTo(x - w * 0.26f, tipY + h * 0.67f)
+    highlightPath.lineTo(x - w * 0.63f, tipY + h * 0.78f)
+    highlightPath.lineTo(x - w * 0.30f, tipY + h * 0.82f)
+    highlightPath.lineTo(x - w * 0.72f, tipY + h * 0.94f)
+    highlightPath.lineTo(x - w * 0.33f, baseY)
+    highlightPath.lineTo(x, baseY)
+    highlightPath.close()
     val highlightOpacity = if (isDay) 0.12f else 0.05f
     drawScope.drawPath(highlightPath, Color.White.copy(alpha = highlightOpacity))
+}
+
+private fun DrawScope.drawSimplifiedPineTree(
+    drawScope: DrawScope,
+    x: Float,
+    tipY: Float,
+    baseY: Float,
+    width: Float,
+    color: Color,
+    path: Path
+) {
+    val h = baseY - tipY
+    val w = width
+
+    path.reset()
+    path.moveTo(x, tipY)
+
+    // Tier 1 (top)
+    path.lineTo(x - w * 0.25f, tipY + h * 0.3f)
+    path.lineTo(x - w * 0.12f, tipY + h * 0.32f)
+
+    // Tier 2 (middle)
+    path.lineTo(x - w * 0.48f, tipY + h * 0.63f)
+    path.lineTo(x - w * 0.24f, tipY + h * 0.65f)
+
+    // Tier 3 (bottom canopy)
+    path.lineTo(x - w * 0.65f, tipY + h * 0.94f)
+    path.lineTo(x - w * 0.08f, baseY)
+
+    // Trunk left
+    path.lineTo(x - w * 0.08f, baseY + h * 0.12f)
+    // Trunk right
+    path.lineTo(x + w * 0.08f, baseY + h * 0.12f)
+    path.lineTo(x + w * 0.08f, baseY)
+
+    // Tier 3 right
+    path.lineTo(x + w * 0.65f, tipY + h * 0.94f)
+    path.lineTo(x + w * 0.24f, tipY + h * 0.65f)
+
+    // Tier 2 right
+    path.lineTo(x + w * 0.48f, tipY + h * 0.63f)
+    path.lineTo(x + w * 0.12f, tipY + h * 0.32f)
+
+    // Tier 1 right
+    path.lineTo(x + w * 0.25f, tipY + h * 0.3f)
+
+    path.close()
+    drawScope.drawPath(path, color)
 }
 
 private fun DrawScope.drawWavyFog(
@@ -488,28 +675,28 @@ private fun DrawScope.drawWavyFog(
     wavePhase: Float,
     alphaMultiplier: Float,
     waveScale: Float,
-    speedMultiplier: Float
+    speedMultiplier: Float,
+    fogPath: Path
 ) {
     val W = size.width
     val H = size.height
 
     val time = wavePhase * speedMultiplier
-    val fogPath = Path().apply {
-        moveTo(0f, H)
+    fogPath.reset()
+    fogPath.moveTo(0f, H)
 
-        val steps = 25
-        val stepW = W / steps
-        for (i in 0..steps) {
-            val x = i * stepW
-            val wave1 = sin(x * 0.005f + time * 1.5f) * 20f * waveScale
-            val wave2 = cos(x * 0.012f - time * 0.7f) * 12f * waveScale
-            val wave3 = sin(x * 0.025f + time * 2.2f) * 6f * waveScale
-            val waveY = baseY + wave1 + wave2 + wave3
-            lineTo(x, waveY)
-        }
-        lineTo(W, H)
-        close()
+    val steps = 25
+    val stepW = W / steps
+    for (i in 0..steps) {
+        val x = i * stepW
+        val wave1 = sin(x * 0.005f + time * 1.5f) * 20f * waveScale
+        val wave2 = cos(x * 0.012f - time * 0.7f) * 12f * waveScale
+        val wave3 = sin(x * 0.025f + time * 2.2f) * 6f * waveScale
+        val waveY = baseY + wave1 + wave2 + wave3
+        fogPath.lineTo(x, waveY)
     }
+    fogPath.lineTo(W, H)
+    fogPath.close()
 
     val mistHeight = 160f * waveScale
     val startY = baseY - mistHeight * 0.3f

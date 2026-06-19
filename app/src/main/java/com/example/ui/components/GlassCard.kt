@@ -15,16 +15,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
+import com.example.ui.theme.LocalIsDarkTheme
+
 @Composable
 fun GlassCard(
     modifier: Modifier = Modifier,
-    isDark: Boolean = isSystemInDarkTheme(),
+    isDark: Boolean = LocalIsDarkTheme.current,
     cornerRadius: Dp = 20.dp,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val glassColor  = if (isDark) Color(0x26FFFFFF) else Color(0x40FFFFFF)
-    val borderColor = if (isDark) Color(0x33FFFFFF) else Color(0x66FFFFFF)
-    val shadowColor = if (isDark) Color(0x40000000) else Color(0x22000000)
+    // Elegant translucent glass colors with reduced transparency for outstanding readability
+    val glassColor  = if (isDark) Color(0xCC1E222B) else Color(0xDDE0E5EC)
+    val borderColor = if (isDark) Color(0x26FFFFFF) else Color(0x1F000000)
+    val shadowColor = if (isDark) Color(0x40000000) else Color(0x11000000)
 
     Box(
         modifier = modifier

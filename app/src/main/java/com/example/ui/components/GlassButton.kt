@@ -22,23 +22,26 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
+import com.example.ui.theme.LocalIsDarkTheme
+
 @Composable
 fun GlassButton(
     label: String,
     icon: ImageVector,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    isDark: Boolean = isSystemInDarkTheme(),
+    isDark: Boolean = LocalIsDarkTheme.current,
     accentColor: Color = Color(0xFF6C63FF)
 ) {
-    val glassColor  = if (isDark) Color(0x33FFFFFF) else Color(0x55FFFFFF)
-    val borderColor = if (isDark) Color(0x44FFFFFF) else Color(0x88FFFFFF)
+    // Elegant translucent glass colors with reduced transparency for outstanding readability
+    val glassColor  = if (isDark) Color(0xCC2E333F) else Color(0xDDE0E5EC)
+    val borderColor = if (isDark) Color(0x26FFFFFF) else Color(0x1F000000)
     var pressed by remember { mutableStateOf(false) }
 
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(if (pressed) glassColor.copy(alpha = 0.15f) else glassColor)
+            .background(if (pressed) glassColor.copy(alpha = 0.6f) else glassColor)
             .border(1.dp, borderColor, RoundedCornerShape(20.dp))
             .pointerInput(Unit) {
                 detectTapGestures(

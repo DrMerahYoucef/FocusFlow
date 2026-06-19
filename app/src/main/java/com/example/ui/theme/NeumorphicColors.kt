@@ -12,8 +12,9 @@ object NeumorphicColors {
     val PrimaryLightVal     = Color(0xFF6C63FF)   // violet accent
     val PrimaryLightLight   = Color(0xFF9B94FF)
     val AccentLight         = Color(0xFFFF6584)   // coral
-    val TextPrimaryLight    = Color(0xFF2D3142)
-    val TextSecondaryLight  = Color(0xFF8A94A6)
+    val TextPrimaryLight    = Color(0xFF1B1E2B) // High contrast deep charcoal
+    val TextSecondaryLight  = Color(0xFF525D73) // High contrast slate gray
+
     val SuccessLight        = Color(0xFF4CAF82)
     val WarningLight        = Color(0xFFFFB347)
 
@@ -24,8 +25,8 @@ object NeumorphicColors {
     val PrimaryDarkVal      = Color(0xFF8B84FF)   // soft glowing violet
     val PrimaryLightDark    = Color(0xFFA59FFF)
     val AccentDark          = Color(0xFFFF829C)   // soft glowing coral
-    val TextPrimaryDark     = Color(0xFFECF0F3)   // light gray text
-    val TextSecondaryDark   = Color(0xFF9EA4B0)   // medium muted gray text
+    val TextPrimaryDark     = Color(0xFFFFFFFF)   // Pure white for highest legibility
+    val TextSecondaryDark   = Color(0xFFCCD2DE)   // Clean bright silver-gray text
     val SuccessDark         = Color(0xFF5CCB96)
     val WarningDark         = Color(0xFFFFC069)
 
