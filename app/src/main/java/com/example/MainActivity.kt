@@ -37,12 +37,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel<com.example.ui.screen.settings.SettingsViewModel>()
             val state by settingsViewModel.state.collectAsState()
-            val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
-            val darkTheme = when (state.themeMode) {
-                "light" -> false
-                "dark" -> true
-                else -> isSystemDark
-            }
+            val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+            val darkTheme = hour !in 6..17
 
             MyApplicationTheme(darkTheme = darkTheme) {
                 AppNavGraph(settingsViewModel = settingsViewModel)

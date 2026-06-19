@@ -45,14 +45,8 @@ class FocusOverlayActivity : ComponentActivity() {
             e.printStackTrace()
         }
 
-        val sharedPrefs = getSharedPreferences("focusflow_prefs", MODE_PRIVATE)
-        val themeMode = sharedPrefs.getString("theme_mode", "system") ?: "system"
-        val isSystemDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-        val darkTheme = when (themeMode) {
-            "light" -> false
-            "dark" -> true
-            else -> isSystemDark
-        }
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        val darkTheme = hour !in 6..17
 
         setContent {
             MyApplicationTheme(darkTheme = darkTheme) {

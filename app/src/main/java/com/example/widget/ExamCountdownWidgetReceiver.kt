@@ -53,14 +53,8 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
         CoroutineScope(Dispatchers.IO).launch {
             val nextExam = examDao.getNextExam(todayCalendar.timeInMillis)
 
-            val prefs = context.getSharedPreferences("focusflow_prefs", Context.MODE_PRIVATE)
-            val themeMode = prefs.getString("theme_mode", "system") ?: "system"
-            val isSystemDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-            val isDark = when (themeMode) {
-                "light" -> false
-                "dark" -> true
-                else -> isSystemDark
-            }
+            val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+            val isDark = hour !in 6..17
 
             for (widgetId in appWidgetIds) {
                 val views = RemoteViews(context.packageName, R.layout.widget_countdown_layout)

@@ -5,6 +5,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -15,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -124,13 +127,16 @@ fun NeumorphicProgressArc(
     remainingText: String,
     modifier: Modifier = Modifier
 ) {
+    val isDark = LocalIsDarkTheme.current
     val arcColor = when (phase) {
-        Phase.FOCUS -> NeumorphicColors.Primary
-        Phase.SHORT_BREAK -> NeumorphicColors.Success
-        Phase.LONG_BREAK -> NeumorphicColors.Accent
+        Phase.FOCUS -> Color(0xFF9482FF) // Lavender violet from screenshot!
+        Phase.SHORT_BREAK -> if (isDark) Color(0xFF8BCA9A) else Color(0xFF286542)
+        Phase.LONG_BREAK -> if (isDark) Color(0xFFFF829C) else Color(0xFFE71D36)
     }
 
-    val trackColor = NeumorphicColors.SurfaceDark
+    val glassColor  = if (isDark) Color(0x19FFFFFF) else Color(0x26FFFFFF)
+    val borderColor = if (isDark) Color(0x26FFFFFF) else Color(0x4DFFFFFF)
+    val shadowColor = Color(0x22000000)
 
     val animatedProgress by animateFloatAsState(
         targetValue = progress.coerceIn(0f, 1f),
@@ -140,31 +146,28 @@ fun NeumorphicProgressArc(
     Box(
         modifier = modifier
             .size(240.dp)
-            .neumorphicShadow(cornerRadius = 120.dp, elevation = 8.dp),
+            .shadow(12.dp, CircleShape, clip = false, ambientColor = shadowColor, spotColor = shadowColor)
+            .clip(CircleShape)
+            .background(glassColor)
+            .border(1.dp, borderColor, CircleShape),
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize().padding(14.dp)) {
-            // Outer ring track (Background)
+            // Outer ring track (Background, thin & semi-transparent white)
             drawArc(
-                color = trackColor.copy(alpha = 0.25f),
+                color = Color.White.copy(alpha = 0.1f),
                 startAngle = -90f,
                 sweepAngle = 360f,
                 useCenter = false,
-                style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
+                style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round)
             )
-            // Active progress arc
+            // Active progress arc (Lavender with glowing cap)
             drawArc(
-                brush = Brush.sweepGradient(
-                    listOf(
-                        arcColor,
-                        arcColor.copy(alpha = 0.6f),
-                        arcColor
-                    )
-                ),
+                color = arcColor,
                 startAngle = -90f,
                 sweepAngle = 360f * animatedProgress,
                 useCenter = false,
-                style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
+                style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round)
             )
         }
 
@@ -176,15 +179,17 @@ fun NeumorphicProgressArc(
                 text = remainingText,
                 style = MaterialTheme.typography.displayMedium,
                 fontWeight = FontWeight.Black,
-                color = NeumorphicColors.TextPrimary,
-                fontSize = 42.sp
+                color = if (isDark) Color.White else Color(0xFF1B3D2A), // Soft dark forest green in day, crisp white in night
+                fontSize = 42.sp,
+                letterSpacing = (-1).sp
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = phase.label,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold,
-                color = NeumorphicColors.TextSecondary
+                color = if (isDark) Color.White.copy(alpha = 0.6f) else Color(0xFF1B3D2A).copy(alpha = 0.7f),
+                letterSpacing = 0.5.sp
             )
         }
     }
