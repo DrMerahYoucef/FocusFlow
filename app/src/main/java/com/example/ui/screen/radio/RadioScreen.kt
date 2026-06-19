@@ -774,20 +774,45 @@ fun DiscoverPanel(
                     }
                 }
             } else if (searchError != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(searchError ?: "Error occurred", color = Color.Red.copy(alpha = 0.7f), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        NeumorphicButton(
-                            label = "Retry",
-                            icon = Icons.Default.Refresh,
-                            onClick = { viewModel.searchGlobalStations(searchQuery) }
-                        )
+                Column(modifier = Modifier.fillMaxSize()) {
+                    com.example.ui.components.GlassCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 8.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(
+                                text = searchError ?: "An issue occurred.",
+                                color = NeumorphicColors.TextPrimary,
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center
+                            )
+                            NeumorphicButton(
+                                label = "Retry Discovery",
+                                icon = Icons.Default.Refresh,
+                                onClick = { viewModel.searchGlobalStations(searchQuery) }
+                            )
+                        }
+                    }
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 120.dp)
+                    ) {
+                        items(searchResults, key = { it.id }) { station ->
+                            val isPlayingCurrent = currentStation?.id == station.id && isPlaying
+                            val isFav = station.id in favoriteIds
+                            DiscoverStationItem(
+                                station = station,
+                                isFavourite = isFav,
+                                isPlaying = isPlayingCurrent,
+                                onPlay = { viewModel.selectStation(station, context) },
+                                onFavourite = { onToggleFavourite(station) }
+                            )
+                        }
                     }
                 }
             } else if (searchResults.isEmpty()) {
@@ -844,20 +869,45 @@ fun DiscoverPanel(
                     }
                 }
             } else if (trendingError != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(trendingError ?: "Error occurred", color = Color.Red.copy(alpha = 0.7f), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        NeumorphicButton(
-                            label = "Retry",
-                            icon = Icons.Default.Refresh,
-                            onClick = { viewModel.loadTrendingStations() }
-                        )
+                Column(modifier = Modifier.fillMaxSize()) {
+                    com.example.ui.components.GlassCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 8.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(
+                                text = trendingError ?: "An issue occurred.",
+                                color = NeumorphicColors.TextPrimary,
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center
+                            )
+                            NeumorphicButton(
+                                label = "Retry Trending",
+                                icon = Icons.Default.Refresh,
+                                onClick = { viewModel.loadTrendingStations() }
+                            )
+                        }
+                    }
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 120.dp)
+                    ) {
+                        items(trendingStations, key = { it.id }) { station ->
+                            val isPlayingCurrent = currentStation?.id == station.id && isPlaying
+                            val isFav = station.id in favoriteIds
+                            DiscoverStationItem(
+                                station = station,
+                                isFavourite = isFav,
+                                isPlaying = isPlayingCurrent,
+                                onPlay = { viewModel.selectStation(station, context) },
+                                onFavourite = { onToggleFavourite(station) }
+                            )
+                        }
                     }
                 }
             } else {

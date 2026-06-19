@@ -222,14 +222,29 @@ fun ForestBackground(
                     center = moonCenter
                 )
             } else {
-                // Day Sun glow & warm sun beams
+                // Day Sun glow & warm sun beams (Make the sun highly visible)
                 val sunCenter = Offset(W * 0.5f, H * 0.05f)
+                // 1. Broad soft ambient sun glow
                 drawCircle(
                     brush = Brush.radialGradient(
-                        colors = listOf(Color(0x3DFFEFA8), Color.Transparent),
+                        colors = listOf(Color(0x66FFEFA8), Color.Transparent),
                         center = sunCenter, radius = W * 0.55f
                     ),
                     radius = W * 0.55f, center = sunCenter
+                )
+                // 2. Strong inner sun glow / halo
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color(0xB3FFF099), Color.Transparent),
+                        center = sunCenter, radius = W * 0.16f
+                    ),
+                    radius = W * 0.16f, center = sunCenter
+                )
+                // 3. Dense glowing visual sun center core (Brilliant white-yellow)
+                drawCircle(
+                    color = Color(0xFFFFFCEB),
+                    radius = W * 0.065f,
+                    center = sunCenter
                 )
                 drawSunRays(W, H, sunCenter)
             }

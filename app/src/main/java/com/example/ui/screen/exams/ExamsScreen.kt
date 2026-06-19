@@ -253,7 +253,7 @@ fun ExamsScreen(
 
         AlertDialog(
             onDismissRequest = { isDialogOpen = false },
-            containerColor = NeumorphicColors.Background, // Dynamic to theme
+            containerColor = NeumorphicColors.DialogBackground, // Dynamic to theme
             shape = RoundedCornerShape(20.dp),
             title = {
                 Text(

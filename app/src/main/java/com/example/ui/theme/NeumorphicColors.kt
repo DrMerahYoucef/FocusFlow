@@ -35,6 +35,10 @@ object NeumorphicColors {
         @Composable
         get() = Color.Transparent
 
+    val DialogBackground: Color
+        @Composable
+        get() = if (LocalIsDarkTheme.current) BackgroundDark else BackgroundLight
+
     val SurfaceLight: Color
         @Composable
         get() = if (LocalIsDarkTheme.current) SurfaceLightDark else SurfaceLightLight

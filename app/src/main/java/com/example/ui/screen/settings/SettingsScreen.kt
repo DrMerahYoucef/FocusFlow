@@ -556,11 +556,11 @@ fun SettingsScreen(
 
     // Reset Confirmation Dialog dialog
     if (isResetConfirmOpen) {
-        val dialogContext = LocalContext.current
-        AlertDialog(
-            onDismissRequest = { isResetConfirmOpen = false },
-            containerColor = NeumorphicColors.Background,
-            title = {
+         val dialogContext = LocalContext.current
+         AlertDialog(
+             onDismissRequest = { isResetConfirmOpen = false },
+             containerColor = NeumorphicColors.DialogBackground,
+             title = {
                 Text(
                     text = "Confirm Hard Reset",
                     fontWeight = FontWeight.Black,

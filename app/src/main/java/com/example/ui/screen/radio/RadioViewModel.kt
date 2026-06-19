@@ -394,11 +394,73 @@ class RadioViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
             } catch (e: Exception) {
-                _searchError.value = "Failed to load search results: ${e.localizedMessage ?: "Network error"}"
+                val exceptionMsg = e.localizedMessage ?: ""
+                val friendlyError = if (exceptionMsg.contains("503") || exceptionMsg.contains("Server Error") || exceptionMsg.contains("HTTP") || exceptionMsg.contains("unable") || exceptionMsg.contains("connect")) {
+                    "The study radio directory is temporarily under heavy load (HTTP 503). ☕ Please enjoy these top fallback channels, or search again shortly!"
+                } else {
+                    "Unable to connect to the global radio directory. Please verify your connection or try our favorite study channels below!"
+                }
+                _searchError.value = friendlyError
+                _globalSearchResults.value = getFallbackPlaceholderStations()
             } finally {
                 _isDiscoverSearching.value = false
             }
         }
+    }
+
+    private fun getFallbackPlaceholderStations(): List<RadioStation> {
+        return listOf(
+            RadioStation(
+                id = "lofi_hiphop_fb",
+                name = "★ Lo-Fi Hip Hop (Focus)",
+                country = "🌍 Global",
+                categoryId = "",
+                streamUrl = "https://streams.ilovemusic.de/iloveradio17.mp3",
+                logoUrl = "",
+                description = "Chill beats to study and relax to",
+                isCustom = false
+            ),
+            RadioStation(
+                id = "study_classical_fb",
+                name = "★ Classical Focus (Baroque)",
+                country = "🌍 Global",
+                categoryId = "",
+                streamUrl = "https://live.musopen.org:8085/streamvbr0",
+                logoUrl = "",
+                description = "Deep baroque classics for supreme concentration",
+                isCustom = false
+            ),
+            RadioStation(
+                id = "cafe_jazz_fb",
+                name = "★ Jazz Café (Cozy Study)",
+                country = "🌍 Global",
+                categoryId = "",
+                streamUrl = "https://streams.ilovemusic.de/iloveradio29.mp3",
+                logoUrl = "",
+                description = "Cozy acoustic jazz to help you keep in flow",
+                isCustom = false
+            ),
+            RadioStation(
+                id = "ambient_space_fb",
+                name = "★ Ambient Space (Calm Zone)",
+                country = "🌍 Global",
+                categoryId = "",
+                streamUrl = "https://ice1.somafm.com/deepspaceone-128-mp3",
+                logoUrl = "",
+                description = "Deep ambient soundscape for study endurance",
+                isCustom = false
+            ),
+            RadioStation(
+                id = "brown_noise_fb",
+                name = "★ Brown Noise (Focus Mask)",
+                country = "🌍 Global",
+                categoryId = "",
+                streamUrl = "https://ice1.somafm.com/darkzone-128-mp3",
+                logoUrl = "",
+                description = "Mask distractions with rich dark frequency noise",
+                isCustom = false
+            )
+        )
     }
 
     fun loadTrendingStations() {
@@ -422,7 +484,14 @@ class RadioViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
             } catch (e: Exception) {
-                _trendingError.value = "Failed to load trending stations: ${e.localizedMessage ?: "Network error"}"
+                val exceptionMsg = e.localizedMessage ?: ""
+                val friendlyError = if (exceptionMsg.contains("503") || exceptionMsg.contains("Server Error") || exceptionMsg.contains("HTTP") || exceptionMsg.contains("unable") || exceptionMsg.contains("connect")) {
+                    "The community radio directory is currently taking a short breather (HTTP 503). ☕ Enjoy our hand-picked study channels below!"
+                } else {
+                    "Unable to reach the global trending streams right now. But we've loaded some classic study channels for you below!"
+                }
+                _trendingError.value = friendlyError
+                _globalTrendingStations.value = getFallbackPlaceholderStations()
             } finally {
                 _isDiscoverTrendingLoading.value = false
             }
