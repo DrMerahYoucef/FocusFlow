@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.NeumorphicCard
 import com.example.ui.theme.NeumorphicColors
+import com.example.ui.theme.LocalAppThemeColors
 
 @Composable
 fun AnalyticsScreen(
@@ -39,11 +40,12 @@ fun AnalyticsScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val scrollState = rememberScrollState()
+    val themeColors = LocalAppThemeColors.current
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(NeumorphicColors.Background)
+            .background(Color.Transparent)
             .verticalScroll(scrollState)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -54,7 +56,7 @@ fun AnalyticsScreen(
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Black,
             letterSpacing = 4.sp,
-            color = NeumorphicColors.TextPrimary,
+            color = themeColors.onSurface,
             modifier = Modifier.padding(top = 16.dp, bottom = 24.dp)
         )
 
@@ -67,7 +69,7 @@ fun AnalyticsScreen(
                 title = "Total Focus",
                 value = formatMinutes(state.totalFocusMinutes),
                 icon = Icons.Default.Timer,
-                iconColor = NeumorphicColors.Primary,
+                iconColor = themeColors.accent,
                 modifier = Modifier.weight(1f)
             )
             StatCard(
@@ -118,12 +120,12 @@ fun AnalyticsScreen(
                     text = "Weekly Focus Points",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = NeumorphicColors.TextPrimary
+                    color = themeColors.onSurface
                 )
                 Text(
                     text = "1 point earned per focused minute completed",
                     style = MaterialTheme.typography.bodySmall,
-                    color = NeumorphicColors.TextSecondary
+                    color = themeColors.secondaryText
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -143,14 +145,14 @@ fun AnalyticsScreen(
                             Icon(
                                 imageVector = Icons.Default.Analytics,
                                 contentDescription = null,
-                                tint = NeumorphicColors.SurfaceDark.copy(alpha = 0.5f),
+                                tint = themeColors.secondaryText.copy(alpha = 0.5f),
                                 modifier = Modifier.size(36.dp)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "No score data yet. Start focus sessions!",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = NeumorphicColors.TextSecondary,
+                                color = themeColors.secondaryText,
                                 textAlign = TextAlign.Center
                             )
                         }
@@ -185,7 +187,7 @@ fun AnalyticsScreen(
                                         text = "$score",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 11.sp,
-                                        color = NeumorphicColors.TextPrimary
+                                        color = themeColors.onSurface
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                 }
@@ -199,8 +201,8 @@ fun AnalyticsScreen(
                                         .background(
                                             Brush.verticalGradient(
                                                 listOf(
-                                                    NeumorphicColors.Primary,
-                                                    NeumorphicColors.PrimaryLight
+                                                    themeColors.accent,
+                                                    themeColors.accent.copy(alpha = 0.6f)
                                                 )
                                             )
                                         )
@@ -213,7 +215,7 @@ fun AnalyticsScreen(
                                     text = dayLabel,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = NeumorphicColors.TextSecondary
+                                    color = themeColors.secondaryText
                                 )
                             }
                         }
@@ -240,7 +242,7 @@ fun AnalyticsScreen(
                 Icon(
                     imageVector = Icons.Default.Info,
                     contentDescription = null,
-                    tint = NeumorphicColors.Primary,
+                    tint = themeColors.accent,
                     modifier = Modifier.size(24.dp)
                 )
                 Column(modifier = Modifier.weight(1f)) {
@@ -248,12 +250,12 @@ fun AnalyticsScreen(
                         text = "Build a streak",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = NeumorphicColors.TextPrimary
+                        color = themeColors.onSurface
                     )
                     Text(
                         text = "Complete at least one focused session daily to grow your productivity streak counts.",
                         fontSize = 11.sp,
-                        color = NeumorphicColors.TextSecondary
+                        color = themeColors.secondaryText
                     )
                 }
             }
@@ -271,6 +273,7 @@ fun StatCard(
     iconColor: Color,
     modifier: Modifier = Modifier
 ) {
+    val themeColors = LocalAppThemeColors.current
     NeumorphicCard(
         modifier = modifier,
         cornerRadius = 16.dp,
@@ -293,14 +296,14 @@ fun StatCard(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.labelSmall,
-                    color = NeumorphicColors.TextSecondary,
+                    color = themeColors.secondaryText,
                     fontWeight = FontWeight.Bold
                 )
             }
             Text(
                 text = value,
                 fontSize = 20.sp,
-                color = NeumorphicColors.TextPrimary,
+                color = themeColors.onSurface,
                 fontWeight = FontWeight.Black
             )
         }

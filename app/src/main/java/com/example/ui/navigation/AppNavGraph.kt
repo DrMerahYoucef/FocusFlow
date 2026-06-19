@@ -129,9 +129,10 @@ fun NeumorphicBottomNavigation(
     val currentRoute = navBackStackEntry?.destination?.route
     val isDark = com.example.ui.theme.LocalIsDarkTheme.current
 
-    val glassColor  = if (isDark) Color(0xCC1E222B) else Color(0xDDE0E5EC)
-    val borderColor = if (isDark) Color(0x26FFFFFF) else Color(0x1F000000)
-    val shadowColor = if (isDark) Color(0x40000000) else Color(0x22000000)
+    val themeColors = com.example.ui.theme.LocalAppThemeColors.current
+    val isDark = com.example.ui.theme.LocalIsDarkTheme.current
+
+    val shadowColor = if (isDark) Color(0x40000000) else Color(0x1F000000)
 
     Row(
         modifier = Modifier
@@ -146,8 +147,8 @@ fun NeumorphicBottomNavigation(
                 spotColor = shadowColor
             )
             .clip(RoundedCornerShape(24.dp))
-            .background(glassColor)
-            .border(1.dp, borderColor, RoundedCornerShape(24.dp))
+            .background(themeColors.surface)
+            .border(1.dp, themeColors.divider, RoundedCornerShape(24.dp))
             .padding(8.dp),
         horizontalArrangement = Arrangement.SpaceAround,
         verticalAlignment = Alignment.CenterVertically
@@ -155,12 +156,12 @@ fun NeumorphicBottomNavigation(
         items.forEach { screen ->
             val isSelected = currentRoute == screen.route
             val itemBackground = if (isSelected) {
-                if (isDark) Color(0x33FFFFFF) else Color(0x4DFFFFFF)
+                themeColors.accent.copy(alpha = 0.15f)
             } else {
                 Color.Transparent
             }
             val itemBorder = if (isSelected) {
-                if (isDark) Color(0x4DFFFFFF) else Color(0x80FFFFFF)
+                themeColors.accent.copy(alpha = 0.3f)
             } else {
                 Color.Transparent
             }
@@ -193,7 +194,7 @@ fun NeumorphicBottomNavigation(
                     Icon(
                         imageVector = screen.icon,
                         contentDescription = screen.title,
-                        tint = if (isSelected) NeumorphicColors.Primary else NeumorphicColors.TextSecondary,
+                        tint = if (isSelected) themeColors.accent else themeColors.secondaryText,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.height(2.dp))
@@ -201,7 +202,7 @@ fun NeumorphicBottomNavigation(
                         text = screen.title,
                         fontSize = 11.sp,
                         fontWeight = if (isSelected) FontWeight.Black else FontWeight.Normal,
-                        color = if (isSelected) NeumorphicColors.TextPrimary else NeumorphicColors.TextSecondary
+                        color = if (isSelected) themeColors.accent else themeColors.secondaryText
                     )
                 }
             }

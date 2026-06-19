@@ -33,9 +33,9 @@ fun GlassButton(
     isDark: Boolean = LocalIsDarkTheme.current,
     accentColor: Color = Color(0xFF6C63FF)
 ) {
-    // Elegant translucent glass colors with reduced transparency for outstanding readability
-    val glassColor  = if (isDark) Color(0xCC2E333F) else Color(0xDDE0E5EC)
-    val borderColor = if (isDark) Color(0x26FFFFFF) else Color(0x1F000000)
+    val themeColors = com.example.ui.theme.LocalAppThemeColors.current
+    val glassColor  = themeColors.surface
+    val borderColor = themeColors.divider
     var pressed by remember { mutableStateOf(false) }
 
     Box(
@@ -59,7 +59,7 @@ fun GlassButton(
             Icon(imageVector = icon, contentDescription = label, tint = accentColor)
             Text(
                 text  = label,
-                color = if (isDark) Color.White else Color(0xFF1A2E1F),
+                color = themeColors.onSurface,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold
             )

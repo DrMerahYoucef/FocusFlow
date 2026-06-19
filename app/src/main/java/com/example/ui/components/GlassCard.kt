@@ -24,9 +24,9 @@ fun GlassCard(
     cornerRadius: Dp = 20.dp,
     content: @Composable BoxScope.() -> Unit
 ) {
-    // Elegant translucent glass colors with reduced transparency for outstanding readability
-    val glassColor  = if (isDark) Color(0xCC1E222B) else Color(0xDDE0E5EC)
-    val borderColor = if (isDark) Color(0x26FFFFFF) else Color(0x1F000000)
+    val themeColors = com.example.ui.theme.LocalAppThemeColors.current
+    val glassColor  = themeColors.surface
+    val borderColor = themeColors.divider
     val shadowColor = if (isDark) Color(0x40000000) else Color(0x11000000)
 
     Box(

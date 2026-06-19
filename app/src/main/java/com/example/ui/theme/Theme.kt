@@ -15,6 +15,28 @@ import androidx.compose.ui.platform.LocalContext
 
 val LocalIsDarkTheme = staticCompositionLocalOf { false }
 
+data class AppThemeColors(
+    val surface: Color,         // cards, bottom nav, buttons
+    val onSurface: Color,       // primary text
+    val secondaryText: Color,   // subtitles, labels
+    val accent: Color,          // active tab, toggles, icons
+    val inputBackground: Color, // search/filter fields
+    val divider: Color,
+    val iconTint: Color
+)
+
+val LocalAppThemeColors = staticCompositionLocalOf {
+    AppThemeColors(
+        surface = Color(0xFF1C2128).copy(alpha = 0.82f),
+        onSurface = Color(0xFFE6EDF3),
+        secondaryText = Color(0xFF8B949E),
+        accent = Color(0xFF7C6AF7),
+        inputBackground = Color(0xFF0D1117).copy(alpha = 0.75f),
+        divider = Color(0xFF30363D),
+        iconTint = Color(0xFFCDD9E5)
+    )
+}
+
 private val DarkColorScheme =
   darkColorScheme(
     primary = Color(0xFF8B84FF),      // Primary

@@ -72,6 +72,8 @@ fun TimerScreen(
         hasDndPermission = nm.isNotificationPolicyAccessGranted
     }
 
+    val themeColors = com.example.ui.theme.LocalAppThemeColors.current
+
     Box(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -90,12 +92,12 @@ fun TimerScreen(
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 4.sp,
-                    color = NeumorphicColors.TextPrimary
+                    color = themeColors.onSurface
                 )
                 Text(
                     text = "Streamlined tactile productivity",
                     style = MaterialTheme.typography.labelSmall,
-                    color = NeumorphicColors.TextSecondary,
+                    color = themeColors.secondaryText,
                     letterSpacing = 1.sp
                 )
             }
@@ -119,7 +121,7 @@ fun TimerScreen(
             ) {
                 Text(
                     text = "Completed: ${state.sessionCount} sessions",
-                    color = NeumorphicColors.TextPrimary,
+                    color = themeColors.secondaryText,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp
                 )
@@ -138,9 +140,9 @@ fun TimerScreen(
                     for (i in 0 until sessionsTarget) {
                         val isActive = i < currentCompletedMod
                         val dotColor = if (isActive) {
-                            NeumorphicColors.Primary
+                            themeColors.accent
                         } else {
-                            NeumorphicColors.SurfaceDark.copy(alpha = 0.5f)
+                            themeColors.divider
                         }
                         Box(
                             modifier = Modifier
@@ -165,7 +167,7 @@ fun TimerScreen(
                         label = "Start",
                         icon = Icons.Default.PlayArrow,
                         onClick = { viewModel.startTimer() },
-                        accentColor = NeumorphicColors.Primary
+                        accentColor = themeColors.accent
                     )
                 } else {
                     // Pause Button
@@ -182,7 +184,7 @@ fun TimerScreen(
                     label = "Skip",
                     icon = Icons.Default.SkipNext,
                     onClick = { viewModel.skipPhase() },
-                    accentColor = NeumorphicColors.Accent
+                    accentColor = themeColors.accent
                 )
             }
 
@@ -214,7 +216,7 @@ fun TimerScreen(
                         ) {
                             Text(
                                 text = dndActiveText,
-                                color = if (!hasDndPermission) NeumorphicColors.Accent else NeumorphicColors.TextSecondary,
+                                color = if (!hasDndPermission) themeColors.accent else themeColors.secondaryText,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 12.sp,
                                 textAlign = TextAlign.Center,
