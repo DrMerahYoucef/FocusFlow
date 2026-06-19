@@ -56,7 +56,10 @@ class FocusOverlayActivity : ComponentActivity() {
             MyApplicationTheme(darkTheme = darkTheme) {
                 FocusOverlayScreen(
                     appName = appName,
-                    onDismiss = { finish() },
+                    onDismiss = {
+                        sendBroadcast(Intent("com.focusflow.RESET_BLOCKER_STATE"))
+                        finish()
+                    },
                     onGoBack = {
                         startActivity(Intent(Intent.ACTION_MAIN).apply {
                             addCategory(Intent.CATEGORY_HOME)
