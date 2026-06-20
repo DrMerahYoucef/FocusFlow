@@ -21,7 +21,13 @@ class RadioPlayerService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
 
-        val player = ExoPlayer.Builder(this)
+        val attributionContext = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            createAttributionContext("media")
+        } else {
+            this
+        }
+
+        val player = ExoPlayer.Builder(attributionContext)
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)

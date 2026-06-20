@@ -124,15 +124,15 @@ fun ForestBackground(
 
     // ── Animated color crossfade (3 seconds on transition) ──────────
     val skyTop by animateColorAsState(
-        targetValue = if (isDay) Color(0xFF90DBE1) else Color(0xFF030A0E),
+        targetValue = if (isDay) Color(0xFF90DBE1) else Color(0xFF0E1A29), // Lighter deep night indigo, moon compatible
         animationSpec = tween(3000), label = "skyTop"
     )
     val skyBottom by animateColorAsState(
-        targetValue = if (isDay) Color(0xFFE2F8F4) else Color(0xFF0D1E24),
+        targetValue = if (isDay) Color(0xFFE2F8F4) else Color(0xFF1C344A), // Soft blue-grey twilight
         animationSpec = tween(3000), label = "skyBottom"
     )
     val fogColor by animateColorAsState(
-        targetValue = if (isDay) Color(0xFFE5FBF6) else Color(0xFF1F353A),
+        targetValue = if (isDay) Color(0xFFE5FBF6) else Color(0xFF28485C), // Moonlit soft misty teal/blue
         animationSpec = tween(3000), label = "fog"
     )
 

@@ -282,8 +282,8 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                 size = Size(W, H)
             ) {
                 // Background sky color
-                val skyTop = if (isDay) Color(0xFF90DBE1) else Color(0xFF030A0E)
-                val skyBottom = if (isDay) Color(0xFFE2F8F4) else Color(0xFF0D1E24)
+                val skyTop = if (isDay) Color(0xFF90DBE1) else Color(0xFF0E1A29)
+                val skyBottom = if (isDay) Color(0xFFE2F8F4) else Color(0xFF1C344A)
                 drawRect(
                     brush = Brush.verticalGradient(
                         colors = listOf(skyTop, skyBottom),

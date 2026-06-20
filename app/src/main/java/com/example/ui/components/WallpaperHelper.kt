@@ -26,7 +26,12 @@ object WallpaperHelper {
         onComplete: (Boolean, String?) -> Unit
     ) {
         val app = context.applicationContext
-        val wallpaperManager = WallpaperManager.getInstance(app)
+        val attributionContext = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            app.createAttributionContext("default")
+        } else {
+            app
+        }
+        val wallpaperManager = WallpaperManager.getInstance(attributionContext)
 
         if (!setHomeScreen && !setLockScreen) {
             onComplete(false, "No flag selected")
@@ -49,8 +54,8 @@ object WallpaperHelper {
                 size = Size(W, H)
             ) {
                 // Background sky
-                val skyTop = if (isDay) Color(0xFF90DBE1) else Color(0xFF030A0E)
-                val skyBottom = if (isDay) Color(0xFFE2F8F4) else Color(0xFF0D1E24)
+                val skyTop = if (isDay) Color(0xFF90DBE1) else Color(0xFF0E1A29)
+                val skyBottom = if (isDay) Color(0xFFE2F8F4) else Color(0xFF1C344A)
                 drawRect(
                     brush = Brush.verticalGradient(
                         colors = listOf(skyTop, skyBottom),
@@ -263,7 +268,7 @@ object WallpaperHelper {
                     }
 
                     // Fog
-                    val fogColor = if (isDay) Color(0xFFE5FBF6) else Color(0xFF1F353A)
+                    val fogColor = if (isDay) Color(0xFFE5FBF6) else Color(0xFF28485C)
                     val fogY = H * (1f - yFraction) - H * 0.02f
                     val fogAlpha = when (layerIdx) {
                         0 -> 0.16f
