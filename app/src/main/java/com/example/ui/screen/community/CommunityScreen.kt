@@ -36,6 +36,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.ui.components.GlassButton
 import com.example.ui.components.GlassCard
+import com.example.ui.screen.radio.PlayingWaveIndicator
 import com.example.ui.theme.LocalAppThemeColors
 import kotlin.math.cos
 import kotlin.math.sin
@@ -115,7 +116,16 @@ fun CommunityScreen(
                 )
                 1 -> LeaderboardTab(
                     leaderboard = leaderboard,
-                    currentUid = viewModel.currentUid
+                    currentUid = viewModel.currentUid,
+                    friends = friends,
+                    pendingReqs = pendingReqs,
+                    sentReqs = sentReqs,
+                    onSendRequest = { entry ->
+                        viewModel.sendFriendRequestById(entry.uid, entry.username)
+                    },
+                    onAccept = viewModel::acceptRequest,
+                    onDecline = viewModel::declineRequest,
+                    onCancel = viewModel::cancelRequest
                 )
             }
         }
@@ -277,7 +287,7 @@ fun IslandMapTab(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.padding(16.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -292,29 +302,41 @@ fun IslandMapTab(
                                 Icon(Icons.Default.Close, null, tint = themeColors.onSurface)
                             }
                         }
-                        Text(
-                            text = "🌲 ${friend.treeCount} trees planted",
-                            color = Color(0xFF4CAF82),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-                        if (friend.currentRadio.isNotEmpty()) {
-                            Text(
-                                text = "🎵 Listening to: ${friend.currentRadio}",
-                                color = themeColors.secondaryText,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        } else {
-                            Text(
-                                text = "💤 Idle (not listening to radio)",
-                                color = themeColors.secondaryText,
-                                fontSize = 12.sp
-                            )
+
+                        // Stats Grid (Row of Pillars)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            LeaderboardStatPill("🌲", "${friend.treeCount}", "trees")
+                            LeaderboardStatPill("⏱️", "${friend.totalMinutes}", "min")
+                            LeaderboardStatPill("⭐", "${friend.points}", "pts")
+                            LeaderboardStatPill("🔥", "${friend.currentStreak}", "streak")
                         }
+
+                        // Audio live indicator
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                                .padding(12.dp)
+                        ) {
+                            if (friend.currentRadio.isNotEmpty()) {
+                                PlayingWaveIndicator(color = Color(0xFF6C63FF))
+                                Spacer(Modifier.width(10.dp))
+                                Column {
+                                    Text("Currently Radio Streaming", color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp)
+                                    Text(friend.currentRadio, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                            } else {
+                                Text("💤 Player is currently focus-studying or offline", color = themeColors.secondaryText, fontSize = 11.sp)
+                            }
+                        }
+
                         GlassButton(
                             label = "Remove Friend",
-                            icon = Icons.Default.PersonRemove,
+                            icon = Icons.Default.Delete,
                             onClick = {
                                 onRemove(friend)
                                 selectedFriend = null
@@ -587,55 +609,188 @@ private fun DrawScope.drawIsland(
 
 @Composable
 fun LeaderboardTab(
-    leaderboard: List<LeaderboardEntry>,
-    currentUid: String
+    leaderboard:   List<LeaderboardEntry>,
+    currentUid:    String,
+    friends:       List<UserProfile>,
+    pendingReqs:   List<FriendRequest>,
+    sentReqs:      List<FriendRequest>,
+    onSendRequest: (LeaderboardEntry) -> Unit,
+    onAccept:      (FriendRequest) -> Unit,
+    onDecline:     (FriendRequest) -> Unit,
+    onCancel:      (FriendRequest) -> Unit   // cancel a sent request
 ) {
     val themeColors = LocalAppThemeColors.current
+    var searchQuery by remember { mutableStateOf("") }
 
-    LazyColumn(
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxSize()
-    ) {
-        itemsIndexed(leaderboard) { index, entry ->
-            val isMe = entry.uid == currentUid
-            GlassCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(
-                        if (isMe) Modifier.border(2.dp, themeColors.accent, RoundedCornerShape(20.dp))
-                        else Modifier
-                    )
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = when (index) {
-                            0 -> "🥇"
-                            1 -> "🥈"
-                            2 -> "🥉"
-                            else -> "#${index + 1}"
-                        },
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.width(48.dp)
-                    )
-                    Text(
-                        text = entry.username + if (isMe) " (You)" else "",
-                        color = if (isMe) themeColors.accent else themeColors.onSurface,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 16.sp,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        text = "🌲 ${entry.treeCount}",
-                        color = Color(0xFF4CAF82),
-                        fontWeight = FontWeight.Black,
-                        style = MaterialTheme.typography.titleMedium
-                    )
+    val friendUids  = friends.map { it.uid }.toSet()
+    val sentToUids  = sentReqs.map { it.toUid }.toSet()
+    val pendingFrom = pendingReqs.map { it.fromUid }.toSet()
+
+    val filtered = remember(searchQuery, leaderboard) {
+        if (searchQuery.isBlank()) leaderboard
+        else leaderboard.filter {
+            it.username.contains(searchQuery, ignoreCase = true)
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+
+        // Search bar
+        OutlinedTextField(
+            value       = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text("Search players...", color = themeColors.onSurface.copy(alpha = 0.5f)) },
+            leadingIcon = { Icon(Icons.Default.Search, null, tint = themeColors.onSurface) },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Default.Close, null, tint = themeColors.onSurface)
+                    }
+                }
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor   = Color(0xFF6C63FF),
+                unfocusedBorderColor = themeColors.onSurface.copy(alpha = 0.3f),
+                focusedTextColor     = themeColors.onSurface,
+                unfocusedTextColor   = themeColors.onSurface
+            ),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            shape    = RoundedCornerShape(14.dp)
+        )
+
+        // Pending invitations received — pinned at top
+        if (pendingReqs.isNotEmpty()) {
+            GlassCard(modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("📩 Pending Invitations",
+                        color = themeColors.onSurface, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    pendingReqs.forEach { req ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("From: ${req.fromName}",
+                                color = themeColors.onSurface, modifier = Modifier.weight(1f), fontSize = 13.sp)
+                            GlassButton("✓", Icons.Default.Check,
+                                onClick = { onAccept(req) }, accentColor = Color(0xFF4CAF82),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp))
+                            Spacer(Modifier.width(4.dp))
+                            GlassButton("✕", Icons.Default.Close,
+                                onClick = { onDecline(req) }, accentColor = Color(0xFFFF6584),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp))
+                        }
+                    }
                 }
             }
         }
+
+        // Sent pending invitations — show with cancel option
+        if (sentReqs.isNotEmpty()) {
+            GlassCard(modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("⏳ Sent Invitations",
+                        color = themeColors.onSurface.copy(alpha = 0.7f),
+                        fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    sentReqs.forEach { req ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val displayName = if (req.toName.isNotEmpty()) req.toName else req.fromName
+                            Text("→ $displayName",
+                                color = themeColors.onSurface.copy(alpha = 0.6f),
+                                modifier = Modifier.weight(1f), fontSize = 12.sp)
+                            TextButton(onClick = { onCancel(req) }) {
+                                Text("Cancel", color = Color(0xFFFF6584), fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Full leaderboard list
+        LazyColumn(
+            contentPadding      = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            itemsIndexed(filtered) { index, entry ->
+                val isMe       = entry.uid == currentUid
+                val isFriend   = entry.uid in friendUids
+                val sentTo     = entry.uid in sentToUids
+                val pendingFr  = entry.uid in pendingFrom
+
+                GlassCard(modifier = Modifier.fillMaxWidth()
+                    .then(if (isMe)
+                        Modifier.border(1.5.dp, Color(0xFF6C63FF), RoundedCornerShape(20.dp))
+                    else Modifier)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        // Rank + username row
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = when (index) {
+                                    0 -> "🥇"; 1 -> "🥈"; 2 -> "🥉"
+                                    else -> "#${index + 1}"
+                                },
+                                style    = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.width(42.dp),
+                                color    = themeColors.onSurface
+                            )
+                            Text(
+                                text       = entry.username + if (isMe) " (You)" else "",
+                                color      = if (isMe) Color(0xFF6C63FF) else themeColors.onSurface,
+                                fontWeight = FontWeight.Bold,
+                                modifier   = Modifier.weight(1f)
+                            )
+                            // Friend action button
+                            when {
+                                isMe     -> {} // no button for self
+                                isFriend -> {
+                                    Text("✅ Friends", color = Color(0xFF4CAF82), fontSize = 11.sp)
+                                }
+                                sentTo   -> {
+                                    Text("⏳ Sent", color = themeColors.onSurface.copy(alpha = 0.5f),
+                                        fontSize = 11.sp)
+                                }
+                                pendingFr -> {
+                                    GlassButton("Accept", Icons.Default.PersonAdd,
+                                        onClick = {
+                                            val req = pendingReqs.find { it.fromUid == entry.uid }
+                                            req?.let { onAccept(it) }
+                                        },
+                                        accentColor = Color(0xFF4CAF82),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp))
+                                }
+                                else     -> {
+                                    GlassButton("+ Add", Icons.Default.PersonAdd,
+                                        onClick = { onSendRequest(entry) },
+                                        accentColor = Color(0xFF6C63FF),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp))
+                                }
+                            }
+                        }
+
+                        // Stats row
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            LeaderboardStatPill("🌲", "${entry.treeCount}", "trees")
+                            LeaderboardStatPill("⏱️", "${entry.totalMinutes}", "min")
+                            LeaderboardStatPill("⭐", "${entry.points}", "pts")
+                            LeaderboardStatPill("🔥", "${entry.currentStreak}", "day streak")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LeaderboardStatPill(icon: String, value: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("$icon $value", color = Color(0xFF4CAF82),
+            fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+        Text(label, color = Color.White.copy(alpha = 0.5f), fontSize = 9.sp)
     }
 }

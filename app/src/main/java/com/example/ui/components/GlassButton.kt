@@ -7,6 +7,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -31,7 +32,8 @@ fun GlassButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     isDark: Boolean = LocalIsDarkTheme.current,
-    accentColor: Color = Color(0xFF6C63FF)
+    accentColor: Color = Color(0xFF6C63FF),
+    contentPadding: PaddingValues = PaddingValues(horizontal = 28.dp, vertical = 16.dp)
 ) {
     val themeColors = com.example.ui.theme.LocalAppThemeColors.current
     val glassColor  = themeColors.surface
@@ -49,7 +51,7 @@ fun GlassButton(
                     onTap   = { onClick() }
                 )
             }
-            .padding(horizontal = 28.dp, vertical = 16.dp),
+            .padding(contentPadding),
         contentAlignment = Alignment.Center
     ) {
         Row(

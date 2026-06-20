@@ -101,8 +101,19 @@ class SessionRepository(private val sessionDao: SessionDao) {
 
             // 5. Update user dynamic statistics in user profile document
             val updatedCompletedCount = sessionDao.getCompletedCountImmediate()
-            db.collection("users").document(uid).update("treeCount", updatedCompletedCount)
-            db.collection("leaderboard").document(uid).update("treeCount", updatedCompletedCount)
+            val totalMinutes = sessionDao.getTotalFocusMinutesImmediate()
+            val allCompletedDates = sessionDao.getAllSessionDates()
+            val currentStreak = calculateStreak(allCompletedDates)
+            val points = totalMinutes / 5 // 1 point per 5 focus minutes
+
+            val statsUpdate = mapOf(
+                "treeCount" to updatedCompletedCount,
+                "totalMinutes" to totalMinutes,
+                "points" to points,
+                "currentStreak" to currentStreak
+            )
+            db.collection("users").document(uid).update(statsUpdate).await()
+            db.collection("leaderboard").document(uid).update(statsUpdate).await()
 
             // If local data changed, trigger widget update to update progress screen
             if (localChanged) {
@@ -113,5 +124,28 @@ class SessionRepository(private val sessionDao: SessionDao) {
         } catch (e: Exception) {
             android.util.Log.e("SessionRepository", "Firestore bidirectional statistics sync bypass/fail (offline): ${e.localizedMessage}")
         }
+    }
+
+    private fun calculateStreak(dates: List<Long>): Int {
+        if (dates.isEmpty()) return 0
+        val today = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val dayMs = 86_400_000L
+        val uniqueDays = dates.map { it / dayMs }.toSortedSet().toList().reversed()
+        var streak = 0
+        var expected = today / dayMs
+        for (day in uniqueDays) {
+            if (day == expected || day == expected - 1) {
+                streak++
+                expected = day - 1
+            } else {
+                break
+            }
+        }
+        return streak
     }
 }

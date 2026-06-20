@@ -16,23 +16,30 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 data class UserProfile(
-    val uid: String = "",
-    val username: String = "",
-    val treeCount: Int = 0,
-    val currentRadio: String = "",
-    val friends: List<String> = emptyList()
+    val uid:           String  = "",
+    val username:      String  = "",
+    val treeCount:     Int     = 0,
+    val totalMinutes:  Int     = 0,
+    val points:        Int     = 0,
+    val currentStreak: Int     = 0,
+    val currentRadio:  String  = "",
+    val friends:       List<String> = emptyList()
 )
 
 data class LeaderboardEntry(
-    val uid: String = "",
-    val username: String = "",
-    val treeCount: Int = 0
+    val uid:           String = "",
+    val username:      String = "",
+    val treeCount:     Int    = 0,
+    val totalMinutes:  Int    = 0,
+    val points:        Int    = 0,
+    val currentStreak: Int    = 0
 )
 
 data class FriendRequest(
     val fromUid: String = "",
     val toUid: String = "",
     val fromName: String = "",
+    val toName: String = "",
     val status: String = ""
 )
 
@@ -82,11 +89,32 @@ class CommunityViewModel(
         }
     }.stateIn(viewModelScope, SharingStarted.Lazily, null)
 
-    val leaderboard: StateFlow<List<LeaderboardEntry>> = firestore.collection("leaderboard")
-        .orderBy("treeCount", Query.Direction.DESCENDING)
-        .limit(50)
-        .toFlow(LeaderboardEntry::class.java)
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    val leaderboard: StateFlow<List<LeaderboardEntry>> = callbackFlow {
+        val listener = firestore.collection("users")
+            .orderBy("treeCount", Query.Direction.DESCENDING)
+            .limit(100)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    android.util.Log.e("CommunityViewModel", "Leaderboard users query error", error)
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                if (snapshot != null) {
+                    val list = snapshot.documents.map { doc ->
+                        LeaderboardEntry(
+                            uid           = doc.getString("uid")           ?: "",
+                            username      = doc.getString("username")      ?: "",
+                            treeCount     = (doc.getLong("treeCount")      ?: 0).toInt(),
+                            totalMinutes  = (doc.getLong("totalMinutes")   ?: 0).toInt(),
+                            points        = (doc.getLong("points")         ?: 0).toInt(),
+                            currentStreak = (doc.getLong("currentStreak")  ?: 0).toInt()
+                        )
+                    }
+                    trySend(list)
+                }
+            }
+        awaitClose { listener.remove() }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val friends: StateFlow<List<UserProfile>> = callbackFlow {
@@ -190,6 +218,7 @@ class CommunityViewModel(
                         "fromUid" to currentUid,
                         "toUid" to toUser.uid,
                         "fromName" to myName,
+                        "toName" to toUser.username,
                         "status" to "pending",
                         "createdAt" to FieldValue.serverTimestamp()
                     )).await()
@@ -203,17 +232,41 @@ class CommunityViewModel(
         if (currentUid.isEmpty() || request.fromUid.isEmpty()) return
         viewModelScope.launch {
             try {
+                // Step 1 — Mark request as accepted
                 firestore.collection("friend_requests")
                     .document("${request.fromUid}_$currentUid")
-                    .update("status", "accepted").await()
+                    .update("status", "accepted")
+                    .await()
                 
-                firestore.collection("users").document(currentUid)
-                    .update("friends", FieldValue.arrayUnion(request.fromUid)).await()
+                // Step 2 — Add sender (fromUid) to MY (currentUid) friends list
+                firestore.collection("users")
+                    .document(currentUid)
+                    .update("friends", FieldValue.arrayUnion(request.fromUid))
+                    .await()
                 
-                firestore.collection("users").document(request.fromUid)
-                    .update("friends", FieldValue.arrayUnion(currentUid)).await()
+                // Step 3 — Add ME (currentUid) to SENDER'S (fromUid) friends list
+                firestore.collection("users")
+                    .document(request.fromUid)
+                    .update("friends", FieldValue.arrayUnion(currentUid))
+                    .await()
+
+                // Step 4 — Verify both writes succeeded by reading back
+                val myDoc = firestore.collection("users").document(currentUid).get().await()
+                val senderDoc = firestore.collection("users").document(request.fromUid).get().await()
+                val myFriends = myDoc.get("friends") as? List<*> ?: emptyList<String>()
+                val senderFriends = senderDoc.get("friends") as? List<*> ?: emptyList<String>()
+
+                // If either write failed silently, retry it
+                if (request.fromUid !in myFriends) {
+                    firestore.collection("users").document(currentUid)
+                        .update("friends", FieldValue.arrayUnion(request.fromUid)).await()
+                }
+                if (currentUid !in senderFriends) {
+                    firestore.collection("users").document(request.fromUid)
+                        .update("friends", FieldValue.arrayUnion(currentUid)).await()
+                }
             } catch (e: Exception) {
-                // Handle or log error
+                android.util.Log.e("FocusIsland", "acceptRequest failed: ${e.message}", e)
             }
         }
     }
@@ -224,9 +277,10 @@ class CommunityViewModel(
             try {
                 firestore.collection("friend_requests")
                     .document("${request.fromUid}_$currentUid")
-                    .update("status", "declined").await()
+                    .update("status", "declined")
+                    .await()
             } catch (e: Exception) {
-                // Handle or log error
+                android.util.Log.e("FocusIsland", "declineRequest failed: ${e.message}", e)
             }
         }
     }
@@ -235,13 +289,53 @@ class CommunityViewModel(
         if (currentUid.isEmpty() || friend.uid.isEmpty()) return
         viewModelScope.launch {
             try {
-                firestore.collection("users").document(currentUid)
-                    .update("friends", FieldValue.arrayRemove(friend.uid)).await()
-                
-                firestore.collection("users").document(friend.uid)
-                    .update("friends", FieldValue.arrayRemove(currentUid)).await()
+                val batch = firestore.batch()
+                batch.update(
+                    firestore.collection("users").document(currentUid),
+                    "friends", FieldValue.arrayRemove(friend.uid)
+                )
+                batch.update(
+                    firestore.collection("users").document(friend.uid),
+                    "friends", FieldValue.arrayRemove(currentUid)
+                )
+                batch.commit().await()
             } catch (e: Exception) {
-                // Handle or log error
+                android.util.Log.e("FocusIsland", "removeFriend failed: ${e.message}", e)
+            }
+        }
+    }
+
+    fun cancelRequest(request: FriendRequest) {
+        if (currentUid.isEmpty() || request.toUid.isEmpty()) return
+        viewModelScope.launch {
+            try {
+                firestore.collection("friend_requests")
+                    .document("${currentUid}_${request.toUid}")
+                    .delete()
+                    .await()
+            } catch (e: Exception) {
+                android.util.Log.e("FocusIsland", "cancelRequest failed: ${e.message}", e)
+            }
+        }
+    }
+
+    fun sendFriendRequestById(toUid: String, toUsername: String) {
+        if (currentUid.isEmpty() || toUid.isEmpty()) return
+        viewModelScope.launch {
+            try {
+                val myName = firestore.collection("users").document(currentUid)
+                    .get().await().getString("username") ?: ""
+                firestore.collection("friend_requests")
+                    .document("${currentUid}_${toUid}").set(mapOf(
+                        "fromUid" to currentUid,
+                        "toUid" to toUid,
+                        "fromName" to myName,
+                        "toName" to toUsername,
+                        "status" to "pending",
+                        "createdAt" to FieldValue.serverTimestamp()
+                    )).await()
+            } catch (e: Exception) {
+                android.util.Log.e("FocusIsland", "sendFriendRequestById failed: ${e.message}", e)
             }
         }
     }

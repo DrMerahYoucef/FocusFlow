@@ -32,4 +32,10 @@ interface SessionDao {
 
     @Query("SELECT COUNT(*) FROM sessions WHERE completed = 1")
     suspend fun getCompletedCountImmediate(): Int
+
+    @Query("SELECT COALESCE(SUM(durationSeconds), 0) / 60 FROM sessions WHERE completed = 1")
+    suspend fun getTotalFocusMinutesImmediate(): Int
+
+    @Query("SELECT date FROM sessions WHERE completed = 1 ORDER BY date DESC")
+    suspend fun getAllSessionDates(): List<Long>
 }
