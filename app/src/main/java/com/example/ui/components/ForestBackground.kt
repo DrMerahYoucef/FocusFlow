@@ -54,13 +54,19 @@ class ForestViewModel(application: Application) : AndroidViewModel(application) 
                 .getSessionCount(0L, Long.MAX_VALUE)
                 .collect { count ->
                     _forestState.update { it.copy(treeCount = count) }
+                    checkAndTriggerAutoWallpaper()
                 }
         }
         // Re-check day/night every 60 seconds
         viewModelScope.launch {
             while (true) {
                 delay(60_000L)
-                _forestState.update { it.copy(isDayTime = isDayByClockRule()) }
+                val isDay = isDayByClockRule()
+                val oldState = _forestState.value.isDayTime
+                _forestState.update { it.copy(isDayTime = isDay) }
+                if (oldState != isDay) {
+                    checkAndTriggerAutoWallpaper()
+                }
             }
         }
     }
@@ -68,6 +74,43 @@ class ForestViewModel(application: Application) : AndroidViewModel(application) 
     private fun isDayByClockRule(): Boolean {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         return hour in 6..17  // 06:00–17:59 = Day, 18:00–05:59 = Night
+    }
+
+    fun checkAndTriggerAutoWallpaper() {
+        val app = getApplication<Application>()
+        val sharedPrefs = app.getSharedPreferences("focusflow_prefs", android.content.Context.MODE_PRIVATE)
+        val autoSync = sharedPrefs.getBoolean("auto_sync_wallpaper", false)
+        if (!autoSync) return
+
+        val setHome = sharedPrefs.getBoolean("wallpaper_home_screen", true)
+        val setLock = sharedPrefs.getBoolean("wallpaper_lock_screen", false)
+        val isDay = isDayByClockRule()
+        val count = _forestState.value.treeCount
+
+        val lastDay = if (sharedPrefs.contains("last_synced_daytime")) {
+            sharedPrefs.getBoolean("last_synced_daytime", false)
+        } else {
+            !isDay // Force initial sync
+        }
+        val lastCount = sharedPrefs.getInt("last_synced_tree_count", -1)
+
+        if (isDay != lastDay || count != lastCount) {
+            // Re-apply!
+            com.example.ui.components.WallpaperHelper.setForestWallpaper(
+                context = app,
+                isDay = isDay,
+                treeCount = count,
+                setHomeScreen = setHome,
+                setLockScreen = setLock
+            ) { success, _ ->
+                if (success) {
+                    sharedPrefs.edit()
+                        .putBoolean("last_synced_daytime", isDay)
+                        .putInt("last_synced_tree_count", count)
+                        .apply()
+                }
+            }
+        }
     }
 }
 

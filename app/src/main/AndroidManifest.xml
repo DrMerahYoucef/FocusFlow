@@ -42,6 +42,9 @@
     <!-- Draw overlay (focus reminder screen on top of blocked app) -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
+    <!-- Wallpaper setting -->
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
+
     <application
         android:name=".FocusFlowApplication"
         android:allowBackup="true"

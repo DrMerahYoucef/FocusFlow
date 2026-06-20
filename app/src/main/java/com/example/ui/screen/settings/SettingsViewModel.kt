@@ -23,7 +23,10 @@ data class SettingsState(
     val sessionsBeforeLong: Int = 4,
     val blockNotifications: Boolean = true,
     val vibrateOnComplete: Boolean = true,
-    val themeMode: String = "system"
+    val themeMode: String = "system",
+    val autoSyncWallpaper: Boolean = false,
+    val wallpaperHomeScreen: Boolean = true,
+    val wallpaperLockScreen: Boolean = false
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -48,7 +51,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 sessionsBeforeLong = sharedPrefs.getInt("sessions_before_long", 4),
                 blockNotifications = sharedPrefs.getBoolean("block_notifications", true),
                 vibrateOnComplete = sharedPrefs.getBoolean("vibrate_on_complete", true),
-                themeMode = sharedPrefs.getString("theme_mode", "system") ?: "system"
+                themeMode = sharedPrefs.getString("theme_mode", "system") ?: "system",
+                autoSyncWallpaper = sharedPrefs.getBoolean("auto_sync_wallpaper", false),
+                wallpaperHomeScreen = sharedPrefs.getBoolean("wallpaper_home_screen", true),
+                wallpaperLockScreen = sharedPrefs.getBoolean("wallpaper_lock_screen", false)
             )
         }
     }
@@ -90,6 +96,21 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _state.update { it.copy(vibrateOnComplete = value) }
     }
 
+    fun updateAutoSyncWallpaper(value: Boolean) {
+        sharedPrefs.edit().putBoolean("auto_sync_wallpaper", value).apply()
+        _state.update { it.copy(autoSyncWallpaper = value) }
+    }
+
+    fun updateWallpaperHomeScreen(value: Boolean) {
+        sharedPrefs.edit().putBoolean("wallpaper_home_screen", value).apply()
+        _state.update { it.copy(wallpaperHomeScreen = value) }
+    }
+
+    fun updateWallpaperLockScreen(value: Boolean) {
+        sharedPrefs.edit().putBoolean("wallpaper_lock_screen", value).apply()
+        _state.update { it.copy(wallpaperLockScreen = value) }
+    }
+
     fun exportSessionsAsCsv(onCompleted: (String) -> Unit) {
         viewModelScope.launch {
             val sessions = sessionRepo.getAllSessions().first()
@@ -109,30 +130,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 database.clearAllTables()
-            }
-            onCompleted()
-        }
-    }
-
-    fun seed100Sessions(onCompleted: () -> Unit) {
-        viewModelScope.launch {
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                val now = System.currentTimeMillis()
-                for (i in 1..100) {
-                    // Spread over past 10 days, 10 sessions per day
-                    val dayOffset = (i - 1) / 10
-                    val timeOffset = ((i - 1) % 10) * 60 * 60 * 1000L // 1 hour apart
-                    val date = now - (dayOffset * 24 * 60 * 60 * 1000L) - timeOffset - (15 * 60 * 1000L)
-                    val duration = 1500 // 25 minutes = 1500 seconds
-                    database.sessionDao().insert(
-                        SessionEntity(
-                            date = date,
-                            durationSeconds = duration,
-                            completed = true,
-                            focusScore = duration / 60
-                        )
-                    )
-                }
             }
             onCompleted()
         }

@@ -1,6 +1,6 @@
 {
-  "name": "FocusFlow",
-  "description": "A neumorphic Pomodoro timer and productivity analytics manager with exam countdowns.",
+  "name": "FocusIsland",
+  "description": "An aesthetic 2.5D island community and gamified focus session tool with real-time audio and blocker.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

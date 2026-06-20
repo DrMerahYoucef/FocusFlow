@@ -11,6 +11,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import com.example.ui.navigation.AppNavGraph
 import com.example.ui.theme.MyApplicationTheme
 
@@ -33,6 +36,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         
         checkAndRequestNotifications()
+
+        // Trigger user statistics background sync with Firestore
+        lifecycleScope.launch(Dispatchers.IO) {
+            FocusFlowApplication.instance.sessionRepository.syncWithFirestore()
+        }
 
         setContent {
             val settingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel<com.example.ui.screen.settings.SettingsViewModel>()

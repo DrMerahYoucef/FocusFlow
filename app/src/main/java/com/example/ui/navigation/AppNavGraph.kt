@@ -38,15 +38,18 @@ import com.example.ui.screen.exams.ExamsScreen
 import com.example.ui.screen.exams.ExamsViewModel
 import com.example.ui.screen.settings.SettingsScreen
 import com.example.ui.screen.settings.SettingsViewModel
+import androidx.compose.material.icons.filled.Public
 import com.example.ui.screen.timer.TimerScreen
 import com.example.ui.screen.timer.TimerViewModel
 import com.example.ui.theme.NeumorphicColors
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Timer : Screen("timer", "Timer", Icons.Default.Timer)
     object Analytics : Screen("analytics", "Stats", Icons.Default.Analytics)
     object Radio : Screen("radio", "Radio", Icons.Default.Radio)
-    object Exams : Screen("exams", "Exams", Icons.Default.CalendarMonth)
+    object Community : Screen("community", "Islands", Icons.Default.Public)
     object Settings : Screen("settings", "Config", Icons.Default.Settings)
 }
 
@@ -60,7 +63,7 @@ fun AppNavGraph(
         Screen.Timer,
         Screen.Analytics,
         Screen.Radio,
-        Screen.Exams,
+        Screen.Community,
         Screen.Settings
     )
 
@@ -68,12 +71,24 @@ fun AppNavGraph(
     val analyticsViewModel: AnalyticsViewModel = viewModel()
     val examsViewModel: ExamsViewModel = viewModel()
 
+    val currentUser = Firebase.auth.currentUser
+    val startDestination = if (currentUser != null) Screen.Timer.route else "auth"
+
     Box(modifier = modifier.fillMaxSize()) {
         NavHost(
             navController = navController,
-            startDestination = Screen.Timer.route,
+            startDestination = startDestination,
             modifier = Modifier.fillMaxSize()
         ) {
+            composable("auth") {
+                com.example.ui.screen.auth.AuthScreen(
+                    onAuthenticated = {
+                        navController.navigate(Screen.Timer.route) {
+                            popUpTo("auth") { inclusive = true }
+                        }
+                    }
+                )
+            }
             composable(Screen.Timer.route) {
                 com.example.ui.components.ForestScaffold(
                     bottomBar = { NeumorphicBottomNavigation(navController = navController, items = items) }
@@ -95,7 +110,15 @@ fun AppNavGraph(
                     com.example.ui.screen.radio.RadioScreen(navController = navController, modifier = Modifier.padding(padding))
                 }
             }
-            composable(Screen.Exams.route) {
+            composable(Screen.Community.route) {
+                val communityViewModel: com.example.ui.screen.community.CommunityViewModel = viewModel()
+                com.example.ui.screen.community.CommunityScreen(
+                    navController = navController,
+                    viewModel = communityViewModel,
+                    bottomBar = { NeumorphicBottomNavigation(navController = navController, items = items) }
+                )
+            }
+            composable("exams") {
                 com.example.ui.components.ForestScaffold(
                     bottomBar = { NeumorphicBottomNavigation(navController = navController, items = items) }
                 ) { padding ->
@@ -127,8 +150,6 @@ fun NeumorphicBottomNavigation(
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val isDark = com.example.ui.theme.LocalIsDarkTheme.current
-
     val themeColors = com.example.ui.theme.LocalAppThemeColors.current
     val isDark = com.example.ui.theme.LocalIsDarkTheme.current
 

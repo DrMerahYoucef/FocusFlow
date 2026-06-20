@@ -26,4 +26,10 @@ interface SessionDao {
     
     @Query("SELECT * FROM sessions ORDER BY date DESC")
     fun getAllSessions(): Flow<List<SessionEntity>>
+
+    @Query("SELECT * FROM sessions ORDER BY date DESC")
+    suspend fun getAllSessionsList(): List<SessionEntity>
+
+    @Query("SELECT COUNT(*) FROM sessions WHERE completed = 1")
+    suspend fun getCompletedCountImmediate(): Int
 }

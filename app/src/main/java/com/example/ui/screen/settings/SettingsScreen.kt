@@ -13,6 +13,10 @@ import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Eco
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Logout
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -59,6 +63,62 @@ fun SettingsScreen(
             modifier = Modifier.padding(top = 16.dp, bottom = 24.dp)
         )
 
+        // Section: Upcoming Exams
+        Text(
+            text = "EXAM WORKLOAD",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = NeumorphicColors.TextSecondary,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            textAlign = TextAlign.Start
+        )
+
+        val examDao = remember { com.example.FocusFlowApplication.instance.database.examDao() }
+        val examList by examDao.getAllExams().collectAsState(initial = emptyList())
+        val examCount = examList.size
+
+        NeumorphicCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    navController?.navigate("exams")
+                },
+            cornerRadius = 16.dp,
+            elevation = 6.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Exam Countdowns",
+                        fontWeight = FontWeight.Bold,
+                        color = NeumorphicColors.TextPrimary,
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        text = "$examCount upcoming trials",
+                        fontSize = 11.sp,
+                        color = NeumorphicColors.TextSecondary
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Default.CalendarMonth,
+                    contentDescription = "Configure Exam Countdown",
+                    tint = NeumorphicColors.Primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         // Section: Durations
         Text(
             text = "TIMER INTERVALS",
@@ -82,98 +142,140 @@ fun SettingsScreen(
                     .padding(4.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Focus Option
-                Column {
+                // Focus Option stepper
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Focus Duration",
+                        fontWeight = FontWeight.Bold,
+                        color = NeumorphicColors.TextPrimary,
+                        fontSize = 14.sp
+                    )
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            text = "Focus Duration",
-                            fontWeight = FontWeight.Bold,
-                            color = NeumorphicColors.TextPrimary,
-                            fontSize = 14.sp
-                        )
+                        IconButton(
+                            onClick = {
+                                if (state.focusMin > 1) {
+                                    viewModel.updateFocusMin(state.focusMin - 1)
+                                }
+                            }
+                        ) {
+                            Text("-", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = NeumorphicColors.Primary)
+                        }
                         Text(
                             text = "${state.focusMin} min",
-                            fontWeight = FontWeight.Bold,
-                            color = NeumorphicColors.Primary,
-                            fontSize = 14.sp
+                            fontWeight = FontWeight.Black,
+                            fontSize = 15.sp,
+                            color = NeumorphicColors.TextPrimary
                         )
+                        IconButton(
+                            onClick = {
+                                if (state.focusMin < 120) {
+                                    viewModel.updateFocusMin(state.focusMin + 1)
+                                }
+                            }
+                        ) {
+                            Text("+", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = NeumorphicColors.Primary)
+                        }
                     }
-                    Slider(
-                        value = state.focusMin.toFloat(),
-                        onValueChange = { viewModel.updateFocusMin(it.toInt()) },
-                        valueRange = 5f..90f,
-                        steps = 17,
-                        colors = SliderDefaults.colors(
-                            thumbColor = NeumorphicColors.Primary,
-                            activeTrackColor = NeumorphicColors.Primary
-                        )
-                    )
                 }
 
-                // Short break option
-                Column {
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f))
+
+                // Short break option stepper
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Short Break",
+                        fontWeight = FontWeight.Bold,
+                        color = NeumorphicColors.TextPrimary,
+                        fontSize = 14.sp
+                    )
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            text = "Short Break",
-                            fontWeight = FontWeight.Bold,
-                            color = NeumorphicColors.TextPrimary,
-                            fontSize = 14.sp
-                        )
+                        IconButton(
+                            onClick = {
+                                if (state.shortBreakMin > 1) {
+                                    viewModel.updateShortBreakMin(state.shortBreakMin - 1)
+                                }
+                            }
+                        ) {
+                            Text("-", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = NeumorphicColors.Success)
+                        }
                         Text(
                             text = "${state.shortBreakMin} min",
-                            fontWeight = FontWeight.Bold,
-                            color = NeumorphicColors.Success,
-                            fontSize = 14.sp
+                            fontWeight = FontWeight.Black,
+                            fontSize = 15.sp,
+                            color = NeumorphicColors.TextPrimary
                         )
+                        IconButton(
+                            onClick = {
+                                if (state.shortBreakMin < 60) {
+                                    viewModel.updateShortBreakMin(state.shortBreakMin + 1)
+                                }
+                            }
+                        ) {
+                            Text("+", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = NeumorphicColors.Success)
+                        }
                     }
-                    Slider(
-                        value = state.shortBreakMin.toFloat(),
-                        onValueChange = { viewModel.updateShortBreakMin(it.toInt()) },
-                        valueRange = 1f..25f,
-                        steps = 24,
-                        colors = SliderDefaults.colors(
-                            thumbColor = NeumorphicColors.Success,
-                            activeTrackColor = NeumorphicColors.Success
-                        )
-                    )
                 }
 
-                // Long break option
-                Column {
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f))
+
+                // Long break option stepper
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Long Break",
+                        fontWeight = FontWeight.Bold,
+                        color = NeumorphicColors.TextPrimary,
+                        fontSize = 14.sp
+                    )
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            text = "Long Break",
-                            fontWeight = FontWeight.Bold,
-                            color = NeumorphicColors.TextPrimary,
-                            fontSize = 14.sp
-                        )
+                        IconButton(
+                            onClick = {
+                                if (state.longBreakMin > 1) {
+                                    viewModel.updateLongBreakMin(state.longBreakMin - 1)
+                                }
+                            }
+                        ) {
+                            Text("-", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = NeumorphicColors.Accent)
+                        }
                         Text(
                             text = "${state.longBreakMin} min",
-                            fontWeight = FontWeight.Bold,
-                            color = NeumorphicColors.Accent,
-                            fontSize = 14.sp
+                            fontWeight = FontWeight.Black,
+                            fontSize = 15.sp,
+                            color = NeumorphicColors.TextPrimary
                         )
+                        IconButton(
+                            onClick = {
+                                if (state.longBreakMin < 60) {
+                                    viewModel.updateLongBreakMin(state.longBreakMin + 1)
+                                }
+                            }
+                        ) {
+                            Text("+", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = NeumorphicColors.Accent)
+                        }
                     }
-                    Slider(
-                        value = state.longBreakMin.toFloat(),
-                        onValueChange = { viewModel.updateLongBreakMin(it.toInt()) },
-                        valueRange = 5f..45f,
-                        steps = 8,
-                        colors = SliderDefaults.colors(
-                            thumbColor = NeumorphicColors.Accent,
-                            activeTrackColor = NeumorphicColors.Accent
-                        )
-                    )
                 }
+
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f))
 
                 // Rounds before long break
                 Row(
@@ -402,20 +504,6 @@ fun SettingsScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        NeumorphicButton(
-            label = "Plant 100 Forest Trees",
-            icon = Icons.Default.Eco,
-            onClick = {
-                viewModel.seed100Sessions {
-                    Toast.makeText(context, "🌲 100 Trees planted in your forest!", Toast.LENGTH_SHORT).show()
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            accentColor = NeumorphicColors.Primary
-        )
-
         Spacer(modifier = Modifier.height(32.dp))
 
         // Section: Developer Credentials
@@ -548,6 +636,252 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+        }
+
+        // Section: Wallpapers
+        Text(
+            text = "FOREST WALLPAPER",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = NeumorphicColors.TextSecondary,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 24.dp, bottom = 12.dp),
+            textAlign = TextAlign.Start
+        )
+
+        var isWallpaperApplying by remember { mutableStateOf(false) }
+
+        val dbSessionCount by remember {
+            com.example.FocusFlowApplication.instance.sessionRepository.getSessionCount(0L, Long.MAX_VALUE)
+        }.collectAsState(initial = 0)
+
+        NeumorphicCard(
+            modifier = Modifier.fillMaxWidth(),
+            cornerRadius = 16.dp,
+            elevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Generate and apply your actual Focus Forest as a beautiful high-resolution wallpaper!",
+                    fontSize = 12.sp,
+                    color = NeumorphicColors.TextSecondary,
+                    lineHeight = 16.sp
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Set Home Screen",
+                            fontWeight = FontWeight.Bold,
+                            color = NeumorphicColors.TextPrimary,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "Apply on phone home screen launcher",
+                            fontSize = 11.sp,
+                            color = NeumorphicColors.TextSecondary
+                        )
+                    }
+                    Switch(
+                        checked = state.wallpaperHomeScreen,
+                        onCheckedChange = { viewModel.updateWallpaperHomeScreen(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = NeumorphicColors.Primary,
+                            checkedTrackColor = NeumorphicColors.Primary.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Set Lock Screen",
+                            fontWeight = FontWeight.Bold,
+                            color = NeumorphicColors.TextPrimary,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "Apply on phone secure lock screen",
+                            fontSize = 11.sp,
+                            color = NeumorphicColors.TextSecondary
+                        )
+                    }
+                    Switch(
+                        checked = state.wallpaperLockScreen,
+                        onCheckedChange = { viewModel.updateWallpaperLockScreen(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = NeumorphicColors.Primary,
+                            checkedTrackColor = NeumorphicColors.Primary.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Auto-Sync Wallpaper ☀️/🌙",
+                            fontWeight = FontWeight.Bold,
+                            color = NeumorphicColors.TextPrimary,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "Automatically adjust to day/night theme and grow with your tree count!",
+                            fontSize = 11.sp,
+                            color = NeumorphicColors.TextSecondary
+                        )
+                    }
+                    Switch(
+                        checked = state.autoSyncWallpaper,
+                        onCheckedChange = { checked ->
+                            viewModel.updateAutoSyncWallpaper(checked)
+                            if (checked) {
+                                // Instantly trigger sync
+                                isWallpaperApplying = true
+                                val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+                                val isDaytimeSetting = hour in 6..17
+                                com.example.ui.components.WallpaperHelper.setForestWallpaper(
+                                    context = context,
+                                    isDay = isDaytimeSetting,
+                                    treeCount = dbSessionCount,
+                                    setHomeScreen = state.wallpaperHomeScreen,
+                                    setLockScreen = state.wallpaperLockScreen
+                                ) { success, error ->
+                                    isWallpaperApplying = false
+                                    if (success) {
+                                        context.getSharedPreferences("focusflow_prefs", android.content.Context.MODE_PRIVATE)
+                                            .edit()
+                                            .putBoolean("last_synced_daytime", isDaytimeSetting)
+                                            .putInt("last_synced_tree_count", dbSessionCount)
+                                            .apply()
+                                        Toast.makeText(context, "Auto-Sync Enabled & Wallpaper applied! 🌲", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "Auto-Sync Enabled: failed to apply initial wallpaper: $error", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = NeumorphicColors.Primary,
+                            checkedTrackColor = NeumorphicColors.Primary.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f))
+
+                if (isWallpaperApplying) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = NeumorphicColors.Accent)
+                    }
+                } else {
+                    NeumorphicButton(
+                        label = "Apply Current Forest Now",
+                        icon = androidx.compose.material.icons.Icons.Default.Eco,
+                        accentColor = NeumorphicColors.Accent,
+                        onClick = {
+                            if (!state.wallpaperHomeScreen && !state.wallpaperLockScreen) {
+                                Toast.makeText(context, "Please select at least one screen!", Toast.LENGTH_SHORT).show()
+                                return@NeumorphicButton
+                            }
+                            isWallpaperApplying = true
+                            val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+                            val isDaytimeSetting = hour in 6..17
+
+                            com.example.ui.components.WallpaperHelper.setForestWallpaper(
+                                context = context,
+                                isDay = isDaytimeSetting,
+                                treeCount = dbSessionCount,
+                                setHomeScreen = state.wallpaperHomeScreen,
+                                setLockScreen = state.wallpaperLockScreen
+                            ) { success, error ->
+                                isWallpaperApplying = false
+                                if (success) {
+                                    context.getSharedPreferences("focusflow_prefs", android.content.Context.MODE_PRIVATE)
+                                        .edit()
+                                        .putBoolean("last_synced_daytime", isDaytimeSetting)
+                                        .putInt("last_synced_tree_count", dbSessionCount)
+                                        .apply()
+                                    Toast.makeText(context, "Forest Wallpaper Applied Successfully! 🌲", Toast.LENGTH_LONG).show()
+                                } else {
+                                    Toast.makeText(context, "Failed to apply wallpaper: $error", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+
+        // Section: Account / Logout
+        Text(
+            text = "ACCOUNT",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = NeumorphicColors.TextSecondary,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 24.dp, bottom = 12.dp),
+            textAlign = TextAlign.Start
+        )
+
+        NeumorphicCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    com.google.firebase.Firebase.auth.signOut()
+                    navController?.navigate("auth") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+            cornerRadius = 16.dp,
+            elevation = 6.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.Logout,
+                    contentDescription = "Logout icon",
+                    tint = Color(0xFFFF6584),
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Text(
+                    text = "Sign Out / Log Out",
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFFFF6584),
+                    fontSize = 15.sp
+                )
             }
         }
 
