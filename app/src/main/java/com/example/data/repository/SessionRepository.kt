@@ -50,7 +50,14 @@ class SessionRepository(private val sessionDao: SessionDao) {
         try {
             val db = com.google.firebase.Firebase.firestore
             
-            // 1. Fetch all remote sessions from Firestore
+            // 1. Fetch the user profile metrics from Firestore to check master stats
+            val profileDoc = db.collection("users").document(uid).get().await()
+            val remoteTreeCount = profileDoc.getLong("treeCount")?.toInt() ?: 0
+            val remoteTotalMinutes = profileDoc.getLong("totalMinutes")?.toInt() ?: 0
+            val remotePoints = profileDoc.getLong("points")?.toInt() ?: 0
+            val remoteStreak = profileDoc.getLong("currentStreak")?.toInt() ?: 0
+
+            // 2. Fetch all remote sessions from Firestore (sessions subcollection)
             val remoteDocs = db.collection("users").document(uid).collection("sessions")
                 .get()
                 .await()
@@ -68,52 +75,137 @@ class SessionRepository(private val sessionDao: SessionDao) {
                 )
             }.associateBy { it.date }
 
-            // 2. Fetch all local sessions from Room
+            // 3. Fetch all local sessions from Room
             val localSessions = sessionDao.getAllSessionsList()
             val localSessionsMap = localSessions.associateBy { it.date }
 
-            // 3. Sync missing remote sessions to local Room database
             var localChanged = false
-            for (date in remoteSessionsMap.keys) {
-                if (!localSessionsMap.containsKey(date)) {
-                    val remoteSession = remoteSessionsMap[date]!!
-                    sessionDao.insert(remoteSession)
+
+            // Protect against empty local database on newly reinstalled / fresh device logins!
+            // If the local database is completely blank, but the remote user profile has non-zero trees or minutes,
+            // we restore/reconstruct the local sessions and update FS to match.
+            if (localSessions.isEmpty() && (remoteTreeCount > 0 || remoteTotalMinutes > 0)) {
+                // Populate existing remote subcollection sessions to local Room first
+                if (remoteSessionsMap.isNotEmpty()) {
+                    for (remoteSession in remoteSessionsMap.values) {
+                        sessionDao.insert(remoteSession)
+                    }
                     localChanged = true
                 }
-            }
 
-            // 4. Sync missing local sessions to remote Firestore
-            for (date in localSessionsMap.keys) {
-                if (!remoteSessionsMap.containsKey(date)) {
-                    val localSession = localSessionsMap[date]!!
-                    val data = hashMapOf(
-                        "date" to localSession.date,
-                        "durationSeconds" to localSession.durationSeconds,
-                        "completed" to localSession.completed,
-                        "focusScore" to localSession.focusScore
-                    )
-                    db.collection("users").document(uid).collection("sessions")
-                        .document(localSession.date.toString())
-                        .set(data)
-                        .await()
+                // If remoteSessions subcollection is empty (old version/migration issue), or there's still a gap
+                // between the number of completed sessions in local Room and remoteTreeCount, synthesize sessions retroactively!
+                val currentLocalCompleted = sessionDao.getCompletedCountImmediate()
+                if (currentLocalCompleted < remoteTreeCount) {
+                    val gap = remoteTreeCount - currentLocalCompleted
+                    val streakDays = maxOf(remoteStreak, 1)
+                    val sessionsPerDay = maxOf(1, gap / streakDays)
+                    
+                    val now = System.currentTimeMillis()
+                    val dayMs = 86_400_000L
+                    var sessionsCreated = 0
+                    
+                    for (dayOffset in 0 until streakDays) {
+                        if (sessionsCreated >= gap) break
+                        
+                        val sessionsToday = if (dayOffset == 0) {
+                            gap - (streakDays - 1) * sessionsPerDay
+                        } else {
+                            sessionsPerDay
+                        }.coerceAtLeast(1)
+                        
+                        for (s in 0 until sessionsToday) {
+                            if (sessionsCreated >= gap) break
+                            
+                            val sessionTime = now - (dayOffset * dayMs) - (s * 3600_000L) - (15 * 60000L)
+                            val durationSecs = if (remoteTreeCount > 0 && remoteTotalMinutes > 0) {
+                                ((remoteTotalMinutes * 60) / remoteTreeCount).coerceIn(300, 7200)
+                            } else {
+                                1500 // fallback 25 mins
+                            }
+                            
+                            val synthesizedSession = SessionEntity(
+                                date = sessionTime,
+                                durationSeconds = durationSecs,
+                                completed = true,
+                                focusScore = durationSecs / 60
+                            )
+                            
+                            sessionDao.insert(synthesizedSession)
+                            
+                            // Back-upload the synthesized session so that this subcollection also becomes populated
+                            val uploadData = hashMapOf(
+                                "date" to synthesizedSession.date,
+                                "durationSeconds" to synthesizedSession.durationSeconds,
+                                "completed" to synthesizedSession.completed,
+                                "focusScore" to synthesizedSession.focusScore
+                            )
+                            db.collection("users").document(uid).collection("sessions")
+                                .document(synthesizedSession.date.toString())
+                                .set(uploadData)
+                            
+                            sessionsCreated++
+                        }
+                    }
+                    localChanged = true
+                }
+            } else {
+                // Regular bidirectional synchronization
+                // A. Sync from remote to local
+                for (date in remoteSessionsMap.keys) {
+                    if (!localSessionsMap.containsKey(date)) {
+                        val remoteSession = remoteSessionsMap[date]!!
+                        sessionDao.insert(remoteSession)
+                        localChanged = true
+                    }
+                }
+
+                // B. Sync from local to remote
+                for (date in localSessionsMap.keys) {
+                    if (!remoteSessionsMap.containsKey(date)) {
+                        val localSession = localSessionsMap[date]!!
+                        val data = hashMapOf(
+                            "date" to localSession.date,
+                            "durationSeconds" to localSession.durationSeconds,
+                            "completed" to localSession.completed,
+                            "focusScore" to localSession.focusScore
+                        )
+                        db.collection("users").document(uid).collection("sessions")
+                            .document(localSession.date.toString())
+                            .set(data)
+                            .await()
+                    }
                 }
             }
 
-            // 5. Update user dynamic statistics in user profile document
+            // 5. Recalculate dynamic statistics from the now fully populated local database
             val updatedCompletedCount = sessionDao.getCompletedCountImmediate()
             val totalMinutes = sessionDao.getTotalFocusMinutesImmediate()
             val allCompletedDates = sessionDao.getAllSessionDates()
             val currentStreak = calculateStreak(allCompletedDates)
             val points = totalMinutes / 5 // 1 point per 5 focus minutes
 
-            val statsUpdate = mapOf(
-                "treeCount" to updatedCompletedCount,
-                "totalMinutes" to totalMinutes,
-                "points" to points,
-                "currentStreak" to currentStreak
-            )
-            db.collection("users").document(uid).update(statsUpdate).await()
-            db.collection("leaderboard").document(uid).update(statsUpdate).await()
+            // If we are about to update, prevent overwriting positive remote stats with 0 (e.g. if room reads as empty inexplicably)
+            if (updatedCompletedCount >= remoteTreeCount || totalMinutes >= remoteTotalMinutes) {
+                val statsUpdate = mapOf(
+                    "treeCount" to updatedCompletedCount,
+                    "totalMinutes" to totalMinutes,
+                    "points" to points,
+                    "currentStreak" to currentStreak
+                )
+                db.collection("users").document(uid).update(statsUpdate).await()
+                db.collection("leaderboard").document(uid).update(statsUpdate).await()
+            } else {
+                // Keep the database values if local calculation came up short for any transient offline reason
+                val statsUpdate = mapOf(
+                    "treeCount" to maxOf(updatedCompletedCount, remoteTreeCount),
+                    "totalMinutes" to maxOf(totalMinutes, remoteTotalMinutes),
+                    "points" to maxOf(points, remotePoints),
+                    "currentStreak" to maxOf(currentStreak, remoteStreak)
+                )
+                db.collection("users").document(uid).update(statsUpdate).await()
+                db.collection("leaderboard").document(uid).update(statsUpdate).await()
+            }
 
             // If local data changed, trigger widget update to update progress screen
             if (localChanged) {

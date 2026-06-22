@@ -6,12 +6,16 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.FocusFlowApplication
 import com.example.data.db.entity.SessionEntity
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
+import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -128,10 +132,84 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun resetAllData(onCompleted: () -> Unit) {
         viewModelScope.launch {
+            try {
+                val uid = com.google.firebase.Firebase.auth.currentUser?.uid
+                if (uid != null) {
+                    val firestore = com.google.firebase.Firebase.firestore
+                    
+                    // 1. Reset user profile stats to zero on Firestore (both users collection and leaderboard)
+                    val statsReset = mapOf(
+                        "treeCount" to 0,
+                        "totalMinutes" to 0,
+                        "points" to 0,
+                        "currentStreak" to 0
+                    )
+                    firestore.collection("users").document(uid).update(statsReset).await()
+                    firestore.collection("leaderboard").document(uid).update(statsReset).await()
+
+                    // 2. Delete all remote sessions in Firestore sessions subcollection
+                    val sessionsRef = firestore.collection("users").document(uid).collection("sessions")
+                    val querySnapshot = sessionsRef.get().await()
+                    for (doc in querySnapshot.documents) {
+                        sessionsRef.document(doc.id).delete().await()
+                    }
+                }
+            } catch (e: Exception) {
+                // Log and continue to local purge so user is not blocked if offline
+                android.util.Log.e("SettingsViewModel", "Failed to clear Firestore stats, proceeding with local clear", e)
+            }
+
+            // 3. Clear local SQLite Database
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 database.clearAllTables()
             }
+            
+            // Trigger app widget update to show 0 trees on home screen as well
+            com.example.widget.ExamCountdownWidgetReceiver.triggerWidgetUpdate(getApplication())
+            
             onCompleted()
+        }
+    }
+
+    fun deleteAccount(onCompleted: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val user = com.google.firebase.Firebase.auth.currentUser
+                val uid = user?.uid
+                if (uid != null) {
+                    val firestore = com.google.firebase.Firebase.firestore
+                    
+                    // 1. Delete all remote sessions in Firestore
+                    val sessionsRef = firestore.collection("users").document(uid).collection("sessions")
+                    val querySnapshot = sessionsRef.get().await()
+                    for (doc in querySnapshot.documents) {
+                        sessionsRef.document(doc.id).delete().await()
+                    }
+                    
+                    // 2. Delete user profile and leaderboard documents
+                    firestore.collection("users").document(uid).delete().await()
+                    firestore.collection("leaderboard").document(uid).delete().await()
+                    
+                    // 3. Delete Firebase Auth User Account
+                    user.delete().await()
+                }
+                
+                // 4. Wipe local databases
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    database.clearAllTables()
+                }
+                
+                // 5. Reset local preference configurations
+                sharedPrefs.edit().clear().apply()
+                
+                // Update widgets after account wipe
+                com.example.widget.ExamCountdownWidgetReceiver.triggerWidgetUpdate(getApplication())
+                
+                onCompleted(true, null)
+            } catch (e: Exception) {
+                android.util.Log.e("SettingsViewModel", "Failed to delete account completely", e)
+                onCompleted(false, e.localizedMessage ?: "Unknown error occurred")
+            }
         }
     }
 }

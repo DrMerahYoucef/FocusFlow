@@ -78,6 +78,19 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
         sendCommand(PomodoroTimerService.ACTION_STOP)
     }
 
+    fun setAmbientSound(ambientId: String) {
+        val context = getApplication<Application>()
+        val intent = Intent(context, PomodoroTimerService::class.java).apply {
+            action = PomodoroTimerService.ACTION_SET_AMBIENT
+            putExtra(PomodoroTimerService.EXTRA_AMBIENT_ID, ambientId)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(intent)
+        } else {
+            context.startService(intent)
+        }
+    }
+
     private fun sendCommand(action: String) {
         val context = getApplication<Application>()
         val intent = Intent(context, PomodoroTimerService::class.java).apply {

@@ -44,6 +44,7 @@ fun SettingsScreen(
     val context = LocalContext.current
 
     var isResetConfirmOpen by remember { mutableStateOf(false) }
+    var isDeleteAccountConfirmOpen by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -504,141 +505,6 @@ fun SettingsScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Section: Developer Credentials
-        Text(
-            text = "AUTHOR & DEVELOPER",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = NeumorphicColors.TextSecondary,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp),
-            textAlign = TextAlign.Start
-        )
-
-        NeumorphicCard(
-            modifier = Modifier.fillMaxWidth(),
-            cornerRadius = 16.dp,
-            elevation = 6.dp
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Profile & Bio
-                Text(
-                    text = "Dr Merah Youcef",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Black,
-                    color = NeumorphicColors.TextPrimary,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = "Orthopedic surgeon by profession, programmer at heart.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = NeumorphicColors.TextSecondary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
-                )
-
-                Text(
-                    text = "Tel: +213558460474",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = NeumorphicColors.Primary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // WhatsApp Button
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .neumorphicShadow(
-                                cornerRadius = 12.dp,
-                                elevation = 4.dp,
-                                isPressed = false
-                            )
-                            .clickable {
-                                try {
-                                    val waIntent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://wa.me/213558460474"))
-                                    context.startActivity(waIntent)
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, "Could not open WhatsApp: ${e.message}", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(id = com.example.R.drawable.ic_whatsapp),
-                                contentDescription = "WhatsApp icon",
-                                tint = Color.Unspecified,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                text = "contact me",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = NeumorphicColors.TextPrimary
-                            )
-                        }
-                    }
-
-                    // Facebook Button
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .neumorphicShadow(
-                                cornerRadius = 12.dp,
-                                elevation = 4.dp,
-                                isPressed = false
-                            )
-                            .clickable {
-                                try {
-                                    val fbIntent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.facebook.com/youcef.Merahh/"))
-                                    context.startActivity(fbIntent)
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, "Could not open Facebook: ${e.message}", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(id = com.example.R.drawable.ic_facebook),
-                                contentDescription = "Facebook icon",
-                                tint = Color.Unspecified,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                text = "contact me",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = NeumorphicColors.TextPrimary
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
         // Section: Wallpapers
         Text(
             text = "FOREST WALLPAPER",
@@ -885,6 +751,174 @@ fun SettingsScreen(
             }
         }
 
+        Spacer(modifier = Modifier.height(16.dp))
+
+        NeumorphicCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    isDeleteAccountConfirmOpen = true
+                },
+            cornerRadius = 16.dp,
+            elevation = 6.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.Block,
+                    contentDescription = "Delete Account icon",
+                    tint = Color(0xFFFF4D4D),
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Text(
+                    text = "Delete My Account",
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFFFF4D4D),
+                    fontSize = 15.sp
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Section: Developer Credentials
+        Text(
+            text = "AUTHOR & DEVELOPER",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = NeumorphicColors.TextSecondary,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            textAlign = TextAlign.Start
+        )
+
+        NeumorphicCard(
+            modifier = Modifier.fillMaxWidth(),
+            cornerRadius = 16.dp,
+            elevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Profile & Bio
+                Text(
+                    text = "Dr Merah Youcef",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black,
+                    color = NeumorphicColors.TextPrimary,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "Orthopedic surgeon by profession, programmer at heart.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = NeumorphicColors.TextSecondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+                )
+
+                Text(
+                    text = "Tel: +213558460474",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = NeumorphicColors.Primary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // WhatsApp Button
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .neumorphicShadow(
+                                cornerRadius = 12.dp,
+                                elevation = 4.dp,
+                                isPressed = false
+                            )
+                            .clickable {
+                                try {
+                                    val waIntent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://wa.me/213558460474"))
+                                    context.startActivity(waIntent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Could not open WhatsApp: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(id = com.example.R.drawable.ic_whatsapp),
+                                contentDescription = "WhatsApp icon",
+                                tint = Color.Unspecified,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "contact me",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = NeumorphicColors.TextPrimary
+                            )
+                        }
+                    }
+
+                    // Facebook Button
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .neumorphicShadow(
+                                cornerRadius = 12.dp,
+                                elevation = 4.dp,
+                                isPressed = false
+                            )
+                            .clickable {
+                                try {
+                                    val fbIntent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.facebook.com/youcef.Merahh/"))
+                                    context.startActivity(fbIntent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Could not open Facebook: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(id = com.example.R.drawable.ic_facebook),
+                                contentDescription = "Facebook icon",
+                                tint = Color.Unspecified,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "contact me",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = NeumorphicColors.TextPrimary
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(100.dp)) // Safe padding for bottom items
     }
 
@@ -922,6 +956,54 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { isResetConfirmOpen = false }) {
+                    Text("Cancel", color = NeumorphicColors.TextSecondary)
+                }
+            }
+        )
+    }
+
+    // Delete Account Confirmation Dialog
+    if (isDeleteAccountConfirmOpen) {
+         val dialogContext = LocalContext.current
+         AlertDialog(
+             onDismissRequest = { isDeleteAccountConfirmOpen = false },
+             containerColor = NeumorphicColors.DialogBackground,
+             title = {
+                Text(
+                    text = "Delete Your Account?",
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFFFF4D4D)
+                )
+            },
+            text = {
+                Text(
+                    text = "WARNING: This will permanently block and delete your user account, remove your leaderboard rank, clear your online tree count, and delete all related remote & local database data. This action cannot be undone. Are you absolutely sure?",
+                    color = NeumorphicColors.TextSecondary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteAccount { success, errorMsg ->
+                            if (success) {
+                                Toast.makeText(dialogContext, "Account permanently deleted.", Toast.LENGTH_LONG).show()
+                                isDeleteAccountConfirmOpen = false
+                                navController?.navigate("auth") {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            } else {
+                                Toast.makeText(dialogContext, "Error: $errorMsg", Toast.LENGTH_LONG).show()
+                                isDeleteAccountConfirmOpen = false
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF4D4D))
+                ) {
+                    Text("Delete Account Permanently", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { isDeleteAccountConfirmOpen = false }) {
                     Text("Cancel", color = NeumorphicColors.TextSecondary)
                 }
             }

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -30,6 +31,8 @@ import com.example.ui.theme.NeumorphicColors
 import com.example.ui.components.GlassButton
 import com.example.ui.components.GlassCard
 import com.example.ui.components.TreePlantedCelebration
+
+data class SoundOption(val id: String, val name: String, val emoji: String)
 
 @Composable
 fun TimerScreen(
@@ -150,6 +153,92 @@ fun TimerScreen(
                                 .clip(CircleShape)
                                 .background(dotColor)
                         )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Section: Ambient soundscapes soundboard
+            val ambientSounds = remember {
+                listOf(
+                    com.example.ui.screen.timer.SoundOption("none", "None", "🔇"),
+                    com.example.ui.screen.timer.SoundOption("rain", "Rain", "🌧️"),
+                    com.example.ui.screen.timer.SoundOption("white_noise", "Noise", "🌫️"),
+                    com.example.ui.screen.timer.SoundOption("campfire", "Fire", "🔥"),
+                    com.example.ui.screen.timer.SoundOption("stream", "Stream", "🌊"),
+                    com.example.ui.screen.timer.SoundOption("space", "Space", "🌌")
+                )
+            }
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "AMBIENT SOUNDSCAPE 🎧",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = themeColors.secondaryText,
+                    letterSpacing = 1.5.sp,
+                    modifier = Modifier.padding(bottom = 10.dp)
+                )
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
+                ) {
+                    ambientSounds.forEach { option ->
+                        val isSelected = state.currentAmbientId == option.id
+                        
+                        val backgroundColor = if (isSelected) {
+                            themeColors.accent.copy(alpha = 0.18f)
+                        } else {
+                            Color.Transparent
+                        }
+                        
+                        val borderDecorationModifier = if (isSelected) {
+                            Modifier.border(
+                                width = 1.5.dp,
+                                color = themeColors.accent,
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                            )
+                        } else {
+                            Modifier.border(
+                                width = 1.dp,
+                                color = themeColors.divider.copy(alpha = 0.4f),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                                .background(backgroundColor)
+                                .then(borderDecorationModifier)
+                                .clickable { viewModel.setAmbientSound(option.id) }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text(
+                                    text = option.emoji,
+                                    fontSize = 18.sp
+                                )
+                                Text(
+                                    text = option.name,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) themeColors.accent else themeColors.secondaryText,
+                                    fontSize = 10.sp,
+                                    maxLines = 1
+                                )
+                            }
+                        }
                     }
                 }
             }

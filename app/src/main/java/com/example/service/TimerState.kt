@@ -16,5 +16,6 @@ data class TimerState(
     val shortBreakDurationMs: Long = 5 * 60 * 1000L,
     val longBreakDurationMs: Long = 15 * 60 * 1000L,
     val sessionsBeforeLongBreak: Int = 4,
-    val isDndActive: Boolean = false
+    val isDndActive: Boolean = false,
+    val currentAmbientId: String = "none"
 )

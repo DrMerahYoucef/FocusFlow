@@ -47,13 +47,16 @@ class PomodoroTimerService : Service() {
         loadSettings()
         
         // Push initial state
+        val prefs = getSharedPreferences("focusflow_prefs", Context.MODE_PRIVATE)
+        val savedAmbient = prefs.getString("selected_ambient_id", "none") ?: "none"
         _state.update {
             it.copy(
                 remainingMs = focusDurationMs,
                 focusDurationMs = focusDurationMs,
                 shortBreakDurationMs = shortBreakDurationMs,
                 longBreakDurationMs = longBreakDurationMs,
-                sessionsBeforeLongBreak = sessionsBeforeLongBreak
+                sessionsBeforeLongBreak = sessionsBeforeLongBreak,
+                currentAmbientId = savedAmbient
             )
         }
     }
@@ -79,6 +82,10 @@ class PomodoroTimerService : Service() {
             ACTION_STOP -> {
                 stopTimerEngine()
                 stopSelf()
+            }
+            ACTION_SET_AMBIENT -> {
+                val ambientId = intent.getStringExtra(EXTRA_AMBIENT_ID) ?: "none"
+                setAmbientSoundInternal(ambientId)
             }
         }
         return START_STICKY
@@ -111,6 +118,7 @@ class PomodoroTimerService : Service() {
             AppMonitorService.start(this)
             FocusNotificationListenerService.refresh(this)
         }
+        syncAmbientPlayback()
     }
 
     private fun pauseTimer() {
@@ -118,6 +126,7 @@ class PomodoroTimerService : Service() {
         countdownTimer?.cancel()
         _state.update { it.copy(isRunning = false) }
         updateNotification()
+        syncAmbientPlayback()
     }
 
     private fun resumeTimer() {
@@ -156,6 +165,7 @@ class PomodoroTimerService : Service() {
                 phase = Phase.FOCUS
             )
         }
+        syncAmbientPlayback()
     }
 
     private fun launchCountdown(durationMs: Long) {
@@ -358,8 +368,101 @@ class PomodoroTimerService : Service() {
         }
     }
 
+    private var exoPlayer: androidx.media3.exoplayer.ExoPlayer? = null
+
+    private fun getOrCreatePlayer(): androidx.media3.exoplayer.ExoPlayer {
+        val currentExo = exoPlayer
+        if (currentExo == null) {
+            val newExo = androidx.media3.exoplayer.ExoPlayer.Builder(this)
+                .setAudioAttributes(
+                    androidx.media3.common.AudioAttributes.Builder()
+                        .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MUSIC)
+                        .setUsage(androidx.media3.common.C.USAGE_MEDIA)
+                        .build(),
+                    /* handleAudioFocus = */ true
+                )
+                .setHandleAudioBecomingNoisy(true)
+                .build().apply {
+                    repeatMode = androidx.media3.common.Player.REPEAT_MODE_ALL
+                }
+            exoPlayer = newExo
+            return newExo
+        }
+        return currentExo
+    }
+
+    private fun setAmbientSoundInternal(ambientId: String) {
+        _state.update { it.copy(currentAmbientId = ambientId) }
+        val prefs = getSharedPreferences("focusflow_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putString("selected_ambient_id", ambientId).apply()
+        syncAmbientPlayback()
+    }
+
+    private fun syncAmbientPlayback() {
+        val ambientId = _state.value.currentAmbientId
+        val timerIsRunning = _state.value.isRunning
+
+        if (ambientId == "none" || !timerIsRunning) {
+            exoPlayer?.pause()
+        } else {
+            val player = getOrCreatePlayer()
+            val url = getAmbientUrl(ambientId)
+            if (url != null) {
+                val currentMediaItem = player.currentMediaItem
+                if (currentMediaItem?.mediaId == ambientId) {
+                    if (!player.isPlaying) {
+                        player.play()
+                    }
+                } else {
+                    val mediaItem = androidx.media3.common.MediaItem.Builder()
+                        .setMediaId(ambientId)
+                        .setUri(url)
+                        .setMediaMetadata(
+                            androidx.media3.common.MediaMetadata.Builder()
+                                .setTitle(getAmbientName(ambientId))
+                                .setArtist("Ambient Flow")
+                                .build()
+                        )
+                        .build()
+                    player.setMediaItem(mediaItem)
+                    player.prepare()
+                    player.play()
+                }
+            } else {
+                exoPlayer?.pause()
+            }
+        }
+    }
+
+    private fun getAmbientUrl(id: String): String? {
+        return when (id) {
+            "rain" -> "https://www.soundjay.com/nature/sounds/rain-07.mp3"
+            "white_noise" -> "https://ice1.somafm.com/darkzone-128-mp3"
+            "campfire" -> "https://www.soundjay.com/nature/sounds/fire-1.mp3"
+            "stream" -> "https://www.soundjay.com/nature/sounds/river-1.mp3"
+            "space" -> "https://ice1.somafm.com/deepspaceone-128-mp3"
+            else -> null
+        }
+    }
+
+    private fun getAmbientName(id: String): String {
+        return when (id) {
+            "rain" -> "Rain Shower"
+            "white_noise" -> "White Noise"
+            "campfire" -> "Cozy Campfire"
+            "stream" -> "Forest Stream"
+            "space" -> "Space Drone"
+            else -> "None"
+        }
+    }
+
     override fun onDestroy() {
         stopTimerEngine()
+        exoPlayer?.let {
+            it.stop()
+            it.release()
+            exoPlayer = null
+        }
         super.onDestroy()
     }
 
@@ -371,6 +474,8 @@ class PomodoroTimerService : Service() {
         const val ACTION_RESUME = "ACTION_RESUME"
         const val ACTION_SKIP = "ACTION_SKIP"
         const val ACTION_STOP = "ACTION_STOP"
+        const val ACTION_SET_AMBIENT = "ACTION_SET_AMBIENT"
+        const val EXTRA_AMBIENT_ID = "EXTRA_AMBIENT_ID"
         
         private const val NOTIF_ID = 1010
         private const val CHANNEL_ID = "focusflow_timer_channel"
