@@ -436,10 +436,10 @@ class PomodoroTimerService : Service() {
 
     private fun getAmbientUrl(id: String): String? {
         return when (id) {
-            "rain" -> "https://www.soundjay.com/nature/sounds/rain-07.mp3"
-            "white_noise" -> "https://ice1.somafm.com/darkzone-128-mp3"
-            "campfire" -> "https://www.soundjay.com/nature/sounds/fire-1.mp3"
-            "stream" -> "https://www.soundjay.com/nature/sounds/river-1.mp3"
+            "rain" -> "https://upload.wikimedia.org/wikipedia/commons/3/36/Rain_on_roof_1.ogg"
+            "white_noise" -> "https://actions.google.com/sounds/v1/ambient/ambient_hum_air_conditioner.ogg"
+            "campfire" -> "https://upload.wikimedia.org/wikipedia/commons/2/25/Campfire_close_up.ogg"
+            "stream" -> "https://upload.wikimedia.org/wikipedia/commons/2/22/Forest_creek.ogg"
             "space" -> "https://ice1.somafm.com/deepspaceone-128-mp3"
             else -> null
         }
@@ -447,7 +447,7 @@ class PomodoroTimerService : Service() {
 
     private fun getAmbientName(id: String): String {
         return when (id) {
-            "rain" -> "Rain Shower"
+            "rain" -> "Rain on Roof"
             "white_noise" -> "White Noise"
             "campfire" -> "Cozy Campfire"
             "stream" -> "Forest Stream"
