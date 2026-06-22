@@ -45,11 +45,26 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel<com.example.ui.screen.settings.SettingsViewModel>()
             val state by settingsViewModel.state.collectAsState()
+            val updateState by settingsViewModel.updateState.collectAsState()
             val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
             val darkTheme = hour !in 6..17
 
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                // Auto check for updates on startup using standard caching intervals
+                settingsViewModel.checkForUpdates(forceFetch = false)
+            }
+
             MyApplicationTheme(darkTheme = darkTheme) {
-                AppNavGraph(settingsViewModel = settingsViewModel)
+                val isUpdateRequired = updateState is com.example.service.UpdateState.UpdateAvailable ||
+                        updateState is com.example.service.UpdateState.Downloading ||
+                        updateState is com.example.service.UpdateState.ReadyToInstall ||
+                        updateState is com.example.service.UpdateState.Error
+
+                if (isUpdateRequired) {
+                    com.example.ui.components.BlockingUpdateScreen(viewModel = settingsViewModel)
+                } else {
+                    AppNavGraph(settingsViewModel = settingsViewModel)
+                }
             }
         }
     }

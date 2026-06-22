@@ -73,6 +73,8 @@ dependencies {
   implementation(platform(libs.firebase.bom))
   implementation("com.google.firebase:firebase-auth")
   implementation("com.google.firebase:firebase-firestore")
+  implementation("com.google.firebase:firebase-config")
+  implementation("com.google.firebase:firebase-storage")
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
   // implementation(libs.accompanist.permissions)
   implementation(libs.androidx.activity.compose)

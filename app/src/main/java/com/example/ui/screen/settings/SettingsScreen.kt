@@ -15,6 +15,11 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Info
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 import androidx.compose.material3.*
@@ -40,6 +45,7 @@ fun SettingsScreen(
     navController: androidx.navigation.NavController? = null
 ) {
     val state by viewModel.state.collectAsState()
+    val updateState by viewModel.updateState.collectAsState()
     val scrollState = rememberScrollState()
     val context = LocalContext.current
 
@@ -781,6 +787,288 @@ fun SettingsScreen(
                     color = Color(0xFFFF4D4D),
                     fontSize = 15.sp
                 )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Section: System Update Center
+        Text(
+            text = "SYSTEM SELF-UPDATE",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = NeumorphicColors.TextSecondary,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            textAlign = TextAlign.Start
+        )
+
+        NeumorphicCard(
+            modifier = Modifier.fillMaxWidth(),
+            cornerRadius = 16.dp,
+            elevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "FocusFlow Version",
+                            fontWeight = FontWeight.Bold,
+                            color = NeumorphicColors.TextPrimary,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "Current built: v${com.example.BuildConfig.VERSION_NAME} (Code: ${com.example.BuildConfig.VERSION_CODE})",
+                            fontSize = 11.sp,
+                            color = NeumorphicColors.TextSecondary
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Version information details",
+                        tint = NeumorphicColors.Primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f))
+
+                // Custom matching UI for each of the states in com.example.service.UpdateState
+                when (updateState) {
+                    is com.example.service.UpdateState.Idle -> {
+                        Text(
+                            text = "Manually request and fetch the latest FocusFlow version directly outside standard stores.",
+                            fontSize = 12.sp,
+                            color = NeumorphicColors.TextSecondary,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        NeumorphicButton(
+                            label = "Check for Updates",
+                            icon = Icons.Default.Refresh,
+                            accentColor = NeumorphicColors.Primary,
+                            onClick = { viewModel.checkForUpdates() },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    is com.example.service.UpdateState.Checking -> {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                color = NeumorphicColors.Primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Text(
+                                text = "Checking Remote Config parameters...",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = NeumorphicColors.TextPrimary
+                            )
+                        }
+                    }
+                    is com.example.service.UpdateState.UpToDate -> {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Up-to-Date Icon Check",
+                                    tint = NeumorphicColors.Success,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = "Your application is fully up to date! 🚀",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NeumorphicColors.TextPrimary
+                                )
+                            }
+                            TextButton(onClick = { viewModel.checkForUpdates() }) {
+                                Text("Check Again", color = NeumorphicColors.Primary)
+                            }
+                        }
+                    }
+                    is com.example.service.UpdateState.UpdateAvailable -> {
+                        val available = updateState as com.example.service.UpdateState.UpdateAvailable
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "New Version Available! (vCode: ${available.latestVersionCode})",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = NeumorphicColors.Primary,
+                                textAlign = TextAlign.Center
+                            )
+                            Text(
+                                text = "A newer FocusFlow deployment package is ready in Firebase Storage. Click below to begin downloading.",
+                                fontSize = 11.sp,
+                                color = NeumorphicColors.TextSecondary,
+                                textAlign = TextAlign.Center
+                            )
+                            NeumorphicButton(
+                                label = "Download & Install Update",
+                                icon = Icons.Default.CloudDownload,
+                                accentColor = NeumorphicColors.Success,
+                                onClick = { viewModel.downloadUpdate(available.downloadUrl) },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                    is com.example.service.UpdateState.Downloading -> {
+                        val progress = (updateState as com.example.service.UpdateState.Downloading).progress
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            val percentText = if (progress >= 0f) "${(progress * 100).toInt()}%" else "Indeterminate"
+                            Text(
+                                text = "Downloading Update: $percentText",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = NeumorphicColors.TextPrimary
+                            )
+                            if (progress >= 0f) {
+                                LinearProgressIndicator(
+                                    progress = { progress },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = NeumorphicColors.Primary,
+                                    trackColor = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f)
+                                )
+                            } else {
+                                LinearProgressIndicator(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = NeumorphicColors.Primary,
+                                    trackColor = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f)
+                                )
+                            }
+                        }
+                    }
+                    is com.example.service.UpdateState.ReadyToInstall -> {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "APK verified and ready",
+                                    tint = NeumorphicColors.Success,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Text(
+                                    text = "Update downloaded & verified successfully!",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NeumorphicColors.TextPrimary
+                                )
+                            }
+                            Text(
+                                text = "Secure FileProvider authority is successfully created. Grant package installation if requested by the OS.",
+                                fontSize = 11.sp,
+                                color = NeumorphicColors.TextSecondary,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                NeumorphicButton(
+                                    label = "Install Update",
+                                    icon = Icons.Default.CloudDownload,
+                                    accentColor = NeumorphicColors.Success,
+                                    onClick = { viewModel.installUpdate() },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                TextButton(
+                                    onClick = { viewModel.resetUpdateState() },
+                                    modifier = Modifier.weight(0.4f)
+                                ) {
+                                    Text("Discard", color = Color(0xFFFF6584))
+                                }
+                            }
+                        }
+                    }
+                    is com.example.service.UpdateState.Error -> {
+                        val errMsg = (updateState as com.example.service.UpdateState.Error).message
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Error,
+                                    contentDescription = "Error icon details",
+                                    tint = NeumorphicColors.Accent,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = "Update Check Failed",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NeumorphicColors.TextPrimary
+                                )
+                            }
+                            Text(
+                                text = errMsg,
+                                fontSize = 11.sp,
+                                color = NeumorphicColors.TextSecondary,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 8.dp)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                NeumorphicButton(
+                                    label = "Retry Check",
+                                    icon = Icons.Default.Refresh,
+                                    accentColor = NeumorphicColors.Primary,
+                                    onClick = { viewModel.checkForUpdates() },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                TextButton(
+                                    onClick = { viewModel.resetUpdateState() },
+                                    modifier = Modifier.weight(0.4f)
+                                ) {
+                                    Text("Dismiss", color = NeumorphicColors.TextSecondary)
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 

@@ -6,6 +6,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.FocusFlowApplication
 import com.example.data.db.entity.SessionEntity
+import com.example.service.AppUpdateManager
+import com.example.service.UpdateState
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 import com.google.firebase.firestore.firestore
@@ -39,11 +41,53 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val sessionRepo = FocusFlowApplication.instance.sessionRepository
     private val database = FocusFlowApplication.instance.database
 
+    val updateManager = AppUpdateManager(application)
+    val updateState: StateFlow<UpdateState> = updateManager.updateState
+    private var downloadedApkFile: java.io.File? = null
+
     private val _state = MutableStateFlow(SettingsState())
     val state: StateFlow<SettingsState> = _state.asStateFlow()
 
     init {
         loadSettings()
+    }
+
+    /**
+     * Trigger check for updates from Remote Config
+     */
+    fun checkForUpdates(forceFetch: Boolean = true) {
+        viewModelScope.launch {
+            updateManager.checkForUpdates(forceFetch = forceFetch)
+        }
+    }
+
+    /**
+     * Start downloading update from designated CDN / Storage URL
+     */
+    fun downloadUpdate(downloadUrl: String) {
+        viewModelScope.launch {
+            downloadedApkFile = updateManager.downloadUpdate(downloadUrl)
+        }
+    }
+
+    /**
+     * Run native installation intent
+     */
+    fun installUpdate() {
+        val apkFile = downloadedApkFile
+        if (apkFile != null && apkFile.exists()) {
+            if (updateManager.checkAndRequestInstallPermission()) {
+                updateManager.launchInstaller(apkFile)
+            }
+        }
+    }
+
+    /**
+     * Reset checking wizard state context
+     */
+    fun resetUpdateState() {
+        updateManager.resetState()
+        downloadedApkFile = null
     }
 
     private fun loadSettings() {
