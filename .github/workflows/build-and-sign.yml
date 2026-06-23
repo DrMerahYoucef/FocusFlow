@@ -1,0 +1,40 @@
+name: Auto-Build and Sign Native Android App
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Make Gradle Executable
+        run: chmod +x gradlew
+
+      - name: Build Native Release APK
+        run: ./gradlew assembleRelease
+
+      - name: Sign Android APK
+        uses: r0adkll/sign-android-release@v1
+        id: sign_app
+        with:
+          releaseDirectory: app/build/outputs/apk/release
+          signingKeyBase64:  ${{ secrets.KEYSTORE_BASE64 }}
+          alias:  ${{ secrets.RELEASE_ALIAS }}
+          keyStorePassword:  ${{ secrets.RELEASE_SIGNING_PASSWORD }}
+          keyPassword:  ${{ secrets.RELEASE_KEY_PASSWORD }}
+
+      - name: Upload Signed APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FocusFlow-Signed-APK
+          path:  ${{ steps.sign_app.outputs.signedReleaseFile }}
