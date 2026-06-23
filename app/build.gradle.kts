@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-  namespace = "com.example"
+  namespace = "com.focusisland"
   compileSdk = 35
 
   defaultConfig {
