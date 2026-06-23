@@ -17,24 +17,26 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Make Gradle Executable
-        run: chmod +x gradlew
+      # Automatically configures Gradle on the runner
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
 
+      # Runs the build using global gradle instead of ./gradlew
       - name: Build Native Release APK
-        run: ./gradlew assembleRelease
+        run: gradle assembleRelease
 
       - name: Sign Android APK
         uses: r0adkll/sign-android-release@v1
         id: sign_app
         with:
           releaseDirectory: app/build/outputs/apk/release
-          signingKeyBase64:  ${{ secrets.KEYSTORE_BASE64 }}
-          alias:  ${{ secrets.RELEASE_ALIAS }}
-          keyStorePassword:  ${{ secrets.RELEASE_SIGNING_PASSWORD }}
-          keyPassword:  ${{ secrets.RELEASE_KEY_PASSWORD }}
+          signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
+          alias: ${{ secrets.RELEASE_ALIAS }}
+          keyStorePassword: ${{ secrets.RELEASE_SIGNING_PASSWORD }}
+          keyPassword: ${{ secrets.RELEASE_KEY_PASSWORD }}
 
       - name: Upload Signed APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: FocusFlow-Signed-APK
-          path:  ${{ steps.sign_app.outputs.signedReleaseFile }}
+          path: ${{ steps.sign_app.outputs.signedReleaseFile }}
