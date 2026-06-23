@@ -29,7 +29,7 @@ jobs:
         run: ./gradlew assembleRelease --no-configuration-cache
 
       - name: Install Android Build Tools 29.0.3
-        run: sdkmanager "build-tools;29.0.3"
+        run: /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;29.0.3" --sdk_root=/usr/local/lib/android/sdk
 
       - name: Sign Android APK
         uses: r0adkll/sign-android-release@v1
