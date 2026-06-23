@@ -370,6 +370,13 @@ class PomodoroTimerService : Service() {
 
     private var exoPlayer: androidx.media3.exoplayer.ExoPlayer? = null
 
+    private fun isNetworkAvailable(): Boolean {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager ?: return false
+        val network = cm.activeNetwork ?: return false
+        val caps    = cm.getNetworkCapabilities(network) ?: return false
+        return caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
     private fun getOrCreatePlayer(): androidx.media3.exoplayer.ExoPlayer {
         val currentExo = exoPlayer
         if (currentExo == null) {
@@ -384,6 +391,32 @@ class PomodoroTimerService : Service() {
                 .setHandleAudioBecomingNoisy(true)
                 .build().apply {
                     repeatMode = androidx.media3.common.Player.REPEAT_MODE_ALL
+                    addListener(object : androidx.media3.common.Player.Listener {
+                        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                            android.util.Log.e("Ambient", "Primary URL failed: ${error.message}, trying fallback")
+                            val currentId = _state.value.currentAmbientId
+                            val fallbackUrl = getAmbientFallbackUrl(currentId)
+                            if (fallbackUrl != null) {
+                                try {
+                                    val fallbackMediaItem = androidx.media3.common.MediaItem.Builder()
+                                        .setMediaId(currentId)
+                                        .setUri(fallbackUrl)
+                                        .setMediaMetadata(
+                                            androidx.media3.common.MediaMetadata.Builder()
+                                                .setTitle(getAmbientName(currentId))
+                                                .setArtist("Ambient Flow (Fallback)")
+                                                .build()
+                                        )
+                                        .build()
+                                    setMediaItem(fallbackMediaItem)
+                                    prepare()
+                                    play()
+                                } catch (e: Exception) {
+                                    android.util.Log.e("Ambient", "Fallback also failed: ${e.message}")
+                                }
+                            }
+                        }
+                    })
                 }
             exoPlayer = newExo
             return newExo
@@ -405,6 +438,11 @@ class PomodoroTimerService : Service() {
         if (ambientId == "none" || !timerIsRunning) {
             exoPlayer?.pause()
         } else {
+            if (!isNetworkAvailable()) {
+                android.util.Log.w("Ambient", "No network — skipping ambient sound")
+                exoPlayer?.pause()
+                return
+            }
             val player = getOrCreatePlayer()
             val url = getAmbientUrl(ambientId)
             if (url != null) {
@@ -436,11 +474,42 @@ class PomodoroTimerService : Service() {
 
     private fun getAmbientUrl(id: String): String? {
         return when (id) {
-            "rain" -> "https://upload.wikimedia.org/wikipedia/commons/3/36/Rain_on_roof_1.ogg"
-            "white_noise" -> "https://actions.google.com/sounds/v1/ambient/ambient_hum_air_conditioner.ogg"
-            "campfire" -> "https://upload.wikimedia.org/wikipedia/commons/2/25/Campfire_close_up.ogg"
-            "stream" -> "https://upload.wikimedia.org/wikipedia/commons/2/22/Forest_creek.ogg"
+            // 🌧️ Rain — Zapsplat CDN public stream (reliable loop)
+            "rain" -> "https://www.soundjay.com/nature/rain-01.mp3"
+
+            // 🤍 White Noise — SomaFM noise channel (same server as space, proven working)
+            "white_noise" -> "https://ice1.somafm.com/darkzone-128-mp3"
+
+            // 🔥 Campfire — Internet Archive direct MP3 (no hotlink block)
+            "campfire" -> "https://ia800301.us.archive.org/5/items/CampfireSounds/campfire.mp3"
+
+            // 🌊 Forest Stream — Internet Archive direct MP3
+            "stream" -> "https://ia800204.us.archive.org/11/items/foreststream/forest_stream.mp3"
+
+            // 🌌 Deep Space — SomaFM (already working, keep as-is)
             "space" -> "https://ice1.somafm.com/deepspaceone-128-mp3"
+
+            else -> null
+        }
+    }
+
+    private fun getAmbientFallbackUrl(id: String): String? {
+        return when (id) {
+            // Rain fallback — SomaFM ambient channel
+            "rain" -> "https://ice1.somafm.com/thistle-128-mp3"
+
+            // White noise fallback — SomaFM drone zone
+            "white_noise" -> "https://ice1.somafm.com/dronezone-128-mp3"
+
+            // Campfire fallback — SomaFM boot liquor (warm country feel)
+            "campfire" -> "https://ice1.somafm.com/bootliquor-128-mp3"
+
+            // Stream fallback — SomaFM suburbs of goa (nature ambient)
+            "stream" -> "https://ice1.somafm.com/suburbsofgoa-128-mp3"
+
+            // Space fallback — SomaFM mission control
+            "space" -> "https://ice1.somafm.com/missioncontrol-128-mp3"
+
             else -> null
         }
     }

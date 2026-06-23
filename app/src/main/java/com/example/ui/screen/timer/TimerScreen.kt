@@ -248,7 +248,7 @@ fun TimerScreen(
             // Interactive control buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally)
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
             ) {
                 if (!state.isRunning) {
                     // Play / Launch Button
@@ -256,7 +256,9 @@ fun TimerScreen(
                         label = "Start",
                         icon = Icons.Default.PlayArrow,
                         onClick = { viewModel.startTimer() },
-                        accentColor = themeColors.accent
+                        accentColor = themeColors.accent,
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
+                        modifier = Modifier.weight(1f)
                     )
                 } else {
                     // Pause Button
@@ -264,16 +266,30 @@ fun TimerScreen(
                         label = "Pause",
                         icon = Icons.Default.Pause,
                         onClick = { viewModel.pauseTimer() },
-                        accentColor = NeumorphicColors.Warning
+                        accentColor = NeumorphicColors.Warning,
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
+                        modifier = Modifier.weight(1f)
                     )
                 }
+
+                // Stop Button
+                GlassButton(
+                    label = "Stop",
+                    icon = Icons.Default.Stop,
+                    onClick = { viewModel.stopTimer() },
+                    accentColor = NeumorphicColors.Accent,
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
+                    modifier = Modifier.weight(1f)
+                )
 
                 // Skip Button (advance to break/focus immediately)
                 GlassButton(
                     label = "Skip",
                     icon = Icons.Default.SkipNext,
                     onClick = { viewModel.skipPhase() },
-                    accentColor = themeColors.accent
+                    accentColor = themeColors.accent,
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
+                    modifier = Modifier.weight(1f)
                 )
             }
 

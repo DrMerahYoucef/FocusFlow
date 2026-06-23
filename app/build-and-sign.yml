@@ -2,7 +2,7 @@ name: Auto-Build and Sign Native Android App
 
 on:
   push:
-    branches: [ main ] # Triggers whenever you commit from Google AI Studio
+    branches: [ main ]
 
 jobs:
   build:
@@ -17,14 +17,12 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      # Fixes potential "Permission Denied" errors during compilation
       - name: Make Gradle Executable
         run: chmod +x gradlew
 
       - name: Build Native Release APK
         run: ./gradlew assembleRelease
 
-      # Automatically signs the freshly compiled Native APK
       - name: Sign Android APK
         uses: r0adkll/sign-android-release@v1
         id: sign_app
@@ -35,9 +33,8 @@ jobs:
           keyStorePassword: ${{ secrets.RELEASE_SIGNING_PASSWORD }}
           keyPassword: ${{ secrets.RELEASE_KEY_PASSWORD }}
 
-      # Saves the signed APK file so you can download it
       - name: Upload Signed APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FocusIsland-Signed-APK
+          name: FocusFlow-Signed-APK
           path: ${{ steps.sign_app.outputs.signedReleaseFile }}
