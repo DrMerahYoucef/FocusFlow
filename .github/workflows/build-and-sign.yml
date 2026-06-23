@@ -25,7 +25,7 @@ jobs:
 
       # Runs the build using the pinned stable version
       - name: Build Native Release APK
-        run: gradle assembleRelease
+        run: gradle assembleRelease --no-configuration-cache
 
       - name: Sign Android APK
         uses: r0adkll/sign-android-release@v1
