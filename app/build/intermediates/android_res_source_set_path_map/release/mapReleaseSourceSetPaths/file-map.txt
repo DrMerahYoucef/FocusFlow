@@ -1,0 +1,8 @@
+com.example.app-pngs-0 /workspaces/FocusFlow/app/build/generated/res/pngs/release
+com.example.app-res-1 /workspaces/FocusFlow/app/build/generated/res/processReleaseGoogleServices
+com.example.app-updated_navigation_xml-2 /workspaces/FocusFlow/app/build/generated/updated_navigation_xml/release
+com.example.app-packageReleaseResources-3 /workspaces/FocusFlow/app/build/intermediates/incremental/release/packageReleaseResources/merged.dir
+com.example.app-packageReleaseResources-4 /workspaces/FocusFlow/app/build/intermediates/incremental/release/packageReleaseResources/stripped.dir
+com.example.app-release-5 /workspaces/FocusFlow/app/build/intermediates/merged_res/release/mergeReleaseResources
+com.example.app-main-6 /workspaces/FocusFlow/app/src/main/res
+com.example.app-release-7 /workspaces/FocusFlow/app/src/release/res

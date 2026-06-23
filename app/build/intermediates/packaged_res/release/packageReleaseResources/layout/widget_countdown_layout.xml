@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Dynamically rendered day/night forest background -->
+    <ImageView
+        android:id="@+id/widget_background"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop" />
+
+    <!-- Semi-transparent overlay to ensure extreme readability and visual polish -->
+    <LinearLayout
+        android:id="@+id/widget_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#A6030A0E"
+        android:orientation="horizontal"
+        android:padding="12dp">
+
+        <!-- Column Left: Upcoming Exams -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1.25"
+            android:orientation="vertical"
+            android:layout_marginEnd="8dp">
+
+            <TextView
+                android:id="@+id/widget_title_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🎯 UPCOMING EXAMS"
+                android:textColor="#9EA4B0"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08" />
+
+            <!-- No exams text -->
+            <TextView
+                android:id="@+id/widget_no_exams_text"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:text="No upcoming exams listed. Great time to study!"
+                android:textColor="#CCCCCC"
+                android:textSize="12sp"
+                android:textStyle="italic"
+                android:visibility="gone" />
+
+            <!-- List of 3 exam slot containers -->
+            <LinearLayout
+                android:id="@+id/widget_exams_list_container"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center_vertical"
+                android:layout_marginTop="4dp">
+
+                <!-- Exam Slot 1 -->
+                <LinearLayout
+                    android:id="@+id/widget_exam1_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp"
+                    android:visibility="visible">
+                    <TextView
+                        android:id="@+id/widget_exam1_name"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Math 101"
+                        android:textColor="#FFFFFF"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:maxLines="1"
+                        android:ellipsize="end" />
+                    <TextView
+                        android:id="@+id/widget_exam1_days"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="3d"
+                        android:textColor="#8B84FF"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:layout_marginStart="4dp" />
+                </LinearLayout>
+
+                <!-- Exam Slot 2 -->
+                <LinearLayout
+                    android:id="@+id/widget_exam2_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp"
+                    android:visibility="visible">
+                    <TextView
+                        android:id="@+id/widget_exam2_name"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Physics II"
+                        android:textColor="#FFFFFF"
+                        android:textSize="12sp"
+                        android:maxLines="1"
+                        android:ellipsize="end" />
+                    <TextView
+                        android:id="@+id/widget_exam2_days"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="12d"
+                        android:textColor="#8B84FF"
+                        android:textSize="11sp"
+                        android:layout_marginStart="4dp" />
+                </LinearLayout>
+
+                <!-- Exam Slot 3 -->
+                <LinearLayout
+                    android:id="@+id/widget_exam3_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp"
+                    android:visibility="visible">
+                    <TextView
+                        android:id="@+id/widget_exam3_name"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Chemistry"
+                        android:textColor="#FFFFFF"
+                        android:textSize="12sp"
+                        android:maxLines="1"
+                        android:ellipsize="end" />
+                    <TextView
+                        android:id="@+id/widget_exam3_days"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="18d"
+                        android:textColor="#8B84FF"
+                        android:textSize="11sp"
+                        android:layout_marginStart="4dp" />
+                </LinearLayout>
+
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Vertical Divider -->
+        <View
+            android:id="@+id/widget_vertical_divider"
+            android:layout_width="1dp"
+            android:layout_height="match_parent"
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="2dp"
+            android:background="#33FFFFFF" />
+
+        <!-- Column Right: Focus Stats -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1.0"
+            android:orientation="vertical"
+            android:layout_marginStart="10dp"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/widget_stats_title_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📊 ISLAND STATS"
+                android:textColor="#9EA4B0"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:layout_marginBottom="6dp" />
+
+            <!-- Stat Row: Focus -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="3dp"
+                android:gravity="center_vertical">
+                <TextView
+                    android:id="@+id/widget_stat_focus_label"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="⏱️ Focus"
+                    android:textColor="#9EA4B0"
+                    android:textSize="11sp" />
+                <TextView
+                    android:id="@+id/widget_stat_focus_value"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0h"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Stat Row: Points -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="3dp"
+                android:gravity="center_vertical">
+                <TextView
+                    android:id="@+id/widget_stat_points_label"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="⭐ Points"
+                    android:textColor="#9EA4B0"
+                    android:textSize="11sp" />
+                <TextView
+                    android:id="@+id/widget_stat_points_value"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Stat Row: Sessions -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="3dp"
+                android:gravity="center_vertical">
+                <TextView
+                    android:id="@+id/widget_stat_sessions_label"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="✅ Sessions"
+                    android:textColor="#9EA4B0"
+                    android:textSize="11sp" />
+                <TextView
+                    android:id="@+id/widget_stat_sessions_value"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Stat Row: Streak -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                <TextView
+                    android:id="@+id/widget_stat_streak_label"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="🔥 Streak"
+                    android:textColor="#9EA4B0"
+                    android:textSize="11sp" />
+                <TextView
+                    android:id="@+id/widget_stat_streak_value"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0d"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </LinearLayout>
+</FrameLayout>
