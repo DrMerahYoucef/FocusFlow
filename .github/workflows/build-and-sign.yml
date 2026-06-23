@@ -28,6 +28,9 @@ jobs:
       - name: Build Native Release APK
         run: ./gradlew assembleRelease --no-configuration-cache
 
+      - name: Install Android Build Tools 29.0.3
+        run: sdkmanager "build-tools;29.0.3"
+
       - name: Sign Android APK
         uses: r0adkll/sign-android-release@v1
         id: sign_app
