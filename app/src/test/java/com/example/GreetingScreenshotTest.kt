@@ -1,8 +1,8 @@
-package com.focusisland
+package com.example
 
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
-import com.focusisland.ui.theme.MyApplicationTheme
+import com.example.ui.theme.MyApplicationTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier

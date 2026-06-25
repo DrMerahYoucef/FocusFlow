@@ -1,4 +1,4 @@
-package com.focusisland
+package com.example
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider

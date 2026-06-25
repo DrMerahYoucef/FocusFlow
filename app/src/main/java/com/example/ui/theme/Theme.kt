@@ -1,0 +1,100 @@
+package com.example.ui.theme
+
+import android.os.Build
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+
+val LocalIsDarkTheme = staticCompositionLocalOf { false }
+
+data class AppThemeColors(
+    val surface: Color,         // cards, bottom nav, buttons
+    val onSurface: Color,       // primary text
+    val secondaryText: Color,   // subtitles, labels
+    val accent: Color,          // active tab, toggles, icons
+    val inputBackground: Color, // search/filter fields
+    val divider: Color,
+    val iconTint: Color
+)
+
+val LocalAppThemeColors = staticCompositionLocalOf {
+    AppThemeColors(
+        surface = Color(0xFF1C2128).copy(alpha = 0.82f),
+        onSurface = Color(0xFFE6EDF3),
+        secondaryText = Color(0xFF8B949E),
+        accent = Color(0xFF7C6AF7),
+        inputBackground = Color(0xFF0D1117).copy(alpha = 0.75f),
+        divider = Color(0xFF30363D),
+        iconTint = Color(0xFFCDD9E5)
+    )
+}
+
+private val DarkColorScheme =
+  darkColorScheme(
+    primary = Color(0xFF8B84FF),      // Primary
+    secondary = Color(0xFF5CCB96),    // Success
+    tertiary = Color(0xFFFF829C),     // Accent
+    background = Color(0xFF1E222B),
+    surface = Color(0xFF1E222B),
+    onPrimary = Color(0xFF2E333F),    // SurfaceLight
+    onBackground = Color(0xFFECF0F3), // TextPrimary
+    onSurface = Color(0xFFECF0F3)     // TextPrimary
+  )
+
+private val LightColorScheme =
+  lightColorScheme(
+    primary = Color(0xFF6C63FF),
+    secondary = Color(0xFF4CAF82),
+    tertiary = Color(0xFFFF6584),
+    background = Color(0xFFE0E5EC),
+    surface = Color(0xFFE0E5EC),
+    onPrimary = Color(0xFFFFFFFF),
+    onBackground = Color(0xFF2D3142),
+    onSurface = Color(0xFF2D3142)
+  )
+
+@Composable
+fun MyApplicationTheme(
+  darkTheme: Boolean = isSystemInDarkTheme(),
+  dynamicColor: Boolean = false, // Disable dynamic colors to preserve our beautiful custom neumorphic palette branding
+  content: @Composable () -> Unit,
+) {
+  val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+
+  val defaultThemeColors = if (darkTheme) {
+    AppThemeColors(
+      surface = Color(0xFF1C2128).copy(alpha = 0.82f),
+      onSurface = Color(0xFFE6EDF3),
+      secondaryText = Color(0xFF8B949E),
+      accent = Color(0xFF7C6AF7),
+      inputBackground = Color(0xFF0D1117).copy(alpha = 0.75f),
+      divider = Color(0xFF30363D),
+      iconTint = Color(0xFFCDD9E5)
+    )
+  } else {
+    AppThemeColors(
+      surface = Color(0xFFFFFFFF).copy(alpha = 0.82f),
+      onSurface = Color(0xFF1A1A2E),
+      secondaryText = Color(0xFF57606A),
+      accent = Color(0xFF7C6AF7),
+      inputBackground = Color(0xFFF0F2F5).copy(alpha = 0.80f),
+      divider = Color(0xFFD0D7DE),
+      iconTint = Color(0xFF1A1A2E)
+    )
+  }
+
+  CompositionLocalProvider(
+    LocalIsDarkTheme provides darkTheme,
+    LocalAppThemeColors provides defaultThemeColors
+  ) {
+    MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
+  }
+}
