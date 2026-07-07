@@ -11,6 +11,25 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
+      - name: Restore original Gradle files from backup
+        run: |
+          echo "Overwriting any accidental AI Studio modifications with pristine backups..."
+
+          # 1. Restore root level configuration files
+          cp actions-backup/build.gradle.kts ./build.gradle.kts
+          cp actions-backup/settings.gradle.kts ./settings.gradle.kts
+          cp actions-backup/gradle.properties ./gradle.properties
+          cp actions-backup/gradlew ./gradlew
+
+          # 2. Restore the gradle wrapper files
+          cp -r actions-backup/gradle/. ./gradle/
+
+          # 3. Restore the app-level build configuration safely (keeps your UI code intact)
+          cp actions-backup/app/build.gradle.kts ./app/build.gradle.kts 2>/dev/null || true
+
+          # 4. Fix permissions just in case the executable bit was dropped
+          chmod +x gradlew
+
       - name: Set up Java JDK
         uses: actions/setup-java@v4
         with:
