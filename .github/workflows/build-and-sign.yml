@@ -24,10 +24,8 @@ jobs:
           # 2. Restore the gradle wrapper files
           cp -r actions-backup/gradle/. ./gradle/
 
-          # 3. Restore the app-level build configuration safely (keeps your UI code intact)
-          cp actions-backup/app/build.gradle.kts ./app/build.gradle.kts 2>/dev/null || true
 
-          # 4. Fix permissions just in case the executable bit was dropped
+          # 3. Fix permissions just in case the executable bit was dropped
           chmod +x gradlew
 
       - name: Set up Java JDK
