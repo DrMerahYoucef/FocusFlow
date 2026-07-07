@@ -18,15 +18,19 @@ class FocusFlowApplication : Application() {
         super.onCreate()
         instance = this
         try {
-            val options = com.google.firebase.FirebaseOptions.Builder()
-                .setApplicationId("1:15963877054:android:96d280ae44802a00bbf8ef")
-                .setApiKey("AIzaSyAFKsKjqCROungwqAxXCHgqeUQEu-kg3go")
-                .setProjectId("focuse-island")
-                .setStorageBucket("focuse-island.firebasestorage.app")
-                .setGcmSenderId("15963877054")
-                .build()
-            FirebaseApp.initializeApp(this, options)
-            android.util.Log.d("FocusFlowApplication", "Firebase initialized successfully with explicit options")
+            if (FirebaseApp.getApps(this).isEmpty()) {
+                val options = com.google.firebase.FirebaseOptions.Builder()
+                    .setApplicationId("1:15963877054:android:96d280ae44802a00bbf8ef")
+                    .setApiKey("AIzaSyAFKsKjqCROungwqAxXCHgqeUQEu-kg3go")
+                    .setProjectId("focuse-island")
+                    .setStorageBucket("focuse-island.firebasestorage.app")
+                    .setGcmSenderId("15963877054")
+                    .build()
+                FirebaseApp.initializeApp(this, options)
+                android.util.Log.d("FocusFlowApplication", "Firebase initialized successfully with explicit options")
+            } else {
+                android.util.Log.d("FocusFlowApplication", "Firebase already initialized by system/provider")
+            }
         } catch (e: Throwable) {
             android.util.Log.e("FocusFlowApplication", "Failed to initialize Firebase", e)
         }

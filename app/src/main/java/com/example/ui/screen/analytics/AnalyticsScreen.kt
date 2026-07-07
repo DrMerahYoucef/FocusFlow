@@ -3,7 +3,11 @@ package com.example.ui.screen.analytics
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -17,14 +21,13 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -41,6 +44,18 @@ fun AnalyticsScreen(
     val state by viewModel.state.collectAsState()
     val scrollState = rememberScrollState()
     val themeColors = LocalAppThemeColors.current
+
+    var selectedDayMillis by remember { mutableStateOf<Long?>(null) }
+
+    LaunchedEffect(state.dailyStatsList) {
+        if (selectedDayMillis == null || state.dailyStatsList.none { it.dayStartMillis == selectedDayMillis }) {
+            state.dailyStatsList.lastOrNull()?.let {
+                selectedDayMillis = it.dayStartMillis
+            }
+        }
+    }
+
+    val selectedDayStats = state.dailyStatsList.find { it.dayStartMillis == selectedDayMillis }
 
     Column(
         modifier = modifier
@@ -105,6 +120,202 @@ fun AnalyticsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // INTERACTIVE DAILY TREES PLANTED SECTION
+        NeumorphicCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("daily_trees_planted_card"),
+            cornerRadius = 20.dp,
+            elevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = "Daily Trees Planted",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = themeColors.onSurface
+                )
+                Text(
+                    text = "Scroll horizontally to view past days. Tap a day to see statistics.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = themeColors.secondaryText,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                if (state.dailyStatsList.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text("🌲", fontSize = 28.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "No tree history recorded yet. Complete some sessions!",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = themeColors.secondaryText,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                } else {
+                    val maxCompleted = state.dailyStatsList.maxOf { it.completedCount }.coerceAtLeast(1)
+                    val listState = rememberLazyListState()
+
+                    // Auto scroll to latest day (today) on launch
+                    LaunchedEffect(state.dailyStatsList) {
+                        if (state.dailyStatsList.isNotEmpty()) {
+                            listState.animateScrollToItem(state.dailyStatsList.lastIndex)
+                        }
+                    }
+
+                    LazyRow(
+                        state = listState,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(150.dp)
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        items(state.dailyStatsList) { dayStat ->
+                            val isSelected = dayStat.dayStartMillis == selectedDayMillis
+                            val percent = dayStat.completedCount.toFloat() / maxCompleted.toFloat()
+                            val animatedHeightPercent by animateFloatAsState(
+                                targetValue = percent,
+                                animationSpec = tween(durationMillis = 600),
+                                label = "tree_bar_growth"
+                            )
+
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Bottom,
+                                modifier = Modifier
+                                    .width(44.dp)
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { selectedDayMillis = dayStat.dayStartMillis }
+                                    .padding(vertical = 4.dp)
+                                    .testTag("daily_tree_bar_${dayStat.dayLabel}")
+                            ) {
+                                // Column labels (number of trees)
+                                if (dayStat.completedCount > 0) {
+                                    Text(
+                                        text = "🌲${dayStat.completedCount}",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSelected) themeColors.accent else themeColors.onSurface
+                                    )
+                                } else {
+                                    Spacer(modifier = Modifier.height(14.dp))
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                // Visual bar representing trees planted on this day
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .width(18.dp)
+                                        .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                                        .background(
+                                            if (isSelected) {
+                                                Brush.verticalGradient(
+                                                    listOf(
+                                                        themeColors.accent,
+                                                        themeColors.accent.copy(alpha = 0.5f)
+                                                    )
+                                                )
+                                            } else {
+                                                Brush.verticalGradient(
+                                                    listOf(
+                                                        themeColors.onSurface.copy(alpha = 0.15f),
+                                                        themeColors.onSurface.copy(alpha = 0.05f)
+                                                    )
+                                                )
+                                            }
+                                        )
+                                )
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                // Date Label under bar
+                                Text(
+                                    text = dayStat.dayLabel,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (isSelected) themeColors.accent else themeColors.secondaryText,
+                                    maxLines = 1,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Detailed selected day stats panel
+                if (selectedDayStats != null) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(themeColors.divider)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = selectedDayStats.dateFullLabel,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = themeColors.accent,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        DetailStatPill(
+                            icon = "🌲",
+                            value = "${selectedDayStats.completedCount}",
+                            label = "Trees",
+                            modifier = Modifier.weight(1f)
+                        )
+                        DetailStatPill(
+                            icon = "⏱️",
+                            value = "${selectedDayStats.totalFocusMinutes}m",
+                            label = "Focus Time",
+                            modifier = Modifier.weight(1f)
+                        )
+                        DetailStatPill(
+                            icon = "⭐",
+                            value = "${selectedDayStats.totalPoints} pts",
+                            label = "Points",
+                            modifier = Modifier.weight(1f)
+                        )
+                        DetailStatPill(
+                            icon = "📋",
+                            value = "${selectedDayStats.totalSessionsCount}",
+                            label = "Sessions",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         // Custom Bar Chart Card representing last 7 days productivity
         NeumorphicCard(
             modifier = Modifier.fillMaxWidth(),
@@ -167,7 +378,7 @@ fun AnalyticsScreen(
                         verticalAlignment = Alignment.Bottom
                     ) {
                         val maxScore = state.last7DaysScores.maxOf { it.second }.coerceAtLeast(10)
-                        
+
                         state.last7DaysScores.forEach { (dayLabel, score) ->
                             val percent = score.toFloat() / maxScore.toFloat()
                             val animatedHeightPercent by animateFloatAsState(
@@ -280,7 +491,9 @@ fun StatCard(
         elevation = 6.dp
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
@@ -305,6 +518,44 @@ fun StatCard(
                 fontSize = 20.sp,
                 color = themeColors.onSurface,
                 fontWeight = FontWeight.Black
+            )
+        }
+    }
+}
+
+@Composable
+private fun DetailStatPill(
+    icon: String,
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    val themeColors = LocalAppThemeColors.current
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(themeColors.onSurface.copy(alpha = 0.04f))
+            .padding(horizontal = 6.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(text = icon, fontSize = 16.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = value,
+                color = themeColors.onSurface,
+                fontWeight = FontWeight.Black,
+                fontSize = 14.sp
+            )
+            Text(
+                text = label,
+                color = themeColors.secondaryText,
+                fontWeight = FontWeight.Bold,
+                fontSize = 8.sp,
+                textAlign = TextAlign.Center
             )
         }
     }

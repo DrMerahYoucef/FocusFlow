@@ -41,6 +41,13 @@ data class ForestState(
 class ForestViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = FocusFlowApplication.instance.sessionRepository
+    private val sharedPrefs = application.getSharedPreferences("focusflow_prefs", android.content.Context.MODE_PRIVATE)
+
+    private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "use_location_for_daynight" || key == "last_known_latitude" || key == "last_known_longitude") {
+            refreshDayNightStatus()
+        }
+    }
 
     private val _forestState = MutableStateFlow(
         ForestState(treeCount = 0, isDayTime = isDayByClockRule())
@@ -48,6 +55,7 @@ class ForestViewModel(application: Application) : AndroidViewModel(application) 
     val forestState: StateFlow<ForestState> = _forestState.asStateFlow()
 
     init {
+        sharedPrefs.registerOnSharedPreferenceChangeListener(prefListener)
         // Observe total completed sessions from Room
         viewModelScope.launch {
             repository
@@ -71,7 +79,29 @@ class ForestViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    override fun onCleared() {
+        super.onCleared()
+        sharedPrefs.unregisterOnSharedPreferenceChangeListener(prefListener)
+    }
+
+    fun refreshDayNightStatus() {
+        val isDay = isDayByClockRule()
+        val oldState = _forestState.value.isDayTime
+        _forestState.update { it.copy(isDayTime = isDay) }
+        if (oldState != isDay) {
+            checkAndTriggerAutoWallpaper()
+        }
+    }
+
     private fun isDayByClockRule(): Boolean {
+        val useLocation = sharedPrefs.getBoolean("use_location_for_daynight", false)
+        if (useLocation) {
+            val lat = sharedPrefs.getFloat("last_known_latitude", 0.0f).toDouble()
+            val lng = sharedPrefs.getFloat("last_known_longitude", 0.0f).toDouble()
+            if (lat != 0.0 || lng != 0.0) {
+                return com.example.util.SunriseSunsetCalculator.isDaytime(lat, lng)
+            }
+        }
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         return hour in 6..17  // 06:00–17:59 = Day, 18:00–05:59 = Night
     }

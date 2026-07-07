@@ -21,6 +21,12 @@ import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 
 data class SettingsState(
     val focusMin: Int = 25,
@@ -33,7 +39,10 @@ data class SettingsState(
     val autoSyncWallpaper: Boolean = false,
     val wallpaperHomeScreen: Boolean = true,
     val wallpaperLockScreen: Boolean = false,
-    val ambientRotationMin: Int = 5
+    val ambientRotationMin: Int = 5,
+    val useLocationForDayNight: Boolean = false,
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -104,7 +113,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 autoSyncWallpaper = sharedPrefs.getBoolean("auto_sync_wallpaper", false),
                 wallpaperHomeScreen = sharedPrefs.getBoolean("wallpaper_home_screen", true),
                 wallpaperLockScreen = sharedPrefs.getBoolean("wallpaper_lock_screen", false),
-                ambientRotationMin = sharedPrefs.getInt("ambient_rotation_min", 5)
+                ambientRotationMin = sharedPrefs.getInt("ambient_rotation_min", 5),
+                useLocationForDayNight = sharedPrefs.getBoolean("use_location_for_daynight", false),
+                latitude = sharedPrefs.getFloat("last_known_latitude", 0.0f).toDouble(),
+                longitude = sharedPrefs.getFloat("last_known_longitude", 0.0f).toDouble()
             )
         }
     }
@@ -164,6 +176,63 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun updateWallpaperLockScreen(value: Boolean) {
         sharedPrefs.edit().putBoolean("wallpaper_lock_screen", value).apply()
         _state.update { it.copy(wallpaperLockScreen = value) }
+    }
+
+    fun updateUseLocationForDayNight(value: Boolean) {
+        sharedPrefs.edit().putBoolean("use_location_for_daynight", value).apply()
+        _state.update { it.copy(useLocationForDayNight = value) }
+    }
+
+    fun fetchAndSaveLocation(onComplete: (Boolean) -> Unit) {
+        if (ContextCompat.checkSelfPermission(
+                getApplication(),
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(
+                getApplication(),
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            val fusedLocationClient = LocationServices.getFusedLocationProviderClient(getApplication<Application>())
+            fusedLocationClient.getCurrentLocation(
+                Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                CancellationTokenSource().token
+            ).addOnSuccessListener { location ->
+                if (location != null) {
+                    sharedPrefs.edit()
+                        .putFloat("last_known_latitude", location.latitude.toFloat())
+                        .putFloat("last_known_longitude", location.longitude.toFloat())
+                        .apply()
+                    _state.update { it.copy(
+                        latitude = location.latitude,
+                        longitude = location.longitude
+                    ) }
+                    onComplete(true)
+                } else {
+                    fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
+                        if (lastLoc != null) {
+                            sharedPrefs.edit()
+                                .putFloat("last_known_latitude", lastLoc.latitude.toFloat())
+                                .putFloat("last_known_longitude", lastLoc.longitude.toFloat())
+                                .apply()
+                            _state.update { it.copy(
+                                latitude = lastLoc.latitude,
+                                longitude = lastLoc.longitude
+                            ) }
+                            onComplete(true)
+                        } else {
+                            onComplete(false)
+                        }
+                    }.addOnFailureListener {
+                        onComplete(false)
+                    }
+                }
+            }.addOnFailureListener {
+                onComplete(false)
+            }
+        } else {
+            onComplete(false)
+        }
     }
 
     fun exportSessionsAsCsv(onCompleted: (String) -> Unit) {

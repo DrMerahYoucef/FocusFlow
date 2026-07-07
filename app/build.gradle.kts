@@ -16,8 +16,8 @@ android {
     applicationId = "com.focusisland"
     minSdk = 26
     targetSdk = 35
-    versionCode = 5
-    versionName = "1.0.5"
+    versionCode = 6
+    versionName = "1.0.6"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -80,7 +80,7 @@ dependencies {
   implementation("com.google.firebase:firebase-config")
   implementation("com.google.firebase:firebase-storage")
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
-  // implementation(libs.accompanist.permissions)
+  implementation(libs.accompanist.permissions)
   implementation(libs.androidx.activity.compose)
   // implementation(libs.androidx.camera.camera2)
   // implementation(libs.androidx.camera.core)
@@ -115,7 +115,7 @@ dependencies {
   implementation(libs.logging.interceptor)
   implementation(libs.moshi.kotlin)
   implementation(libs.okhttp)
-  // implementation(libs.play.services.location)
+  implementation(libs.play.services.location)
   implementation(libs.retrofit)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)

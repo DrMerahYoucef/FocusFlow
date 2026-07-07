@@ -3,6 +3,8 @@ package com.example.ui.screen.settings
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -104,6 +106,7 @@ fun ExpandableSection(
     }
 }
 
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
@@ -705,6 +708,92 @@ fun SettingsScreen(
                             checkedTrackColor = NeumorphicColors.Primary.copy(alpha = 0.5f)
                         )
                     )
+                }
+
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Location-Based Day/Night 🌍",
+                            fontWeight = FontWeight.Bold,
+                            color = NeumorphicColors.TextPrimary,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = if (state.useLocationForDayNight && state.latitude != 0.0) {
+                                "Active: Sunrise/Sunset calculated for lat: ${"%.2f".format(state.latitude)}, lng: ${"%.2f".format(state.longitude)}"
+                            } else {
+                                "Automatically switch day/night theme based on your current local sunrise and sunset times."
+                            },
+                            fontSize = 11.sp,
+                            color = NeumorphicColors.TextSecondary
+                        )
+                    }
+                    
+                    val locationPermissionsState = rememberMultiplePermissionsState(
+                        permissions = listOf(
+                            android.Manifest.permission.ACCESS_COARSE_LOCATION,
+                            android.Manifest.permission.ACCESS_FINE_LOCATION
+                        )
+                    )
+
+                    var isFetchingLocation by remember { mutableStateOf(false) }
+
+                    LaunchedEffect(locationPermissionsState.allPermissionsGranted) {
+                        if (state.useLocationForDayNight && locationPermissionsState.allPermissionsGranted) {
+                            isFetchingLocation = true
+                            viewModel.fetchAndSaveLocation { success ->
+                                isFetchingLocation = false
+                                if (success) {
+                                    Toast.makeText(context, "Location updated successfully! 🌲", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Failed to get current location. Using fallback schedule.", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    }
+
+                    if (isFetchingLocation) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp,
+                            color = NeumorphicColors.Primary
+                        )
+                    } else {
+                        Switch(
+                            checked = state.useLocationForDayNight,
+                            onCheckedChange = { checked ->
+                                if (checked) {
+                                    if (locationPermissionsState.allPermissionsGranted) {
+                                        viewModel.updateUseLocationForDayNight(true)
+                                        isFetchingLocation = true
+                                        viewModel.fetchAndSaveLocation { success ->
+                                            isFetchingLocation = false
+                                            if (success) {
+                                                Toast.makeText(context, "Location-based day/night activated! ☀️🌙", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                Toast.makeText(context, "Activated with fallback schedule (could not fetch location).", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    } else {
+                                        locationPermissionsState.launchMultiplePermissionRequest()
+                                        viewModel.updateUseLocationForDayNight(true)
+                                    }
+                                } else {
+                                    viewModel.updateUseLocationForDayNight(false)
+                                }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = NeumorphicColors.Primary,
+                                checkedTrackColor = NeumorphicColors.Primary.copy(alpha = 0.5f)
+                            )
+                        )
+                    }
                 }
 
                 Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
