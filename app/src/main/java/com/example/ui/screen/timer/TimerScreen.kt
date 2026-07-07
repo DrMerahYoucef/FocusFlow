@@ -160,17 +160,6 @@ fun TimerScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             // Section: Ambient soundscapes soundboard
-            val ambientSounds = remember {
-                listOf(
-                    com.example.ui.screen.timer.SoundOption("none", "None", "🔇"),
-                    com.example.ui.screen.timer.SoundOption("rain", "Rain", "🌧️"),
-                    com.example.ui.screen.timer.SoundOption("white_noise", "Noise", "🌫️"),
-                    com.example.ui.screen.timer.SoundOption("campfire", "Fire", "🔥"),
-                    com.example.ui.screen.timer.SoundOption("stream", "Stream", "🌊"),
-                    com.example.ui.screen.timer.SoundOption("space", "Space", "🌌")
-                )
-            }
-
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -181,65 +170,57 @@ fun TimerScreen(
                     fontWeight = FontWeight.Bold,
                     color = themeColors.secondaryText,
                     letterSpacing = 1.5.sp,
-                    modifier = Modifier.padding(bottom = 10.dp)
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                val activeSoundName = when (state.currentAmbientId) {
+                    "rain" -> "Rain 🌧️"
+                    "white_noise" -> "Noise 🌫️"
+                    "campfire" -> "Fire 🔥"
+                    "stream" -> "Stream 🌊"
+                    "space" -> "Space 🌌"
+                    else -> "Muted 🔇"
+                }
+
+                Text(
+                    text = "Playing: $activeSoundName",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = if (state.currentAmbientId == "none") themeColors.secondaryText else themeColors.accent,
+                    modifier = Modifier.padding(bottom = 12.dp)
                 )
                 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
+                    horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally)
                 ) {
-                    ambientSounds.forEach { option ->
-                        val isSelected = state.currentAmbientId == option.id
-                        
-                        val backgroundColor = if (isSelected) {
-                            themeColors.accent.copy(alpha = 0.18f)
-                        } else {
-                            Color.Transparent
-                        }
-                        
-                        val borderDecorationModifier = if (isSelected) {
-                            Modifier.border(
-                                width = 1.5.dp,
-                                color = themeColors.accent,
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-                            )
-                        } else {
-                            Modifier.border(
-                                width = 1.dp,
-                                color = themeColors.divider.copy(alpha = 0.4f),
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-                            )
-                        }
+                    // Button 1: Play Random
+                    GlassButton(
+                        label = "Play Random",
+                        icon = Icons.Default.Shuffle,
+                        onClick = {
+                            val sounds = listOf("rain", "white_noise", "campfire", "stream", "space")
+                            val currentId = state.currentAmbientId
+                            val nextSounds = sounds.filter { it != currentId }
+                            val nextId = if (nextSounds.isNotEmpty()) nextSounds.random() else sounds.random()
+                            viewModel.setAmbientSound(nextId)
+                        },
+                        accentColor = themeColors.accent,
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
+                        modifier = Modifier.weight(1f)
+                    )
 
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
-                                .background(backgroundColor)
-                                .then(borderDecorationModifier)
-                                .clickable { viewModel.setAmbientSound(option.id) }
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(2.dp)
-                            ) {
-                                Text(
-                                    text = option.emoji,
-                                    fontSize = 18.sp
-                                )
-                                Text(
-                                    text = option.name,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) themeColors.accent else themeColors.secondaryText,
-                                    fontSize = 10.sp,
-                                    maxLines = 1
-                                )
-                            }
-                        }
-                    }
+                    // Button 2: Stop / Mute
+                    GlassButton(
+                        label = "Mute",
+                        icon = Icons.Default.VolumeOff,
+                        onClick = {
+                            viewModel.setAmbientSound("none")
+                        },
+                        accentColor = if (state.currentAmbientId == "none") themeColors.divider else Color(0xFFE57373),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
 

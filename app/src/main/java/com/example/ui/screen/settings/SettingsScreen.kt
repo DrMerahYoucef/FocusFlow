@@ -413,6 +413,58 @@ fun SettingsScreen(
                         )
                     )
                 }
+
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f))
+
+                // Ambient Sound Change Interval stepper
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Sound Switch Interval",
+                            fontWeight = FontWeight.Bold,
+                            color = NeumorphicColors.TextPrimary,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "Minutes before fading to another random sound",
+                            fontSize = 11.sp,
+                            color = NeumorphicColors.TextSecondary
+                        )
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        IconButton(
+                            onClick = {
+                                if (state.ambientRotationMin > 1) {
+                                    viewModel.updateAmbientRotationMin(state.ambientRotationMin - 1)
+                                }
+                            }
+                        ) {
+                            Text("-", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = NeumorphicColors.Primary)
+                        }
+                        Text(
+                            text = "${state.ambientRotationMin} min",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 15.sp,
+                            color = NeumorphicColors.TextPrimary
+                        )
+                        IconButton(
+                            onClick = {
+                                if (state.ambientRotationMin < 120) {
+                                    viewModel.updateAmbientRotationMin(state.ambientRotationMin + 1)
+                                }
+                            }
+                        ) {
+                            Text("+", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = NeumorphicColors.Primary)
+                        }
+                    }
+                }
             }
         }
 

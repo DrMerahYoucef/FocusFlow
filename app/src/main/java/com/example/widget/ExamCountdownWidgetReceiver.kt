@@ -169,7 +169,7 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                         views.setViewVisibility(R.id.widget_exam1_container, View.VISIBLE)
                         val ex = exams[0]
                         views.setTextViewText(R.id.widget_exam1_name, ex.name)
-                        views.setTextViewText(R.id.widget_exam1_days, getDaysLeftString(ex.examDate, todayCalendar.timeInMillis))
+                        views.setTextViewText(R.id.widget_exam1_days, getDaysLeftStringSpecial(ex.examDate, todayCalendar.timeInMillis))
                     } else {
                         views.setViewVisibility(R.id.widget_exam1_container, View.GONE)
                     }
@@ -214,6 +214,24 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
             daysLeft < 0 -> "Passed"
             daysLeft == 0 -> "Today"
             else -> "${daysLeft}d"
+        }
+    }
+
+    private fun getDaysLeftStringSpecial(examTime: Long, todayTime: Long): String {
+        val examCalendar = Calendar.getInstance().apply {
+            timeInMillis = examTime
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val diffMs = examCalendar.timeInMillis - todayTime
+        val daysLeft = (diffMs / (24 * 60 * 60 * 1000L)).toInt()
+        return when {
+            daysLeft < 0 -> "Passed"
+            daysLeft == 0 -> "Today"
+            daysLeft == 1 -> "1 Day"
+            else -> "$daysLeft Days"
         }
     }
 

@@ -32,7 +32,8 @@ data class SettingsState(
     val themeMode: String = "system",
     val autoSyncWallpaper: Boolean = false,
     val wallpaperHomeScreen: Boolean = true,
-    val wallpaperLockScreen: Boolean = false
+    val wallpaperLockScreen: Boolean = false,
+    val ambientRotationMin: Int = 5
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -102,9 +103,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 themeMode = sharedPrefs.getString("theme_mode", "system") ?: "system",
                 autoSyncWallpaper = sharedPrefs.getBoolean("auto_sync_wallpaper", false),
                 wallpaperHomeScreen = sharedPrefs.getBoolean("wallpaper_home_screen", true),
-                wallpaperLockScreen = sharedPrefs.getBoolean("wallpaper_lock_screen", false)
+                wallpaperLockScreen = sharedPrefs.getBoolean("wallpaper_lock_screen", false),
+                ambientRotationMin = sharedPrefs.getInt("ambient_rotation_min", 5)
             )
         }
+    }
+
+    fun updateAmbientRotationMin(value: Int) {
+        sharedPrefs.edit().putInt("ambient_rotation_min", value).apply()
+        _state.update { it.copy(ambientRotationMin = value) }
     }
 
     fun updateThemeMode(value: String) {

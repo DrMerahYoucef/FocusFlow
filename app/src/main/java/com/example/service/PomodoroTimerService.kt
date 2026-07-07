@@ -40,6 +40,8 @@ class PomodoroTimerService : Service() {
     private var sessionsBeforeLongBreak = 4
     private var dndEnabled = true
     private var vibrateEnabled = true
+    private var ambientRotationMin = 5
+    private var ambientSecondsElapsed = 0L
 
     override fun onCreate() {
         super.onCreate()
@@ -103,6 +105,7 @@ class PomodoroTimerService : Service() {
         sessionsBeforeLongBreak = prefs.getInt("sessions_before_long", 4)
         dndEnabled = prefs.getBoolean("block_notifications", true)
         vibrateEnabled = prefs.getBoolean("vibrate_on_complete", true)
+        ambientRotationMin = prefs.getInt("ambient_rotation_min", 5)
     }
 
     private fun startTimer() {
@@ -184,6 +187,20 @@ class PomodoroTimerService : Service() {
                         totalFocusSecs = it.totalFocusSecs + totalFocusDiff
                     )
                 }
+                
+                if (_state.value.currentAmbientId != "none") {
+                    ambientSecondsElapsed++
+                    val rotationPeriodSecs = ambientRotationMin * 60L
+                    if (ambientSecondsElapsed >= rotationPeriodSecs) {
+                        ambientSecondsElapsed = 0L
+                        val sounds = listOf("rain", "white_noise", "campfire", "stream", "space")
+                        val currentId = _state.value.currentAmbientId
+                        val nextSounds = sounds.filter { it != currentId }
+                        val nextId = if (nextSounds.isNotEmpty()) nextSounds.random() else currentId
+                        setAmbientSoundInternal(nextId)
+                    }
+                }
+                
                 updateNotification()
             }
 
@@ -425,10 +442,93 @@ class PomodoroTimerService : Service() {
     }
 
     private fun setAmbientSoundInternal(ambientId: String) {
-        _state.update { it.copy(currentAmbientId = ambientId) }
-        val prefs = getSharedPreferences("focusflow_prefs", Context.MODE_PRIVATE)
-        prefs.edit().putString("selected_ambient_id", ambientId).apply()
-        syncAmbientPlayback()
+        val currentId = _state.value.currentAmbientId
+        val player = exoPlayer
+        
+        ambientSecondsElapsed = 0L // Reset rotation progress on any manual or auto sound change
+        
+        if (ambientId == "none") {
+            if (player != null && player.isPlaying) {
+                serviceScope.launch(Dispatchers.Main) {
+                    val steps = 15
+                    val fadeDurationMs = 1000L
+                    val stepDelay = fadeDurationMs / steps
+                    for (i in 0..steps) {
+                        val volume = 1f - (i.toFloat() / steps)
+                        player.volume = volume
+                        kotlinx.coroutines.delay(stepDelay)
+                    }
+                    player.pause()
+                    _state.update { it.copy(currentAmbientId = "none") }
+                    val prefs = getSharedPreferences("focusflow_prefs", Context.MODE_PRIVATE)
+                    prefs.edit().putString("selected_ambient_id", "none").apply()
+                }
+            } else {
+                _state.update { it.copy(currentAmbientId = "none") }
+                val prefs = getSharedPreferences("focusflow_prefs", Context.MODE_PRIVATE)
+                prefs.edit().putString("selected_ambient_id", "none").apply()
+                syncAmbientPlayback()
+            }
+        } else if (currentId != "none" && currentId != ambientId && player != null && player.isPlaying) {
+            // Fade transition between two active sounds
+            fadeToSound(ambientId)
+        } else {
+            // Standard start (no active player, or same sound)
+            _state.update { it.copy(currentAmbientId = ambientId) }
+            val prefs = getSharedPreferences("focusflow_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putString("selected_ambient_id", ambientId).apply()
+            syncAmbientPlayback()
+            exoPlayer?.volume = 1f // ensure volume is reset to 1f
+        }
+    }
+
+    private fun fadeToSound(nextId: String) {
+        serviceScope.launch(Dispatchers.Main) {
+            val player = getOrCreatePlayer()
+            val steps = 20
+            val fadeDurationMs = 1500L
+            val stepDelay = fadeDurationMs / steps
+            
+            // 1. Fade Out
+            for (i in 0..steps) {
+                val volume = 1f - (i.toFloat() / steps)
+                player.volume = volume
+                kotlinx.coroutines.delay(stepDelay)
+            }
+            
+            player.pause()
+            
+            _state.update { it.copy(currentAmbientId = nextId) }
+            val prefs = getSharedPreferences("focusflow_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putString("selected_ambient_id", nextId).apply()
+            
+            val url = getAmbientUrl(nextId)
+            if (url != null) {
+                val mediaItem = androidx.media3.common.MediaItem.Builder()
+                    .setMediaId(nextId)
+                    .setUri(url)
+                    .setMediaMetadata(
+                        androidx.media3.common.MediaMetadata.Builder()
+                            .setTitle(getAmbientName(nextId))
+                            .setArtist("Ambient Flow")
+                            .build()
+                    )
+                    .build()
+                player.setMediaItem(mediaItem)
+                player.prepare()
+                if (_state.value.isRunning) {
+                    player.play()
+                }
+            }
+            
+            // 2. Fade In
+            for (i in 0..steps) {
+                val volume = i.toFloat() / steps
+                player.volume = volume
+                kotlinx.coroutines.delay(stepDelay)
+            }
+            player.volume = 1f
+        }
     }
 
     private fun syncAmbientPlayback() {
