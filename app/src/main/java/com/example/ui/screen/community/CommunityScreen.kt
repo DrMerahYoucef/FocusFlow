@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -308,10 +309,10 @@ fun IslandMapTab(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            LeaderboardStatPill("🌲", "${friend.treeCount}", "trees")
-                            LeaderboardStatPill("⏱️", "${friend.totalMinutes}", "min")
-                            LeaderboardStatPill("⭐", "${friend.points}", "pts")
-                            LeaderboardStatPill("🔥", "${friend.currentStreak}", "streak")
+                            LeaderboardStatPill("🌲", "${friend.treeCount}", "Trees")
+                            LeaderboardStatPill("⏱️", "${friend.totalMinutes}", "Time")
+                            LeaderboardStatPill("⭐", "${friend.points}", "Points")
+                            LeaderboardStatPill("🔥", "${friend.currentStreak}", "Streak")
                         }
 
                         // Audio live indicator
@@ -608,6 +609,85 @@ private fun DrawScope.drawIsland(
 }
 
 @Composable
+fun RankBadge(rank: Int, modifier: Modifier = Modifier) {
+    val themeColors = LocalAppThemeColors.current
+    
+    val backgroundColor = when (rank) {
+        1 -> Brush.linearGradient(colors = listOf(Color(0xFFFBBF24), Color(0xFFD97706))) // Gold
+        2 -> Brush.linearGradient(colors = listOf(Color(0xFF94A3B8), Color(0xFF475569))) // Silver
+        3 -> Brush.linearGradient(colors = listOf(Color(0xFFF97316), Color(0xFFC2410C))) // Bronze
+        else -> Brush.linearGradient(colors = listOf(themeColors.onSurface.copy(alpha = 0.08f), themeColors.onSurface.copy(alpha = 0.04f))) // Neutral
+    }
+    
+    val textColor = when (rank) {
+        1 -> Color(0xFF5C3E00)
+        2 -> Color(0xFFFFFFFF)
+        3 -> Color(0xFFFFFFFF)
+        else -> themeColors.onSurface
+    }
+    
+    val borderBrush = when (rank) {
+        1 -> Brush.linearGradient(colors = listOf(Color(0xFFFFFBE2), Color(0xFFFBBF24)))
+        2 -> Brush.linearGradient(colors = listOf(Color(0xFFF1F5F9), Color(0xFF94A3B8)))
+        3 -> Brush.linearGradient(colors = listOf(Color(0xFFFFEDD5), Color(0xFFF97316)))
+        else -> Brush.linearGradient(colors = listOf(themeColors.divider.copy(alpha = 0.5f), themeColors.divider.copy(alpha = 0.3f)))
+    }
+
+    Box(
+        modifier = modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .background(backgroundColor)
+            .border(1.dp, borderBrush, CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "$rank",
+            color = textColor,
+            fontWeight = FontWeight.Black,
+            fontSize = 14.sp
+        )
+    }
+}
+
+@Composable
+private fun LeaderboardStatPill(
+    emoji: String,
+    value: String,
+    label: String,
+    color: Color = Color.Unspecified
+) {
+    val themeColors = LocalAppThemeColors.current
+    Column(
+        horizontalAlignment = Alignment.Start,
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(text = emoji, fontSize = 14.sp)
+            Text(
+                text = value,
+                color = themeColors.onSurface,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Black,
+                    fontSize = 14.sp
+                )
+            )
+        }
+        Text(
+            text = label,
+            color = themeColors.secondaryText,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontWeight = FontWeight.Medium,
+                fontSize = 9.sp
+            )
+        )
+    }
+}
+
+@Composable
 fun LeaderboardTab(
     leaderboard:   List<LeaderboardEntry>,
     currentUid:    String,
@@ -639,7 +719,7 @@ fun LeaderboardTab(
         OutlinedTextField(
             value       = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text("Search players...", color = themeColors.onSurface.copy(alpha = 0.5f)) },
+            placeholder = { Text("Search players...", color = themeColors.secondaryText) },
             leadingIcon = { Icon(Icons.Default.Search, null, tint = themeColors.onSurface) },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
@@ -649,13 +729,15 @@ fun LeaderboardTab(
                 }
             },
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor   = Color(0xFF6C63FF),
-                unfocusedBorderColor = themeColors.onSurface.copy(alpha = 0.3f),
+                focusedContainerColor = themeColors.inputBackground,
+                unfocusedContainerColor = themeColors.inputBackground,
+                focusedBorderColor   = themeColors.accent,
+                unfocusedBorderColor = themeColors.divider,
                 focusedTextColor     = themeColors.onSurface,
                 unfocusedTextColor   = themeColors.onSurface
             ),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            shape    = RoundedCornerShape(14.dp)
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            shape    = RoundedCornerShape(16.dp)
         )
 
         // Pending invitations received — pinned at top
@@ -683,114 +765,288 @@ fun LeaderboardTab(
             }
         }
 
-        // Sent pending invitations — show with cancel option
-        if (sentReqs.isNotEmpty()) {
-            GlassCard(modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp)) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("⏳ Sent Invitations",
-                        color = themeColors.onSurface.copy(alpha = 0.7f),
-                        fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    sentReqs.forEach { req ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            val displayName = if (req.toName.isNotEmpty()) req.toName else req.fromName
-                            Text("→ $displayName",
-                                color = themeColors.onSurface.copy(alpha = 0.6f),
-                                modifier = Modifier.weight(1f), fontSize = 12.sp)
-                            TextButton(onClick = { onCancel(req) }) {
-                                Text("Cancel", color = Color(0xFFFF6584), fontSize = 11.sp)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         // Full leaderboard list
         LazyColumn(
             contentPadding      = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             itemsIndexed(filtered) { index, entry ->
                 val isMe       = entry.uid == currentUid
                 val isFriend   = entry.uid in friendUids
                 val sentTo     = entry.uid in sentToUids
                 val pendingFr  = entry.uid in pendingFrom
+                val sentReq    = sentReqs.find { it.toUid == entry.uid }
 
-                GlassCard(modifier = Modifier.fillMaxWidth()
-                    .then(if (isMe)
-                        Modifier.border(1.5.dp, Color(0xFF6C63FF), RoundedCornerShape(20.dp))
-                    else Modifier)
+                val cardShape = RoundedCornerShape(24.dp)
+                val cardBackground = if (isMe) {
+                    Brush.linearGradient(
+                        colors = listOf(
+                            themeColors.accent.copy(alpha = 0.15f),
+                            themeColors.surface.copy(alpha = 0.90f)
+                        )
+                    )
+                } else {
+                    Brush.linearGradient(
+                        colors = listOf(
+                            themeColors.surface,
+                            themeColors.surface
+                        )
+                    )
+                }
+
+                val cardBorderModifier = when (index + 1) {
+                    1 -> Modifier.border(
+                        width = 1.5.dp,
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFFFBBF24), // Gold
+                                Color(0xFFFBBF24).copy(alpha = 0.4f)
+                            )
+                        ),
+                        shape = cardShape
+                    )
+                    2 -> Modifier.border(
+                        width = 1.2.dp,
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF94A3B8), // Silver
+                                Color(0xFF94A3B8).copy(alpha = 0.4f)
+                            )
+                        ),
+                        shape = cardShape
+                    )
+                    3 -> Modifier.border(
+                        width = 1.2.dp,
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFFF97316), // Bronze
+                                Color(0xFFF97316).copy(alpha = 0.4f)
+                            )
+                        ),
+                        shape = cardShape
+                    )
+                    else -> Modifier.border(1.dp, themeColors.divider, cardShape)
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(
+                            elevation = if (isMe) 8.dp else 4.dp,
+                            shape = cardShape,
+                            clip = false,
+                            ambientColor = if (isMe) themeColors.accent.copy(alpha = 0.2f) else Color(0x0A000000),
+                            spotColor = if (isMe) themeColors.accent.copy(alpha = 0.2f) else Color(0x0A000000)
+                        )
+                        .clip(cardShape)
+                        .background(cardBackground)
+                        .then(cardBorderModifier)
+                        .padding(16.dp)
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        // Rank + username row
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = when (index) {
-                                    0 -> "🥇"; 1 -> "🥈"; 2 -> "🥉"
-                                    else -> "#${index + 1}"
-                                },
-                                style    = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.width(42.dp),
-                                color    = themeColors.onSurface
-                            )
-                            Text(
-                                text       = entry.username + if (isMe) " (You)" else "",
-                                color      = if (isMe) Color(0xFF6C63FF) else themeColors.onSurface,
-                                fontWeight = FontWeight.Bold,
-                                modifier   = Modifier.weight(1f)
-                            )
-                            // Friend action button
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Top Row: Medal + Rank + Name on the left, Status Badge on the right
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Left: Medal + Rank + Name
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                val medal = when (index + 1) {
+                                    1 -> "🏅"
+                                    2 -> "🥈"
+                                    3 -> "🥉"
+                                    else -> null
+                                }
+                                if (medal != null) {
+                                    Text(medal, fontSize = 16.sp)
+                                }
+                                Text(
+                                    text = "#${index + 1}",
+                                    color = themeColors.onSurface,
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 15.sp
+                                    )
+                                )
+                                Text(
+                                    text = entry.username,
+                                    color = if (isMe) themeColors.accent else themeColors.onSurface,
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 15.sp,
+                                        letterSpacing = 0.2.sp
+                                    )
+                                )
+                            }
+
+                            // Right Status Badge
                             when {
-                                isMe     -> {} // no button for self
+                                isMe -> {
+                                    Text(
+                                        text = "You",
+                                        color = themeColors.secondaryText,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                                 isFriend -> {
-                                    Text("✅ Friends", color = Color(0xFF4CAF82), fontSize = 11.sp)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = Color(0xFF4CAF82),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Text(
+                                            text = "Friends",
+                                            color = Color(0xFF4CAF82),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                 }
-                                sentTo   -> {
-                                    Text("⏳ Sent", color = themeColors.onSurface.copy(alpha = 0.5f),
-                                        fontSize = 11.sp)
-                                }
-                                pendingFr -> {
-                                    GlassButton("Accept", Icons.Default.PersonAdd,
-                                        onClick = {
-                                            val req = pendingReqs.find { it.fromUid == entry.uid }
-                                            req?.let { onAccept(it) }
-                                        },
-                                        accentColor = Color(0xFF4CAF82),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp))
-                                }
-                                else     -> {
-                                    GlassButton("+ Add", Icons.Default.PersonAdd,
-                                        onClick = { onSendRequest(entry) },
-                                        accentColor = Color(0xFF6C63FF),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp))
+                                sentTo -> {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text("⏳", fontSize = 12.sp)
+                                        Icon(
+                                            imageVector = Icons.Default.Send,
+                                            contentDescription = null,
+                                            tint = themeColors.secondaryText,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
 
-                        // Stats row
+                        // Bottom Row: Stats on left, Action Button on the right (if any)
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Bottom
                         ) {
-                            LeaderboardStatPill("🌲", "${entry.treeCount}", "trees")
-                            LeaderboardStatPill("⏱️", "${entry.totalMinutes}", "min")
-                            LeaderboardStatPill("⭐", "${entry.points}", "pts")
-                            LeaderboardStatPill("🔥", "${entry.currentStreak}", "day streak")
+                            // Left Stats Column
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                LeaderboardStatPill("🌲", "${entry.treeCount}", "Trees")
+                                LeaderboardStatPill("⏱️", "${entry.totalMinutes}", "Time")
+                                LeaderboardStatPill("⭐", "${entry.points}", "Points")
+                                LeaderboardStatPill("🔥", "${entry.currentStreak}", "Streak")
+                            }
+
+                            // Right Action Button (if applicable)
+                            Box(contentAlignment = Alignment.Center) {
+                                when {
+                                    isMe || isFriend -> { /* no button needed */ }
+                                    sentTo -> {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(16.dp))
+                                                .background(themeColors.onSurface.copy(alpha = 0.08f))
+                                                .border(1.dp, themeColors.divider, RoundedCornerShape(16.dp))
+                                                .clickable { sentReq?.let { onCancel(it) } }
+                                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.History,
+                                                    contentDescription = null,
+                                                    tint = themeColors.secondaryText,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Text(
+                                                    text = "Invitation Sent",
+                                                    color = themeColors.secondaryText,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                    }
+                                    pendingFr -> {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(12.dp))
+                                                    .background(Color(0xFF4CAF82))
+                                                    .clickable {
+                                                        val req = pendingReqs.find { it.fromUid == entry.uid }
+                                                        req?.let { onAccept(it) }
+                                                    }
+                                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                                            ) {
+                                                Text("Accept", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                                            }
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(12.dp))
+                                                    .background(Color(0xFFFF6584).copy(alpha = 0.15f))
+                                                    .border(1.dp, Color(0xFFFF6584).copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                                                    .clickable {
+                                                        val req = pendingReqs.find { it.fromUid == entry.uid }
+                                                        req?.let { onDecline(it) }
+                                                    }
+                                                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                                            ) {
+                                                Icon(Icons.Default.Close, contentDescription = "Decline", tint = Color(0xFFFF6584), modifier = Modifier.size(12.dp))
+                                            }
+                                        }
+                                    }
+                                    else -> {
+                                        // Stranger -> "Add Friend" Button
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(16.dp))
+                                                .background(themeColors.accent)
+                                                .clickable { onSendRequest(entry) }
+                                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.PersonAdd,
+                                                    contentDescription = null,
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Text(
+                                                    text = "Add Friend",
+                                                    color = Color.White,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun LeaderboardStatPill(icon: String, value: String, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("$icon $value", color = Color(0xFF4CAF82),
-            fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
-        Text(label, color = Color.White.copy(alpha = 0.5f), fontSize = 9.sp)
     }
 }

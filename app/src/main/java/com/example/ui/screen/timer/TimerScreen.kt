@@ -256,6 +256,56 @@ fun TimerScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Interactive control buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
+            ) {
+                if (!state.isRunning) {
+                    // Play / Launch Button
+                    GlassButton(
+                        label = "Start",
+                        icon = Icons.Default.PlayArrow,
+                        onClick = { viewModel.startTimer() },
+                        accentColor = themeColors.accent,
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
+                        modifier = Modifier.weight(1f)
+                    )
+                } else {
+                    // Pause Button
+                    GlassButton(
+                        label = "Pause",
+                        icon = Icons.Default.Pause,
+                        onClick = { viewModel.pauseTimer() },
+                        accentColor = NeumorphicColors.Warning,
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // Stop Button
+                GlassButton(
+                    label = "Stop",
+                    icon = Icons.Default.Stop,
+                    onClick = { viewModel.stopTimer() },
+                    accentColor = NeumorphicColors.Accent,
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
+                    modifier = Modifier.weight(1f)
+                )
+
+                // Skip Button (advance to break/focus immediately)
+                GlassButton(
+                    label = "Skip",
+                    icon = Icons.Default.SkipNext,
+                    onClick = { viewModel.skipPhase() },
+                    accentColor = themeColors.accent,
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             // Section: Ambient soundscapes soundboard
@@ -323,68 +373,10 @@ fun TimerScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Interactive control buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
-            ) {
-                if (!state.isRunning) {
-                    // Play / Launch Button
-                    GlassButton(
-                        label = "Start",
-                        icon = Icons.Default.PlayArrow,
-                        onClick = { viewModel.startTimer() },
-                        accentColor = themeColors.accent,
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
-                        modifier = Modifier.weight(1f)
-                    )
-                } else {
-                    // Pause Button
-                    GlassButton(
-                        label = "Pause",
-                        icon = Icons.Default.Pause,
-                        onClick = { viewModel.pauseTimer() },
-                        accentColor = NeumorphicColors.Warning,
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                // Stop Button
-                GlassButton(
-                    label = "Stop",
-                    icon = Icons.Default.Stop,
-                    onClick = { viewModel.stopTimer() },
-                    accentColor = NeumorphicColors.Accent,
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
-                    modifier = Modifier.weight(1f)
-                )
-
-                // Skip Button (advance to break/focus immediately)
-                GlassButton(
-                    label = "Skip",
-                    icon = Icons.Default.SkipNext,
-                    onClick = { viewModel.skipPhase() },
-                    accentColor = themeColors.accent,
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
             Spacer(modifier = Modifier.height(16.dp))
 
             // Do Not Disturb permission / Status Card
-            if (state.phase == Phase.FOCUS) {
-                val dndActiveText = if (state.isDndActive) {
-                    "🔕 Notifications Silenced (DND Active)"
-                } else if (!hasDndPermission) {
-                    "⚠️ DND access lacking. Click here to configure."
-                } else {
-                    "🔔 Notifications allowed in breaks"
-                }
-
+            if (!hasDndPermission) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -400,29 +392,24 @@ fun TimerScreen(
                             horizontalArrangement = Arrangement.Center
                         ) {
                             Text(
-                                text = dndActiveText,
-                                color = if (!hasDndPermission) themeColors.accent else themeColors.secondaryText,
+                                text = "⚠️ DND access lacking. Click here to configure.",
+                                color = themeColors.accent,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 12.sp,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.clickable {
-                                    if (!hasDndPermission) {
-                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                            context.startActivity(
-                                                Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).apply {
-                                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                                }
-                                            )
-                                        }
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                        context.startActivity(
+                                            Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).apply {
+                                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                            }
+                                        )
                                     }
                                 }
                             )
                         }
                     }
                 }
-            } else {
-                // Keep background balanced with placeholder spacing
-                Spacer(modifier = Modifier.height(56.dp))
             }
         }
 
