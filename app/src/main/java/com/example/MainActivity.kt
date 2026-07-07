@@ -59,16 +59,7 @@ class MainActivity : ComponentActivity() {
             }
 
             MyApplicationTheme(darkTheme = darkTheme) {
-                val isUpdateRequired = updateState is com.example.service.UpdateState.UpdateAvailable ||
-                        updateState is com.example.service.UpdateState.Downloading ||
-                        updateState is com.example.service.UpdateState.ReadyToInstall ||
-                        updateState is com.example.service.UpdateState.Error
-
-                if (isUpdateRequired) {
-                    com.example.ui.components.BlockingUpdateScreen(viewModel = settingsViewModel)
-                } else {
-                    AppNavGraph(settingsViewModel = settingsViewModel)
-                }
+                AppNavGraph(settingsViewModel = settingsViewModel)
             }
         }
     }

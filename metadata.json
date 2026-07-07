@@ -1,5 +1,5 @@
 {
-  "name": "FocusIsland",
+  "name": "Focus Island",
   "description": "An aesthetic 2.5D island community and gamified focus session tool with real-time audio and blocker.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

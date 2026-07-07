@@ -31,15 +31,102 @@ import com.example.ui.theme.NeumorphicColors
 import com.example.ui.components.GlassButton
 import com.example.ui.components.GlassCard
 import com.example.ui.components.TreePlantedCelebration
+import com.example.ui.components.neumorphicShadow
+
+import com.example.ui.screen.settings.SettingsViewModel
+import com.example.service.UpdateState
 
 data class SoundOption(val id: String, val name: String, val emoji: String)
 
 @Composable
+fun UpdateBadgeBanner(
+    updateState: UpdateState,
+    settingsViewModel: SettingsViewModel,
+    themeColors: com.example.ui.theme.AppThemeColors,
+    modifier: Modifier = Modifier
+) {
+    val isDark = com.example.ui.theme.LocalIsDarkTheme.current
+    val accentColor = when (updateState) {
+        is UpdateState.ReadyToInstall -> NeumorphicColors.Success
+        is UpdateState.Error -> NeumorphicColors.Accent
+        is UpdateState.Downloading -> NeumorphicColors.Primary
+        else -> NeumorphicColors.Primary
+    }
+
+    val bannerText = when (updateState) {
+        is UpdateState.UpdateAvailable -> "Mandatory Update Available! Tap to install."
+        is UpdateState.Downloading -> {
+            val progress = (updateState as UpdateState.Downloading).progress
+            val percent = if (progress >= 0f) "${(progress * 100).toInt()}%" else "..."
+            "Downloading Update: $percent"
+        }
+        is UpdateState.ReadyToInstall -> "Update Ready! Tap to install and restart."
+        is UpdateState.Error -> "Update failed. Tap to retry check."
+        else -> ""
+    }
+
+    val bannerIcon = when (updateState) {
+        is UpdateState.ReadyToInstall -> Icons.Default.CheckCircle
+        is UpdateState.Error -> Icons.Default.Error
+        is UpdateState.Downloading -> Icons.Default.CloudDownload
+        else -> Icons.Default.CloudDownload
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .neumorphicShadow(
+                cornerRadius = 12.dp,
+                elevation = 4.dp,
+                isPressed = false
+            )
+            .clickable {
+                when (updateState) {
+                    is UpdateState.UpdateAvailable -> {
+                        settingsViewModel.downloadUpdate(updateState.downloadUrl)
+                    }
+                    is UpdateState.ReadyToInstall -> {
+                        settingsViewModel.installUpdate()
+                    }
+                    is UpdateState.Error -> {
+                        settingsViewModel.checkForUpdates(forceFetch = true)
+                    }
+                    else -> {}
+                }
+            }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = bannerIcon,
+                contentDescription = "Update Status Icon",
+                tint = accentColor,
+                modifier = Modifier.size(20.dp)
+            )
+            Text(
+                text = bannerText,
+                color = themeColors.onSurface,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
 fun TimerScreen(
     viewModel: TimerViewModel,
+    settingsViewModel: SettingsViewModel,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.timerState.collectAsState()
+    val updateState by settingsViewModel.updateState.collectAsState()
     val context = LocalContext.current
 
     var showCelebration by remember { mutableStateOf(false) }
@@ -85,13 +172,25 @@ fun TimerScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
+            if (updateState is UpdateState.UpdateAvailable ||
+                updateState is UpdateState.Downloading ||
+                updateState is UpdateState.ReadyToInstall ||
+                updateState is UpdateState.Error
+            ) {
+                UpdateBadgeBanner(
+                    updateState = updateState,
+                    settingsViewModel = settingsViewModel,
+                    themeColors = themeColors
+                )
+            }
+
             // App Title / Branding Header
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(top = 16.dp)
             ) {
                 Text(
-                    text = "FOCUS FLOW",
+                    text = "FOCUS ISLAND",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 4.sp,

@@ -341,7 +341,7 @@ class PomodoroTimerService : Service() {
                 "Timer Running",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Shows countdown while FocusFlow is active"
+                description = "Shows countdown while Focus Island is active"
                 setShowBadge(false)
             }
             nm.createNotificationChannel(timerChannel)

@@ -3,30 +3,24 @@ package com.example.ui.screen.settings
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.SaveAlt
-import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.Eco
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Info
-import com.google.firebase.Firebase
-import com.google.firebase.auth.auth
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -37,6 +31,78 @@ import com.example.ui.components.NeumorphicButton
 import com.example.ui.components.NeumorphicCard
 import com.example.ui.components.neumorphicShadow
 import com.example.ui.theme.NeumorphicColors
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
+
+@Composable
+fun ExpandableSection(
+    title: String,
+    icon: ImageVector,
+    isExpanded: Boolean,
+    onHeaderClick: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    NeumorphicCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        cornerRadius = 16.dp,
+        elevation = 4.dp
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onHeaderClick() }
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = NeumorphicColors.Primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Text(
+                        text = title,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 14.sp,
+                        color = NeumorphicColors.TextPrimary,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (isExpanded) "Collapse" else "Expand",
+                    tint = NeumorphicColors.TextSecondary,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+                ) {
+                    Divider(
+                        color = NeumorphicColors.SurfaceDark.copy(alpha = 0.15f),
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    content()
+                }
+            }
+        }
+    }
+}
 
 @Composable
 fun SettingsScreen(
@@ -51,6 +117,30 @@ fun SettingsScreen(
 
     var isResetConfirmOpen by remember { mutableStateOf(false) }
     var isDeleteAccountConfirmOpen by remember { mutableStateOf(false) }
+
+    // State of each expandable section
+    var isExamsExpanded by remember { mutableStateOf(false) }
+    var isTimerIntervalsExpanded by remember { mutableStateOf(false) }
+    var isSystemSettingsExpanded by remember { mutableStateOf(false) }
+    var isAppBlockerExpanded by remember { mutableStateOf(false) }
+    var isDataBackupExpanded by remember { mutableStateOf(false) }
+    var isWallpaperExpanded by remember { mutableStateOf(false) }
+    var isAccountExpanded by remember { mutableStateOf(false) }
+    var isUpdateExpanded by remember { mutableStateOf(false) }
+    var isDeveloperExpanded by remember { mutableStateOf(false) }
+
+    // Data queries
+    val examDao = remember { com.example.FocusFlowApplication.instance.database.examDao() }
+    val examList by examDao.getAllExams().collectAsState(initial = emptyList())
+    val examCount = examList.size
+
+    val db = remember { com.example.FocusFlowApplication.instance.database }
+    val blockedList by db.blockedAppDao().getAllBlocked().collectAsState(initial = emptyList())
+    val blockedCount = blockedList.size
+
+    val dbSessionCount by remember {
+        com.example.FocusFlowApplication.instance.sessionRepository.getSessionCount(0L, Long.MAX_VALUE)
+    }.collectAsState(initial = 0)
 
     Column(
         modifier = modifier
@@ -70,35 +160,18 @@ fun SettingsScreen(
             modifier = Modifier.padding(top = 16.dp, bottom = 24.dp)
         )
 
-        // Section: Upcoming Exams
-        Text(
-            text = "EXAM WORKLOAD",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = NeumorphicColors.TextSecondary,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp),
-            textAlign = TextAlign.Start
-        )
-
-        val examDao = remember { com.example.FocusFlowApplication.instance.database.examDao() }
-        val examList by examDao.getAllExams().collectAsState(initial = emptyList())
-        val examCount = examList.size
-
-        NeumorphicCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    navController?.navigate("exams")
-                },
-            cornerRadius = 16.dp,
-            elevation = 6.dp
+        // 1. Section: Exam Countdown Workload
+        ExpandableSection(
+            title = "EXAM WORKLOAD",
+            icon = Icons.Default.CalendarMonth,
+            isExpanded = isExamsExpanded,
+            onHeaderClick = { isExamsExpanded = !isExamsExpanded }
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(4.dp),
+                    .clickable { navController?.navigate("exams") }
+                    .padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -124,31 +197,14 @@ fun SettingsScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Section: Durations
-        Text(
-            text = "TIMER INTERVALS",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = NeumorphicColors.TextSecondary,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp),
-            textAlign = TextAlign.Start
-        )
-
-        NeumorphicCard(
-            modifier = Modifier.fillMaxWidth(),
-            cornerRadius = 16.dp,
-            elevation = 6.dp
+        // 2. Section: Timer Intervals Option Sliders / Steppers
+        ExpandableSection(
+            title = "TIMER INTERVALS",
+            icon = Icons.Default.Timer,
+            isExpanded = isTimerIntervalsExpanded,
+            onHeaderClick = { isTimerIntervalsExpanded = !isTimerIntervalsExpanded }
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(4.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // Focus Option stepper
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -192,7 +248,7 @@ fun SettingsScreen(
                     }
                 }
 
-                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f))
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
 
                 // Short break option stepper
                 Row(
@@ -237,7 +293,7 @@ fun SettingsScreen(
                     }
                 }
 
-                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f))
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
 
                 // Long break option stepper
                 Row(
@@ -282,7 +338,7 @@ fun SettingsScreen(
                     }
                 }
 
-                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f))
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
 
                 // Rounds before long break
                 Row(
@@ -329,32 +385,15 @@ fun SettingsScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Section: System Behaviors
-        Text(
-            text = "SYSTEM SETTINGS",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = NeumorphicColors.TextSecondary,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp),
-            textAlign = TextAlign.Start
-        )
-
-        NeumorphicCard(
-            modifier = Modifier.fillMaxWidth(),
-            cornerRadius = 16.dp,
-            elevation = 6.dp
+        // 3. Section: System Settings
+        ExpandableSection(
+            title = "SYSTEM SETTINGS",
+            icon = Icons.Default.Settings,
+            isExpanded = isSystemSettingsExpanded,
+            onHeaderClick = { isSystemSettingsExpanded = !isSystemSettingsExpanded }
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(4.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Block Notifications
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Block Notifications (DND)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -383,9 +422,9 @@ fun SettingsScreen(
                     )
                 }
 
-                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f))
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
 
-                // Vibrate on complete
+                // Vibrate feedback
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -414,9 +453,9 @@ fun SettingsScreen(
                     )
                 }
 
-                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f))
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
 
-                // Ambient Sound Change Interval stepper
+                // Ambient sound switched interval
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -468,37 +507,18 @@ fun SettingsScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Section: App Blocker
-        Text(
-            text = "APP BLOCKER",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = NeumorphicColors.TextSecondary,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp),
-            textAlign = TextAlign.Start
-        )
-
-        val db = remember { com.example.FocusFlowApplication.instance.database }
-        val blockedList by db.blockedAppDao().getAllBlocked().collectAsState(initial = emptyList())
-        val blockedCount = blockedList.size
-
-        NeumorphicCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    navController?.navigate("app_blocker")
-                },
-            cornerRadius = 16.dp,
-            elevation = 6.dp
+        // 4. Section: App Blocker Setup
+        ExpandableSection(
+            title = "APP BLOCKER",
+            icon = Icons.Default.Block,
+            isExpanded = isAppBlockerExpanded,
+            onHeaderClick = { isAppBlockerExpanded = !isAppBlockerExpanded }
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(4.dp),
+                    .clickable { navController?.navigate("app_blocker") }
+                    .padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -524,74 +544,47 @@ fun SettingsScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Section: Data & Backup
-        Text(
-            text = "DATA & BACKUP",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = NeumorphicColors.TextSecondary,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp),
-            textAlign = TextAlign.Start
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        // 5. Section: Data & Backup management
+        ExpandableSection(
+            title = "DATA & BACKUP",
+            icon = Icons.Default.Storage,
+            isExpanded = isDataBackupExpanded,
+            onHeaderClick = { isDataBackupExpanded = !isDataBackupExpanded }
         ) {
-            NeumorphicButton(
-                label = "Export CSV",
-                icon = Icons.Default.SaveAlt,
-                onClick = {
-                    viewModel.exportSessionsAsCsv { csvString ->
-                        shareCsvContent(context, csvString)
-                    }
-                },
-                modifier = Modifier.weight(1f),
-                accentColor = NeumorphicColors.Primary
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                NeumorphicButton(
+                    label = "Export CSV",
+                    icon = Icons.Default.SaveAlt,
+                    onClick = {
+                        viewModel.exportSessionsAsCsv { csvString ->
+                            shareCsvContent(context, csvString)
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    accentColor = NeumorphicColors.Primary
+                )
 
-            NeumorphicButton(
-                label = "Clear DB",
-                icon = Icons.Default.DeleteSweep,
-                onClick = { isResetConfirmOpen = true },
-                modifier = Modifier.weight(1f),
-                accentColor = NeumorphicColors.Accent
-            )
+                NeumorphicButton(
+                    label = "Clear DB",
+                    icon = Icons.Default.DeleteSweep,
+                    onClick = { isResetConfirmOpen = true },
+                    modifier = Modifier.weight(1f),
+                    accentColor = NeumorphicColors.Accent
+                )
+            }
         }
 
-        // Section: Wallpapers
-        Text(
-            text = "FOREST WALLPAPER",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = NeumorphicColors.TextSecondary,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 24.dp, bottom = 12.dp),
-            textAlign = TextAlign.Start
-        )
-
-        var isWallpaperApplying by remember { mutableStateOf(false) }
-
-        val dbSessionCount by remember {
-            com.example.FocusFlowApplication.instance.sessionRepository.getSessionCount(0L, Long.MAX_VALUE)
-        }.collectAsState(initial = 0)
-
-        NeumorphicCard(
-            modifier = Modifier.fillMaxWidth(),
-            cornerRadius = 16.dp,
-            elevation = 6.dp
+        // 6. Section: Forest Wallpapers Custom Setup
+        ExpandableSection(
+            title = "FOREST WALLPAPER",
+            icon = Icons.Default.Eco,
+            isExpanded = isWallpaperExpanded,
+            onHeaderClick = { isWallpaperExpanded = !isWallpaperExpanded }
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(
                     text = "Generate and apply your actual Focus Forest as a beautiful high-resolution wallpaper!",
                     fontSize = 12.sp,
@@ -627,7 +620,7 @@ fun SettingsScreen(
                     )
                 }
 
-                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f))
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -657,7 +650,7 @@ fun SettingsScreen(
                     )
                 }
 
-                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f))
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -677,12 +670,12 @@ fun SettingsScreen(
                             color = NeumorphicColors.TextSecondary
                         )
                     }
+                    var isWallpaperApplying by remember { mutableStateOf(false) }
                     Switch(
                         checked = state.autoSyncWallpaper,
                         onCheckedChange = { checked ->
                             viewModel.updateAutoSyncWallpaper(checked)
                             if (checked) {
-                                // Instantly trigger sync
                                 isWallpaperApplying = true
                                 val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
                                 val isDaytimeSetting = hour in 6..17
@@ -714,9 +707,10 @@ fun SettingsScreen(
                     )
                 }
 
-                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f))
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
 
-                if (isWallpaperApplying) {
+                var isWallpaperApplyingNow by remember { mutableStateOf(false) }
+                if (isWallpaperApplyingNow) {
                     Box(
                         modifier = Modifier.fillMaxWidth(),
                         contentAlignment = Alignment.Center
@@ -726,14 +720,14 @@ fun SettingsScreen(
                 } else {
                     NeumorphicButton(
                         label = "Apply Current Forest Now",
-                        icon = androidx.compose.material.icons.Icons.Default.Eco,
+                        icon = Icons.Default.Eco,
                         accentColor = NeumorphicColors.Accent,
                         onClick = {
                             if (!state.wallpaperHomeScreen && !state.wallpaperLockScreen) {
                                 Toast.makeText(context, "Please select at least one screen!", Toast.LENGTH_SHORT).show()
                                 return@NeumorphicButton
                             }
-                            isWallpaperApplying = true
+                            isWallpaperApplyingNow = true
                             val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
                             val isDaytimeSetting = hour in 6..17
 
@@ -744,7 +738,7 @@ fun SettingsScreen(
                                 setHomeScreen = state.wallpaperHomeScreen,
                                 setLockScreen = state.wallpaperLockScreen
                             ) { success, error ->
-                                isWallpaperApplying = false
+                                isWallpaperApplyingNow = false
                                 if (success) {
                                     context.getSharedPreferences("focusflow_prefs", android.content.Context.MODE_PRIVATE)
                                         .edit()
@@ -763,111 +757,89 @@ fun SettingsScreen(
             }
         }
 
-        // Section: Account / Logout
-        Text(
-            text = "ACCOUNT",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = NeumorphicColors.TextSecondary,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 24.dp, bottom = 12.dp),
-            textAlign = TextAlign.Start
-        )
-
-        NeumorphicCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    com.google.firebase.Firebase.auth.signOut()
-                    navController?.navigate("auth") {
-                        popUpTo(0) { inclusive = true }
+        // 7. Section: Account Controls
+        ExpandableSection(
+            title = "ACCOUNT CONTROLS",
+            icon = Icons.Default.AccountCircle,
+            isExpanded = isAccountExpanded,
+            onHeaderClick = { isAccountExpanded = !isAccountExpanded }
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                NeumorphicCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            com.google.firebase.Firebase.auth.signOut()
+                            navController?.navigate("auth") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        },
+                    cornerRadius = 12.dp,
+                    elevation = 2.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Logout,
+                            contentDescription = "Logout icon",
+                            tint = Color(0xFFFF6584),
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        Text(
+                            text = "Sign Out / Log Out",
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFFFF6584),
+                            fontSize = 14.sp
+                        )
                     }
-                },
-            cornerRadius = 16.dp,
-            elevation = 6.dp
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.Logout,
-                    contentDescription = "Logout icon",
-                    tint = Color(0xFFFF6584),
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                Text(
-                    text = "Sign Out / Log Out",
-                    fontWeight = FontWeight.Black,
-                    color = Color(0xFFFF6584),
-                    fontSize = 15.sp
-                )
+                }
+
+                NeumorphicCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            isDeleteAccountConfirmOpen = true
+                        },
+                    cornerRadius = 12.dp,
+                    elevation = 2.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Block,
+                            contentDescription = "Delete Account icon",
+                            tint = Color(0xFFFF4D4D),
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        Text(
+                            text = "Delete My Account",
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFFFF4D4D),
+                            fontSize = 14.sp
+                        )
+                    }
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        NeumorphicCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    isDeleteAccountConfirmOpen = true
-                },
-            cornerRadius = 16.dp,
-            elevation = 6.dp
+        // 8. Section: System Update Center
+        ExpandableSection(
+            title = "SYSTEM UPDATE CENTER",
+            icon = Icons.Default.CloudDownload,
+            isExpanded = isUpdateExpanded,
+            onHeaderClick = { isUpdateExpanded = !isUpdateExpanded }
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.Block,
-                    contentDescription = "Delete Account icon",
-                    tint = Color(0xFFFF4D4D),
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                Text(
-                    text = "Delete My Account",
-                    fontWeight = FontWeight.Black,
-                    color = Color(0xFFFF4D4D),
-                    fontSize = 15.sp
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Section: System Update Center
-        Text(
-            text = "SYSTEM SELF-UPDATE",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = NeumorphicColors.TextSecondary,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp),
-            textAlign = TextAlign.Start
-        )
-
-        NeumorphicCard(
-            modifier = Modifier.fillMaxWidth(),
-            cornerRadius = 16.dp,
-            elevation = 6.dp
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -875,36 +847,35 @@ fun SettingsScreen(
                 ) {
                     Column {
                         Text(
-                            text = "FocusFlow Version",
+                            text = "Focus Island Version",
                             fontWeight = FontWeight.Bold,
                             color = NeumorphicColors.TextPrimary,
                             fontSize = 14.sp
                         )
                         Text(
-                            text = "Current built: v${com.example.BuildConfig.VERSION_NAME} (Code: ${com.example.BuildConfig.VERSION_CODE})",
+                            text = "Current: v${com.example.BuildConfig.VERSION_NAME} (Code: ${com.example.BuildConfig.VERSION_CODE})",
                             fontSize = 11.sp,
                             color = NeumorphicColors.TextSecondary
                         )
                     }
                     Icon(
                         imageVector = Icons.Default.Info,
-                        contentDescription = "Version information details",
+                        contentDescription = "Version details",
                         tint = NeumorphicColors.Primary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
 
-                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f))
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
 
-                // Custom matching UI for each of the states in com.example.service.UpdateState
                 when (updateState) {
                     is com.example.service.UpdateState.Idle -> {
                         Text(
-                            text = "Manually request and fetch the latest FocusFlow version directly outside standard stores.",
-                            fontSize = 12.sp,
+                            text = "Check and fetch the latest Focus Island build parameters.",
+                            fontSize = 11.sp,
                             color = NeumorphicColors.TextSecondary,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(bottom = 8.dp)
+                            modifier = Modifier.fillMaxWidth()
                         )
                         NeumorphicButton(
                             label = "Check for Updates",
@@ -918,16 +889,15 @@ fun SettingsScreen(
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.padding(vertical = 8.dp)
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                         ) {
                             CircularProgressIndicator(
                                 color = NeumorphicColors.Primary,
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                             Text(
-                                text = "Checking Remote Config parameters...",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
+                                text = "Checking for updates...",
+                                fontSize = 11.sp,
                                 color = NeumorphicColors.TextPrimary
                             )
                         }
@@ -936,7 +906,7 @@ fun SettingsScreen(
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.padding(vertical = 4.dp)
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -944,41 +914,34 @@ fun SettingsScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = "Up-to-Date Icon Check",
+                                    contentDescription = "Up to date",
                                     tint = NeumorphicColors.Success,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
                                 Text(
-                                    text = "Your application is fully up to date! 🚀",
-                                    fontSize = 13.sp,
+                                    text = "Application is up to date!",
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = NeumorphicColors.TextPrimary
                                 )
                             }
                             TextButton(onClick = { viewModel.checkForUpdates() }) {
-                                Text("Check Again", color = NeumorphicColors.Primary)
+                                Text("Check Again", color = NeumorphicColors.Primary, fontSize = 12.sp)
                             }
                         }
                     }
                     is com.example.service.UpdateState.UpdateAvailable -> {
                         val available = updateState as com.example.service.UpdateState.UpdateAvailable
                         Column(
-                            modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = "New Version Available! (vCode: ${available.latestVersionCode})",
-                                fontSize = 13.sp,
+                                text = "New Version Ready (Code: ${available.latestVersionCode})",
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = NeumorphicColors.Primary,
-                                textAlign = TextAlign.Center
-                            )
-                            Text(
-                                text = "A newer FocusFlow deployment package is ready in Firebase Storage. Click below to begin downloading.",
-                                fontSize = 11.sp,
-                                color = NeumorphicColors.TextSecondary,
-                                textAlign = TextAlign.Center
+                                color = NeumorphicColors.Primary
                             )
                             NeumorphicButton(
                                 label = "Download & Install Update",
@@ -992,69 +955,42 @@ fun SettingsScreen(
                     is com.example.service.UpdateState.Downloading -> {
                         val progress = (updateState as com.example.service.UpdateState.Downloading).progress
                         Column(
-                            modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            val percentText = if (progress >= 0f) "${(progress * 100).toInt()}%" else "Indeterminate"
+                            val percentText = if (progress >= 0f) "${(progress * 100).toInt()}%" else "..."
                             Text(
-                                text = "Downloading Update: $percentText",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
+                                text = "Downloading: $percentText",
+                                fontSize = 11.sp,
                                 color = NeumorphicColors.TextPrimary
                             )
-                            if (progress >= 0f) {
-                                LinearProgressIndicator(
-                                    progress = { progress },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    color = NeumorphicColors.Primary,
-                                    trackColor = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f)
-                                )
-                            } else {
-                                LinearProgressIndicator(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    color = NeumorphicColors.Primary,
-                                    trackColor = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f)
-                                )
-                            }
+                            LinearProgressIndicator(
+                                progress = { if (progress >= 0f) progress else 0f },
+                                modifier = Modifier.fillMaxWidth(),
+                                color = NeumorphicColors.Primary,
+                                trackColor = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f)
+                            )
                         }
                     }
                     is com.example.service.UpdateState.ReadyToInstall -> {
                         Column(
-                            modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = "APK verified and ready",
-                                    tint = NeumorphicColors.Success,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Text(
-                                    text = "Update downloaded & verified successfully!",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = NeumorphicColors.TextPrimary
-                                )
-                            }
                             Text(
-                                text = "Secure FileProvider authority is successfully created. Grant package installation if requested by the OS.",
+                                text = "Download complete and ready to install!",
                                 fontSize = 11.sp,
-                                color = NeumorphicColors.TextSecondary,
-                                textAlign = TextAlign.Center
+                                fontWeight = FontWeight.Bold,
+                                color = NeumorphicColors.Success
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 NeumorphicButton(
-                                    label = "Install Update",
+                                    label = "Install",
                                     icon = Icons.Default.CloudDownload,
                                     accentColor = NeumorphicColors.Success,
                                     onClick = { viewModel.installUpdate() },
@@ -1064,7 +1000,7 @@ fun SettingsScreen(
                                     onClick = { viewModel.resetUpdateState() },
                                     modifier = Modifier.weight(0.4f)
                                 ) {
-                                    Text("Discard", color = Color(0xFFFF6584))
+                                    Text("Discard", color = Color(0xFFFF6584), fontSize = 12.sp)
                                 }
                             }
                         }
@@ -1072,40 +1008,22 @@ fun SettingsScreen(
                     is com.example.service.UpdateState.Error -> {
                         val errMsg = (updateState as com.example.service.UpdateState.Error).message
                         Column(
-                            modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Error,
-                                    contentDescription = "Error icon details",
-                                    tint = NeumorphicColors.Accent,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Text(
-                                    text = "Update Check Failed",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = NeumorphicColors.TextPrimary
-                                )
-                            }
                             Text(
-                                text = errMsg,
+                                text = "Check Failed: $errMsg",
                                 fontSize = 11.sp,
-                                color = NeumorphicColors.TextSecondary,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(horizontal = 8.dp)
+                                color = NeumorphicColors.Accent,
+                                textAlign = TextAlign.Center
                             )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 NeumorphicButton(
-                                    label = "Retry Check",
+                                    label = "Retry",
                                     icon = Icons.Default.Refresh,
                                     accentColor = NeumorphicColors.Primary,
                                     onClick = { viewModel.checkForUpdates() },
@@ -1115,7 +1033,7 @@ fun SettingsScreen(
                                     onClick = { viewModel.resetUpdateState() },
                                     modifier = Modifier.weight(0.4f)
                                 ) {
-                                    Text("Dismiss", color = NeumorphicColors.TextSecondary)
+                                    Text("Dismiss", color = NeumorphicColors.TextSecondary, fontSize = 12.sp)
                                 }
                             }
                         }
@@ -1124,32 +1042,18 @@ fun SettingsScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Section: Developer Credentials
-        Text(
-            text = "AUTHOR & DEVELOPER",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = NeumorphicColors.TextSecondary,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp),
-            textAlign = TextAlign.Start
-        )
-
-        NeumorphicCard(
-            modifier = Modifier.fillMaxWidth(),
-            cornerRadius = 16.dp,
-            elevation = 6.dp
+        // 9. Section: Developer Credentials Bio
+        ExpandableSection(
+            title = "AUTHOR & DEVELOPER",
+            icon = Icons.Default.Info,
+            isExpanded = isDeveloperExpanded,
+            onHeaderClick = { isDeveloperExpanded = !isDeveloperExpanded }
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Profile & Bio
                 Text(
                     text = "Dr Merah Youcef",
                     style = MaterialTheme.typography.titleMedium,
@@ -1161,8 +1065,7 @@ fun SettingsScreen(
                     text = "Orthopedic surgeon by profession, programmer at heart.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = NeumorphicColors.TextSecondary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+                    textAlign = TextAlign.Center
                 )
 
                 Text(
@@ -1171,7 +1074,7 @@ fun SettingsScreen(
                     fontWeight = FontWeight.Bold,
                     color = NeumorphicColors.Primary,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    modifier = Modifier.padding(vertical = 4.dp)
                 )
 
                 Row(
@@ -1259,10 +1162,10 @@ fun SettingsScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(100.dp)) // Safe padding for bottom items
+        Spacer(modifier = Modifier.height(100.dp)) // Safe bottom padding
     }
 
-    // Reset Confirmation Dialog dialog
+    // Reset Confirmation Dialog
     if (isResetConfirmOpen) {
          val dialogContext = LocalContext.current
          AlertDialog(
@@ -1299,7 +1202,7 @@ fun SettingsScreen(
                     Text("Cancel", color = NeumorphicColors.TextSecondary)
                 }
             }
-        )
+         )
     }
 
     // Delete Account Confirmation Dialog
@@ -1347,7 +1250,7 @@ fun SettingsScreen(
                     Text("Cancel", color = NeumorphicColors.TextSecondary)
                 }
             }
-        )
+         )
     }
 }
 
@@ -1355,7 +1258,7 @@ private fun shareCsvContent(context: Context, csvText: String) {
     try {
         val shareIntent = Intent(Intent.ACTION_SEND).apply {
             type = "text/csv"
-            putExtra(Intent.EXTRA_SUBJECT, "FocusFlow Sessions Report")
+            putExtra(Intent.EXTRA_SUBJECT, "Focus Island Sessions Report")
             putExtra(Intent.EXTRA_TEXT, csvText)
         }
         context.startActivity(Intent.createChooser(shareIntent, "Save focus statistics report via:"))

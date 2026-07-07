@@ -98,7 +98,11 @@ fun AppNavGraph(
                 com.example.ui.components.ForestScaffold(
                     bottomBar = { NeumorphicBottomNavigation(navController = navController, items = items) }
                 ) { padding ->
-                    TimerScreen(viewModel = timerViewModel, modifier = Modifier.padding(padding))
+                    TimerScreen(
+                        viewModel = timerViewModel,
+                        settingsViewModel = settingsViewModel,
+                        modifier = Modifier.padding(padding)
+                    )
                 }
             }
             composable(Screen.Analytics.route) {

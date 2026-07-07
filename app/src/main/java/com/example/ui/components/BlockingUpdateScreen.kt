@@ -98,7 +98,7 @@ fun BlockingUpdateScreen(
                 )
 
                 Text(
-                    text = "To ensure security, stability, and access to all productivity features, please install the latest build of FocusFlow to continue.",
+                    text = "To ensure security, stability, and access to all productivity features, please install the latest build of Focus Island to continue.",
                     fontSize = 13.sp,
                     color = NeumorphicColors.TextSecondary,
                     textAlign = TextAlign.Center,
@@ -120,7 +120,7 @@ fun BlockingUpdateScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Text(
-                                text = "A newer build of FocusFlow is ready in Firebase Storage.",
+                                text = "A newer build of Focus Island is ready in Firebase Storage.",
                                 fontSize = 12.sp,
                                 color = NeumorphicColors.TextSecondary,
                                 textAlign = TextAlign.Center

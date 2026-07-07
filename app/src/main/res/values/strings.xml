@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">FocusIsland</string>
-    <string name="widget_label">FocusIsland Exam Countdown</string>
+    <string name="app_name">Focus Island</string>
+    <string name="widget_label">Focus Island Exam Countdown</string>
     <string name="widget_description">Shows a countdown timeline of your closest academic trial.</string>
 </resources>

@@ -227,11 +227,12 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
         }
         val diffMs = examCalendar.timeInMillis - todayTime
         val daysLeft = (diffMs / (24 * 60 * 60 * 1000L)).toInt()
+        val adjustedDays = daysLeft + 2
         return when {
-            daysLeft < 0 -> "Passed"
-            daysLeft == 0 -> "Today"
-            daysLeft == 1 -> "1 Day"
-            else -> "$daysLeft Days"
+            adjustedDays < 0 -> "Passed"
+            adjustedDays == 0 -> "Today"
+            adjustedDays == 1 -> "1 Day"
+            else -> "$adjustedDays Days"
         }
     }
 

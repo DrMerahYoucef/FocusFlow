@@ -182,7 +182,7 @@ fun AppBlockerScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         PermissionRow(
                             title = "Notification Access",
-                            description = "Allows FocusFlow to block app push alerts.",
+                            description = "Allows Focus Island to block app push alerts.",
                             isGranted = hasNotifPerm,
                             onGrantClick = {
                                 try {
