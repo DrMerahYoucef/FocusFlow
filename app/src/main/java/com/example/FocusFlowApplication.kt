@@ -5,6 +5,7 @@ import com.example.data.db.AppDatabase
 import com.example.data.repository.BlockedAppRepository
 import com.example.data.repository.ExamRepository
 import com.example.data.repository.SessionRepository
+import com.google.firebase.FirebaseApp
 
 class FocusFlowApplication : Application() {
 
@@ -16,6 +17,19 @@ class FocusFlowApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        try {
+            val options = com.google.firebase.FirebaseOptions.Builder()
+                .setApplicationId("1:15963877054:android:96d280ae44802a00bbf8ef")
+                .setApiKey("AIzaSyAFKsKjqCROungwqAxXCHgqeUQEu-kg3go")
+                .setProjectId("focuse-island")
+                .setStorageBucket("focuse-island.firebasestorage.app")
+                .setGcmSenderId("15963877054")
+                .build()
+            FirebaseApp.initializeApp(this, options)
+            android.util.Log.d("FocusFlowApplication", "Firebase initialized successfully with explicit options")
+        } catch (e: Throwable) {
+            android.util.Log.e("FocusFlowApplication", "Failed to initialize Firebase", e)
+        }
     }
 
     companion object {

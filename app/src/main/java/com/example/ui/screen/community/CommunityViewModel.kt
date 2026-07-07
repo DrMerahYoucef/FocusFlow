@@ -43,10 +43,13 @@ data class FriendRequest(
     val status: String = ""
 )
 
-class CommunityViewModel(
-    private val firestore: FirebaseFirestore = Firebase.firestore,
-    private val auth: FirebaseAuth = Firebase.auth
-) : ViewModel() {
+class CommunityViewModel : ViewModel() {
+
+    private val firestore: FirebaseFirestore
+        get() = Firebase.firestore
+
+    private val auth: FirebaseAuth
+        get() = Firebase.auth
 
     val currentUid: String
         get() = auth.currentUser?.uid ?: ""

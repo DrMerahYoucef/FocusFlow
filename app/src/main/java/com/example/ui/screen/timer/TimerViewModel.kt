@@ -41,18 +41,22 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
             .map { sessions -> sessions.count { it.completed } }
             .distinctUntilChanged()
             .onEach { completedCount ->
-                val uid = Firebase.auth.currentUser?.uid
-                if (uid != null) {
-                    viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        try {
-                            val db = Firebase.firestore
-                            db.collection("users").document(uid).update("treeCount", completedCount).await()
-                            db.collection("leaderboard").document(uid).update("treeCount", completedCount).await()
-                            android.util.Log.d("TimerViewModel", "Synced treeCount ($completedCount) to Firestore")
-                        } catch (e: Exception) {
-                            android.util.Log.e("TimerViewModel", "Failed to sync treeCount with Firestore", e)
+                try {
+                    val uid = Firebase.auth.currentUser?.uid
+                    if (uid != null) {
+                        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            try {
+                                val db = Firebase.firestore
+                                db.collection("users").document(uid).update("treeCount", completedCount).await()
+                                db.collection("leaderboard").document(uid).update("treeCount", completedCount).await()
+                                android.util.Log.d("TimerViewModel", "Synced treeCount ($completedCount) to Firestore")
+                            } catch (e: Exception) {
+                                android.util.Log.e("TimerViewModel", "Failed to sync treeCount with Firestore", e)
+                            }
                         }
                     }
+                } catch (e: Exception) {
+                    android.util.Log.e("TimerViewModel", "Firebase uninitialized or unavailable when syncing", e)
                 }
             }
             .launchIn(viewModelScope)
