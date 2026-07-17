@@ -8,12 +8,27 @@ import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -129,6 +144,19 @@ fun TimerScreen(
     val updateState by settingsViewModel.updateState.collectAsState()
     val context = LocalContext.current
 
+    var batterySaverActive by rememberSaveable { mutableStateOf(false) }
+    var isBatterySaverVisible by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(batterySaverActive) {
+        if (batterySaverActive) {
+            isBatterySaverVisible = true
+        }
+    }
+    val radioViewModel: com.example.ui.screen.radio.RadioViewModel = viewModel()
+    val radioPlaying by radioViewModel.isPlaying.collectAsState()
+    val currentStation by radioViewModel.currentStation.collectAsState()
+
     var showCelebration by remember { mutableStateOf(false) }
     var celebrationTree by remember { mutableStateOf(0) }
 
@@ -185,23 +213,47 @@ fun TimerScreen(
             }
 
             // App Title / Branding Header
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(top = 16.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "FOCUS ISLAND",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 4.sp,
-                    color = themeColors.onSurface
-                )
-                Text(
-                    text = "Streamlined tactile productivity",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = themeColors.secondaryText,
-                    letterSpacing = 1.sp
-                )
+                Spacer(modifier = Modifier.size(40.dp))
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = "FOCUS ISLAND",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 4.sp,
+                        color = themeColors.onSurface
+                    )
+                    Text(
+                        text = "Streamlined tactile productivity",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = themeColors.secondaryText,
+                        letterSpacing = 1.sp
+                    )
+                }
+
+                androidx.compose.material3.IconButton(
+                    onClick = { batterySaverActive = true },
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(themeColors.inputBackground)
+                        .border(1.dp, themeColors.divider, CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.BatteryChargingFull,
+                        contentDescription = "Battery Saver Mode",
+                        tint = themeColors.accent,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -416,6 +468,511 @@ fun TimerScreen(
         if (showCelebration) {
             TreePlantedCelebration(treeNumber = celebrationTree) {
                 showCelebration = false
+            }
+        }
+
+        if (batterySaverActive) {
+            Dialog(
+                onDismissRequest = {
+                    coroutineScope.launch {
+                        isBatterySaverVisible = false
+                        delay(300)
+                        batterySaverActive = false
+                    }
+                },
+                properties = DialogProperties(
+                    usePlatformDefaultWidth = false,
+                    dismissOnBackPress = true,
+                    dismissOnClickOutside = false
+                )
+            ) {
+                val dialogView = LocalView.current
+                val dialogWindow = remember(dialogView) {
+                    var context = dialogView.context
+                    while (context is android.content.ContextWrapper) {
+                        if (context is android.app.Activity) {
+                            break
+                        }
+                        context = context.baseContext
+                    }
+                    (dialogView.parent as? android.view.Window) ?: (context as? android.app.Activity)?.window
+                }
+
+                val ctx = LocalContext.current
+                val batteryLevel = remember { mutableStateOf(100) }
+
+                DisposableEffect(dialogWindow) {
+                    // 5 - Listen to real battery percentage
+                    val receiver = object : android.content.BroadcastReceiver() {
+                        override fun onReceive(context: Context, intent: Intent) {
+                            val level = intent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1)
+                            val scale = intent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1)
+                            if (level != -1 && scale != -1) {
+                                batteryLevel.value = (level * 100 / scale.toFloat()).toInt()
+                            }
+                        }
+                    }
+                    ctx.registerReceiver(receiver, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
+
+                    if (dialogWindow != null) {
+                        // 2 - Immersive absolute fullscreen (no system or navigation bars)
+                        dialogWindow.setLayout(
+                            android.view.WindowManager.LayoutParams.MATCH_PARENT,
+                            android.view.WindowManager.LayoutParams.MATCH_PARENT
+                        )
+                        dialogWindow.setBackgroundDrawableResource(android.R.color.transparent)
+                        dialogWindow.setDimAmount(0f)
+                        
+                        // Keep screen on
+                        dialogWindow.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+                        val controller = androidx.core.view.WindowCompat.getInsetsController(dialogWindow, dialogWindow.decorView)
+                        controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                        controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    }
+
+                    onDispose {
+                        try {
+                            ctx.unregisterReceiver(receiver)
+                        } catch (e: Exception) {
+                            // ignore
+                        }
+                        if (dialogWindow != null) {
+                            dialogWindow.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        }
+                    }
+                }
+
+                // 4 - Animate entering and exiting
+                AnimatedVisibility(
+                    visible = isBatterySaverVisible,
+                    enter = fadeIn(animationSpec = tween(300)),
+                    exit = fadeOut(animationSpec = tween(300))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black)
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onDoubleTap = {
+                                        coroutineScope.launch {
+                                            isBatterySaverVisible = false
+                                            delay(300)
+                                            batterySaverActive = false
+                                        }
+                                    }
+                                )
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val activeAudioName = if (radioPlaying && currentStation != null) {
+                            "Radio: ${currentStation?.name}"
+                        } else if (state.currentAmbientId != "none") {
+                            val ambientLabel = when (state.currentAmbientId) {
+                                "rain" -> "Rain 🌧️"
+                                "white_noise" -> "White Noise 🌫️"
+                                "campfire" -> "Campfire 🔥"
+                                "stream" -> "Stream 🌊"
+                                "space" -> "Space Ambient 🌌"
+                                else -> "Ambient"
+                            }
+                            "Playing: $ambientLabel"
+                        } else {
+                            "No Audio Playing"
+                        }
+
+                        val configuration = LocalConfiguration.current
+                        val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
+                        if (isLandscape) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 48.dp, vertical = 24.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Left Column: Timer info & active audio
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1.2f)
+                                        .fillMaxHeight(),
+                                    verticalArrangement = Arrangement.SpaceBetween,
+                                    horizontalAlignment = Alignment.Start
+                                ) {
+                                    // Top status line inside Column (OLED text removed, battery percentage added)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "BATTERY SAVER ACTIVE 🔋",
+                                            color = Color(0x60FFFFFF),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 1.sp
+                                        )
+                                        Text(
+                                            text = "${batteryLevel.value}%",
+                                            color = Color(0x80FFFFFF),
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 0.5.sp
+                                        )
+                                    }
+
+                                    // Center big remaining time
+                                    Column(
+                                        verticalArrangement = Arrangement.Center,
+                                        horizontalAlignment = Alignment.Start
+                                    ) {
+                                        Text(
+                                            text = state.phase.label.uppercase(),
+                                            color = Color(0xB0FFFFFF),
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 3.sp
+                                        )
+
+                                        Spacer(modifier = Modifier.height(4.dp))
+
+                                        Text(
+                                            text = remainingText,
+                                            color = Color.White,
+                                            style = MaterialTheme.typography.displayLarge.copy(
+                                                fontSize = 72.sp,
+                                                fontWeight = FontWeight.Thin
+                                            )
+                                        )
+                                    }
+
+                                    // Active audio status
+                                    Text(
+                                        text = activeAudioName,
+                                        color = Color(0x60FFFFFF),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+
+                                // Divider
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .width(1.dp)
+                                        .padding(vertical = 16.dp)
+                                        .background(Color(0x1AFFFFFF))
+                                )
+
+                                // Right Column: Controls & Stats
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight(),
+                                    verticalArrangement = Arrangement.SpaceBetween,
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    // Quick Stats
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                        horizontalArrangement = Arrangement.SpaceEvenly,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text(
+                                                text = "COMPLETED",
+                                                color = Color(0x50FFFFFF),
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                letterSpacing = 1.sp
+                                            )
+                                            Text(
+                                                text = "${state.sessionCount} sessions",
+                                                color = Color(0xD0FFFFFF),
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
+
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text(
+                                                text = "FOCUS TIME",
+                                                color = Color(0x50FFFFFF),
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                letterSpacing = 1.sp
+                                            )
+                                            val totalMins = state.totalFocusSecs / 60
+                                            Text(
+                                                text = "$totalMins min",
+                                                color = Color(0xD0FFFFFF),
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
+                                    }
+
+                                    // 3 - Control Buttons: Play/Pause, Stop, Skip
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                        horizontalArrangement = Arrangement.SpaceEvenly,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        // Play / Pause Button
+                                        val isRunning = state.isRunning
+                                        androidx.compose.material3.IconButton(
+                                            onClick = {
+                                                if (isRunning) {
+                                                    viewModel.pauseTimer()
+                                                } else {
+                                                    viewModel.startTimer()
+                                                }
+                                            },
+                                            modifier = Modifier
+                                                .size(54.dp)
+                                                .border(1.dp, Color(0x40FFFFFF), CircleShape)
+                                                .background(Color(0x10FFFFFF), CircleShape)
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                                contentDescription = if (isRunning) "Pause Timer" else "Play Timer",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(28.dp)
+                                            )
+                                        }
+
+                                        // Stop Button
+                                        androidx.compose.material3.IconButton(
+                                            onClick = { viewModel.stopTimer() },
+                                            modifier = Modifier
+                                                .size(54.dp)
+                                                .border(1.dp, Color(0x40FFFFFF), CircleShape)
+                                                .background(Color(0x10FFFFFF), CircleShape)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Stop,
+                                                contentDescription = "Stop Timer",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(28.dp)
+                                            )
+                                        }
+
+                                        // Skip Button
+                                        androidx.compose.material3.IconButton(
+                                            onClick = { viewModel.skipPhase() },
+                                            modifier = Modifier
+                                                .size(54.dp)
+                                                .border(1.dp, Color(0x40FFFFFF), CircleShape)
+                                                .background(Color(0x10FFFFFF), CircleShape)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.SkipNext,
+                                                contentDescription = "Skip Phase",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(28.dp)
+                                            )
+                                        }
+                                    }
+
+                                    // Hint
+                                    Text(
+                                        text = "Double tap anywhere to return",
+                                        color = Color(0x40FFFFFF),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Normal,
+                                        letterSpacing = 0.5.sp,
+                                        modifier = Modifier.padding(bottom = 4.dp)
+                                    )
+                                }
+                            }
+                        } else {
+                            // PORTRAIT LAYOUT
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 24.dp, vertical = 32.dp),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                // Top Header
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().statusBarsPadding(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "BATTERY SAVER ACTIVE 🔋",
+                                        color = Color(0x60FFFFFF),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.sp
+                                    )
+                                    Text(
+                                        text = "${batteryLevel.value}%",
+                                        color = Color(0x80FFFFFF),
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.5.sp
+                                    )
+                                }
+
+                                // Center Timer
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        text = state.phase.label.uppercase(),
+                                        color = Color(0xB0FFFFFF),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 3.sp
+                                    )
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    Text(
+                                        text = remainingText,
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.displayLarge.copy(
+                                            fontSize = 80.sp,
+                                            fontWeight = FontWeight.Thin
+                                        )
+                                    )
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    Text(
+                                        text = activeAudioName,
+                                        color = Color(0x60FFFFFF),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+
+                                // Stats section
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                                    horizontalArrangement = Arrangement.SpaceEvenly,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            text = "COMPLETED",
+                                            color = Color(0x50FFFFFF),
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 1.sp
+                                        )
+                                        Text(
+                                            text = "${state.sessionCount} sessions",
+                                            color = Color(0xD0FFFFFF),
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .height(24.dp)
+                                            .width(1.dp)
+                                            .background(Color(0x1AFFFFFF))
+                                    )
+
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            text = "FOCUS TIME",
+                                            color = Color(0x50FFFFFF),
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 1.sp
+                                        )
+                                        val totalMins = state.totalFocusSecs / 60
+                                        Text(
+                                            text = "$totalMins min",
+                                            color = Color(0xD0FFFFFF),
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+
+                                // Control Buttons
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                                    horizontalArrangement = Arrangement.SpaceEvenly,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    val isRunning = state.isRunning
+                                    androidx.compose.material3.IconButton(
+                                        onClick = {
+                                            if (isRunning) {
+                                                viewModel.pauseTimer()
+                                            } else {
+                                                viewModel.startTimer()
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .size(54.dp)
+                                            .border(1.dp, Color(0x40FFFFFF), CircleShape)
+                                            .background(Color(0x10FFFFFF), CircleShape)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                            contentDescription = if (isRunning) "Pause Timer" else "Play Timer",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(28.dp)
+                                        )
+                                    }
+
+                                    androidx.compose.material3.IconButton(
+                                        onClick = { viewModel.stopTimer() },
+                                        modifier = Modifier
+                                            .size(54.dp)
+                                            .border(1.dp, Color(0x40FFFFFF), CircleShape)
+                                            .background(Color(0x10FFFFFF), CircleShape)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Stop,
+                                            contentDescription = "Stop Timer",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(28.dp)
+                                        )
+                                    }
+
+                                    androidx.compose.material3.IconButton(
+                                        onClick = { viewModel.skipPhase() },
+                                        modifier = Modifier
+                                            .size(54.dp)
+                                            .border(1.dp, Color(0x40FFFFFF), CircleShape)
+                                            .background(Color(0x10FFFFFF), CircleShape)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.SkipNext,
+                                            contentDescription = "Skip Phase",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(28.dp)
+                                        )
+                                    }
+                                }
+
+                                // Hint text
+                                Text(
+                                    text = "Double tap anywhere to return",
+                                    color = Color(0x40FFFFFF),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    letterSpacing = 0.5.sp,
+                                    modifier = Modifier.padding(bottom = 8.dp).navigationBarsPadding()
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }

@@ -458,6 +458,37 @@ fun SettingsScreen(
 
                 Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
 
+                // Swipe to Navigate
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Swipe to Navigate",
+                            fontWeight = FontWeight.Bold,
+                            color = NeumorphicColors.TextPrimary,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "Swipe left/right to switch screens",
+                            fontSize = 11.sp,
+                            color = NeumorphicColors.TextSecondary
+                        )
+                    }
+                    Switch(
+                        checked = state.swipeToNavigate,
+                        onCheckedChange = { viewModel.updateSwipeToNavigate(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = NeumorphicColors.Primary,
+                            checkedTrackColor = NeumorphicColors.Primary.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
+
                 // Ambient sound switched interval
                 Row(
                     modifier = Modifier.fillMaxWidth(),

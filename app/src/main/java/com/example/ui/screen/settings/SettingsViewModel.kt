@@ -42,7 +42,8 @@ data class SettingsState(
     val ambientRotationMin: Int = 5,
     val useLocationForDayNight: Boolean = false,
     val latitude: Double = 0.0,
-    val longitude: Double = 0.0
+    val longitude: Double = 0.0,
+    val swipeToNavigate: Boolean = true
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -116,7 +117,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 ambientRotationMin = sharedPrefs.getInt("ambient_rotation_min", 5),
                 useLocationForDayNight = sharedPrefs.getBoolean("use_location_for_daynight", false),
                 latitude = sharedPrefs.getFloat("last_known_latitude", 0.0f).toDouble(),
-                longitude = sharedPrefs.getFloat("last_known_longitude", 0.0f).toDouble()
+                longitude = sharedPrefs.getFloat("last_known_longitude", 0.0f).toDouble(),
+                swipeToNavigate = sharedPrefs.getBoolean("swipe_to_navigate", true)
             )
         }
     }
@@ -181,6 +183,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun updateUseLocationForDayNight(value: Boolean) {
         sharedPrefs.edit().putBoolean("use_location_for_daynight", value).apply()
         _state.update { it.copy(useLocationForDayNight = value) }
+    }
+
+    fun updateSwipeToNavigate(value: Boolean) {
+        sharedPrefs.edit().putBoolean("swipe_to_navigate", value).apply()
+        _state.update { it.copy(swipeToNavigate = value) }
     }
 
     fun fetchAndSaveLocation(onComplete: (Boolean) -> Unit) {

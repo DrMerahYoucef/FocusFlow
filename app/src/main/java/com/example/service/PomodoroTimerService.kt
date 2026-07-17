@@ -70,6 +70,8 @@ class PomodoroTimerService : Service() {
             ACTION_START -> {
                 if (!companionIsRunning) {
                     startTimer()
+                } else {
+                    startForeground(NOTIF_ID, buildTimerNotification())
                 }
             }
             ACTION_PAUSE -> {

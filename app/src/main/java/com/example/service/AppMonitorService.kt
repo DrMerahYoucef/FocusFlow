@@ -121,12 +121,7 @@ class AppMonitorService : Service() {
     }
 
     private fun getForegroundApp(): String? {
-        val attributionContext = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            createAttributionContext("focus_monitor")
-        } else {
-            this
-        }
-        val usm = attributionContext.getSystemService(USAGE_STATS_SERVICE) as UsageStatsManager
+        val usm = getSystemService(USAGE_STATS_SERVICE) as UsageStatsManager
         val now = System.currentTimeMillis()
         
         // Look back 5 seconds to ensure we don't miss rapid events

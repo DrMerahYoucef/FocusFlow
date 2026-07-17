@@ -26,12 +26,7 @@ object WallpaperHelper {
         onComplete: (Boolean, String?) -> Unit
     ) {
         val app = context.applicationContext
-        val attributionContext = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            app.createAttributionContext("default")
-        } else {
-            app
-        }
-        val wallpaperManager = WallpaperManager.getInstance(attributionContext)
+        val wallpaperManager = WallpaperManager.getInstance(app)
 
         if (!setHomeScreen && !setLockScreen) {
             onComplete(false, "No flag selected")

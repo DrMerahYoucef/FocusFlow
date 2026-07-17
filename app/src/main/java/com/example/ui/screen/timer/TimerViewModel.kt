@@ -88,11 +88,7 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
             action = PomodoroTimerService.ACTION_SET_AMBIENT
             putExtra(PomodoroTimerService.EXTRA_AMBIENT_ID, ambientId)
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(intent)
-        } else {
-            context.startService(intent)
-        }
+        context.startService(intent)
     }
 
     private fun sendCommand(action: String) {
@@ -100,7 +96,8 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
         val intent = Intent(context, PomodoroTimerService::class.java).apply {
             this.action = action
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val isStarting = action == PomodoroTimerService.ACTION_START || action == PomodoroTimerService.ACTION_RESUME
+        if (isStarting && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(intent)
         } else {
             context.startService(intent)
