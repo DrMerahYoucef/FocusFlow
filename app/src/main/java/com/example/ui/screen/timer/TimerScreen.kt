@@ -488,14 +488,28 @@ fun TimerScreen(
             ) {
                 val dialogView = LocalView.current
                 val dialogWindow = remember(dialogView) {
-                    var context = dialogView.context
-                    while (context is android.content.ContextWrapper) {
-                        if (context is android.app.Activity) {
+                    var parent = dialogView.parent
+                    var windowProvider: androidx.compose.ui.window.DialogWindowProvider? = null
+                    while (parent != null) {
+                        if (parent is androidx.compose.ui.window.DialogWindowProvider) {
+                            windowProvider = parent
                             break
                         }
-                        context = context.baseContext
+                        parent = parent.parent
                     }
-                    (dialogView.parent as? android.view.Window) ?: (context as? android.app.Activity)?.window
+                    val window = windowProvider?.window
+                    if (window != null) {
+                        window
+                    } else {
+                        var context = dialogView.context
+                        while (context is android.content.ContextWrapper) {
+                            if (context is android.app.Activity) {
+                                break
+                            }
+                            context = context.baseContext
+                        }
+                        (context as? android.app.Activity)?.window
+                    }
                 }
 
                 val ctx = LocalContext.current
@@ -526,6 +540,10 @@ fun TimerScreen(
                         // Keep screen on
                         dialogWindow.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
+                        // Set full screen layout flags to cover notch / status bar and draw behind status/nav bars
+                        dialogWindow.addFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+                        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(dialogWindow, false)
+
                         val controller = androidx.core.view.WindowCompat.getInsetsController(dialogWindow, dialogWindow.decorView)
                         controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
                         controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -539,6 +557,7 @@ fun TimerScreen(
                         }
                         if (dialogWindow != null) {
                             dialogWindow.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                            dialogWindow.clearFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
                         }
                     }
                 }
