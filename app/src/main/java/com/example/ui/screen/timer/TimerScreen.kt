@@ -542,11 +542,30 @@ fun TimerScreen(
 
                         // Set full screen layout flags to cover notch / status bar and draw behind status/nav bars
                         dialogWindow.addFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+                        dialogWindow.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
+
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                            dialogWindow.attributes = dialogWindow.attributes.apply {
+                                layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                            }
+                        }
+
+                        dialogWindow.statusBarColor = android.graphics.Color.TRANSPARENT
+                        dialogWindow.navigationBarColor = android.graphics.Color.TRANSPARENT
+
                         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(dialogWindow, false)
 
                         val controller = androidx.core.view.WindowCompat.getInsetsController(dialogWindow, dialogWindow.decorView)
                         controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
                         controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+
+                        // Force the root Dialog view layout to match parent size
+                        val lp = dialogView.layoutParams
+                        if (lp != null) {
+                            lp.width = android.view.WindowManager.LayoutParams.MATCH_PARENT
+                            lp.height = android.view.WindowManager.LayoutParams.MATCH_PARENT
+                            dialogView.layoutParams = lp
+                        }
                     }
 
                     onDispose {
@@ -558,6 +577,7 @@ fun TimerScreen(
                         if (dialogWindow != null) {
                             dialogWindow.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                             dialogWindow.clearFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+                            dialogWindow.clearFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
                         }
                     }
                 }
