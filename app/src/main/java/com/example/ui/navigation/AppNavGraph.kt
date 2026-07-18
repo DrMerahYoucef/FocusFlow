@@ -94,6 +94,7 @@ fun MainPagerScreen(
                     TimerScreen(
                         viewModel = timerViewModel,
                         settingsViewModel = settingsViewModel,
+                        onNavigateToBatterySaver = { navController.navigate("battery_saver") },
                         modifier = screenModifier
                     )
                 }
@@ -368,6 +369,15 @@ fun AppNavGraph(
                 ) { padding ->
                     com.example.ui.screen.appblocker.AppBlockerScreen(navController = navController, modifier = Modifier.padding(padding))
                 }
+            }
+            composable("battery_saver") {
+                com.example.ui.screen.timer.BatterySaverScreen(
+                    viewModel = timerViewModel,
+                    settingsViewModel = settingsViewModel,
+                    onDismiss = {
+                        navController.popBackStack()
+                    }
+                )
             }
         }
     }
