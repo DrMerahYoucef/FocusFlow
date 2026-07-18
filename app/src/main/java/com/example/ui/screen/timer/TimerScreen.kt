@@ -14,6 +14,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
@@ -38,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.service.Phase
@@ -61,6 +63,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.Canvas
@@ -514,7 +517,13 @@ fun BatterySaverOverlay(
     onDismiss: () -> Unit,
     batteryLevel: Int,
     remainingTimeFormatted: String,
-    ambientSoundTitle: String,
+    radioStationName: String?,
+    radioStationThumbnail: String?,
+    radioIsPlaying: Boolean,
+    currentAmbientId: String,
+    onSelectRadio: () -> Unit,
+    onSelectAmbient: (String) -> Unit,
+    onSelectNoAudio: () -> Unit,
     onPlayPauseClick: () -> Unit,
     onStopClick: () -> Unit,
     onSkipClick: () -> Unit,
@@ -602,11 +611,11 @@ fun BatterySaverOverlay(
     }
 
     // 1. Brightness Slider State
-    var currentBrightness by remember { mutableFloatStateOf(0.1f) }
+    var currentBrightness by remember { mutableFloatStateOf(0.8f) }
     LaunchedEffect(window) {
         window?.let {
             val lp = it.attributes
-            lp.screenBrightness = 0.1f
+            lp.screenBrightness = 0.8f
             it.attributes = lp
         }
     }
@@ -696,6 +705,185 @@ fun BatterySaverOverlay(
 
     var totalDragY by remember { mutableFloatStateOf(0f) }
 
+    val ambientIds = listOf("rain", "white_noise", "campfire", "stream", "space")
+    val ambientLabels = mapOf(
+        "rain" to "Rain 🌧️",
+        "white_noise" to "White Noise 🌫️",
+        "campfire" to "Campfire 🔥",
+        "stream" to "Stream 🌊",
+        "space" to "Space 🌌"
+    )
+    val currentAmbientLabel = ambientLabels[currentAmbientId] ?: "Rain 🌧️"
+
+    @Composable
+    fun AudioModeSelector(modifier: Modifier = Modifier) {
+        val isRadioAvailable = !radioStationName.isNullOrBlank()
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = modifier.fillMaxWidth().alpha(textAlphaMultiplier)
+        ) {
+            Text(
+                text = "AUDIO PLAYBACK",
+                color = Color(0x35FFFFFF),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            ) {
+                // 1. Radio Option
+                if (isRadioAvailable) {
+                    val isRadioActive = radioIsPlaying
+                    val radioBorderColor = if (isRadioActive) Color(0x6081C784) else Color(0x15FFFFFF)
+                    val radioBgColor = if (isRadioActive) Color(0x2081C784) else Color(0x05FFFFFF)
+                    val radioTextColor = if (isRadioActive) Color(0xDF81C784) else Color(0x70FFFFFF)
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .weight(1.2f)
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(radioBgColor)
+                            .border(1.dp, radioBorderColor, RoundedCornerShape(8.dp))
+                            .clickable {
+                                onSelectRadio()
+                                try {
+                                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+                                } catch (e: Exception) {}
+                            }
+                            .padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        if (!radioStationThumbnail.isNullOrEmpty()) {
+                            coil.compose.SubcomposeAsyncImage(
+                                model = radioStationThumbnail,
+                                contentDescription = "Radio thumbnail",
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clip(CircleShape)
+                                    .border(0.5.dp, Color(0x30FFFFFF), CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Radio,
+                                contentDescription = "Radio",
+                                tint = radioTextColor,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                        }
+                        Text(
+                            text = radioStationName ?: "Radio",
+                            color = radioTextColor,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                // 2. Ambient Option
+                val isAmbientActive = currentAmbientId != "none"
+                val ambientBorderColor = if (isAmbientActive) Color(0x6064B5F6) else Color(0x15FFFFFF)
+                val ambientBgColor = if (isAmbientActive) Color(0x2064B5F6) else Color(0x05FFFFFF)
+                val ambientTextColor = if (isAmbientActive) Color(0xDF64B5F6) else Color(0x70FFFFFF)
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .weight(if (isRadioAvailable) 1.2f else 1f)
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(ambientBgColor)
+                        .border(1.dp, ambientBorderColor, RoundedCornerShape(8.dp))
+                        .clickable {
+                            val nextId = if (isAmbientActive) {
+                                val currentIndex = ambientIds.indexOf(currentAmbientId)
+                                if (currentIndex == -1 || currentIndex == ambientIds.lastIndex) {
+                                    ambientIds.first()
+                                } else {
+                                    ambientIds[currentIndex + 1]
+                                }
+                            } else {
+                                "rain"
+                            }
+                            onSelectAmbient(nextId)
+                            try {
+                                view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+                            } catch (e: Exception) {}
+                        }
+                        .padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MusicNote,
+                        contentDescription = "Ambient",
+                        tint = ambientTextColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isAmbientActive) currentAmbientLabel else "Ambient",
+                        color = ambientTextColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                // 3. No Audio Option
+                val isSilenceActive = !radioIsPlaying && currentAmbientId == "none"
+                val silenceBorderColor = if (isSilenceActive) Color(0x60E57373) else Color(0x15FFFFFF)
+                val silenceBgColor = if (isSilenceActive) Color(0x20E57373) else Color(0x05FFFFFF)
+                val silenceTextColor = if (isSilenceActive) Color(0xDFE57373) else Color(0x70FFFFFF)
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .weight(if (isRadioAvailable) 0.8f else 1f)
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(silenceBgColor)
+                        .border(1.dp, silenceBorderColor, RoundedCornerShape(8.dp))
+                        .clickable {
+                            onSelectNoAudio()
+                            try {
+                                view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+                            } catch (e: Exception) {}
+                        }
+                        .padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.VolumeMute,
+                        contentDescription = "Silence",
+                        tint = silenceTextColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Silent",
+                        color = silenceTextColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -758,243 +946,241 @@ fun BatterySaverOverlay(
         val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
         if (isLandscape) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 48.dp, vertical = 24.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Left Column: Timer info & active audio
-                Column(
-                    modifier = Modifier
-                        .weight(1.2f)
-                        .fillMaxHeight(),
-                    verticalArrangement = Arrangement.SpaceBetween,
-                    horizontalAlignment = Alignment.Start
+                // Top header Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Top header line
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "BATTERY SAVER ACTIVE 🔋",
-                            color = if (isSystemPowerSaveMode) Color(0x6081C784) else Color(0x60FFFFFF),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp,
-                            modifier = Modifier.alpha(textAlphaMultiplier)
-                        )
-                        Text(
-                            text = "$batteryLevel%",
-                            color = Color(0x80FFFFFF),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp,
-                            modifier = Modifier.alpha(textAlphaMultiplier)
-                        )
-                    }
-
-                    // Center big remaining time with breathing ring and progress arc
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .padding(vertical = 12.dp)
-                            .size(180.dp)
-                    ) {
-                        Canvas(modifier = Modifier.fillMaxSize()) {
-                            drawCircle(
-                                color = Color(0x1AFFFFFF),
-                                style = Stroke(width = 4.dp.toPx())
-                            )
-                            drawArc(
-                                color = Color(0x3AFFFFFF),
-                                startAngle = -90f,
-                                sweepAngle = 360f * (1f - progress),
-                                useCenter = false,
-                                style = Stroke(width = 4.dp.toPx())
-                            )
-                        }
-
-                        Column(
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = phaseLabel.uppercase(),
-                                color = Color(0xB0FFFFFF),
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 3.sp,
-                                modifier = Modifier.alpha(textAlphaMultiplier)
-                            )
-
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            Text(
-                                text = remainingTimeFormatted,
-                                color = Color.White,
-                                style = MaterialTheme.typography.displayLarge.copy(
-                                    fontSize = 44.sp,
-                                    fontWeight = FontWeight.Thin
-                                ),
-                                modifier = Modifier.alpha(textAlphaMultiplier)
-                            )
-                        }
-                    }
-
-                    // Active audio status
                     Text(
-                        text = ambientSoundTitle,
-                        color = Color(0x60FFFFFF),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
+                        text = "BATTERY SAVER ACTIVE",
+                        color = Color(0x35FFFFFF),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                        modifier = Modifier.alpha(textAlphaMultiplier)
+                    )
+                    Text(
+                        text = "$batteryLevel%",
+                        color = Color(0x25FFFFFF),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp,
                         modifier = Modifier.alpha(textAlphaMultiplier)
                     )
                 }
 
-                // Divider
-                Box(
+                // Middle section: Left circular timer, Right stats and controls
+                Row(
                     modifier = Modifier
-                        .fillMaxHeight()
-                        .width(1.dp)
-                        .padding(vertical = 16.dp)
-                        .background(Color(0x1AFFFFFF))
-                )
-
-                // Right Column: Controls & Stats
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight(),
-                    verticalArrangement = Arrangement.SpaceBetween,
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .fillMaxWidth()
+                        .weight(1f),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Quick Stats
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
+                    // Left: Circular Timer
+                    Box(
+                        modifier = Modifier
+                            .weight(1.2f)
+                            .fillMaxHeight(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "COMPLETED",
-                                color = Color(0x50FFFFFF),
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp,
-                                modifier = Modifier.alpha(textAlphaMultiplier)
-                            )
-                            Text(
-                                text = "$sessionCount sessions",
-                                color = Color(0xD0FFFFFF),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.alpha(textAlphaMultiplier)
-                            )
+                        // Large outer circular border
+                        Box(
+                            modifier = Modifier
+                                .size(200.dp)
+                                .border(1.5.dp, Color(0x25FFFFFF), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = when (phaseLabel.uppercase()) {
+                                        "FOCUS" -> "FOCUS SESSION"
+                                        "SHORT BREAK" -> "SHORT BREAK"
+                                        "LONG BREAK" -> "LONG BREAK"
+                                        else -> phaseLabel.uppercase()
+                                    },
+                                    color = Color(0x50FFFFFF),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.5.sp,
+                                    modifier = Modifier.alpha(textAlphaMultiplier)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = remainingTimeFormatted,
+                                    color = Color.White,
+                                    fontSize = 52.sp,
+                                    fontWeight = FontWeight.Light,
+                                    modifier = Modifier.alpha(textAlphaMultiplier)
+                                )
+                            }
                         }
+                    }
 
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // Right: Stats & Controls Column
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
+                        verticalArrangement = Arrangement.SpaceEvenly,
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        // Session Overview & Stats Block
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            horizontalAlignment = Alignment.Start
+                        ) {
                             Text(
-                                text = "FOCUS TIME",
-                                color = Color(0x50FFFFFF),
-                                fontSize = 9.sp,
+                                text = "SESSION OVERVIEW",
+                                color = Color(0x35FFFFFF),
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.sp,
-                                modifier = Modifier.alpha(textAlphaMultiplier)
+                                modifier = Modifier
+                                    .padding(bottom = 6.dp)
+                                    .alpha(textAlphaMultiplier)
                             )
+
                             val totalMins = totalFocusSecs / 60
-                            Text(
-                                text = "$totalMins min",
-                                color = Color(0xD0FFFFFF),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.alpha(textAlphaMultiplier)
-                            )
+                            val dailyGoalSecs = 3600
+                            val progressPercent = ((totalFocusSecs.toFloat() / dailyGoalSecs.toFloat()) * 100).toInt().coerceIn(0, 100)
+
+                            Row {
+                                Text("FOCUS TIME: ", color = Color(0x35FFFFFF), fontSize = 14.sp, fontWeight = FontWeight.Normal)
+                                Text("$totalMins min", color = Color(0x95FFFFFF), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Row {
+                                Text("SESSIONS: ", color = Color(0x35FFFFFF), fontSize = 14.sp, fontWeight = FontWeight.Normal)
+                                Text("$sessionCount", color = Color(0x95FFFFFF), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Row {
+                                Text("DAILY GOAL: ", color = Color(0x35FFFFFF), fontSize = 14.sp, fontWeight = FontWeight.Normal)
+                                Text("1 hr", color = Color(0x95FFFFFF), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Row {
+                                Text("Daily Goal progress: ", color = Color(0x35FFFFFF), fontSize = 14.sp, fontWeight = FontWeight.Normal)
+                                Text("$progressPercent%", color = Color(0x95FFFFFF), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        // Media and Control Buttons
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(20.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Pause/Play
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                androidx.compose.material3.IconButton(
+                                    onClick = {
+                                        lastInteractionTime = System.currentTimeMillis()
+                                        onPlayPauseClick()
+                                        try {
+                                            view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+                                        } catch (e: Exception) {}
+                                    },
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .border(1.dp, Color(0x25FFFFFF), CircleShape)
+                                ) {
+                                    Icon(
+                                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                        contentDescription = if (isPlaying) "Pause Timer" else "Play Timer",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = if (isPlaying) "Pause" else "Resume",
+                                    color = Color(0x45FFFFFF),
+                                    fontSize = 11.sp
+                                )
+                            }
+
+                            // End Session / Stop
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                androidx.compose.material3.IconButton(
+                                    onClick = {
+                                        lastInteractionTime = System.currentTimeMillis()
+                                        onStopClick()
+                                        try {
+                                            view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+                                        } catch (e: Exception) {}
+                                    },
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .border(1.dp, Color(0x25FFFFFF), CircleShape)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Stop,
+                                        contentDescription = "Stop Timer",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "End Session",
+                                    color = Color(0x45FFFFFF),
+                                    fontSize = 11.sp
+                                )
+                            }
+
+                            // Next Track / Skip
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                androidx.compose.material3.IconButton(
+                                    onClick = {
+                                        lastInteractionTime = System.currentTimeMillis()
+                                        onSkipClick()
+                                        try {
+                                            view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+                                        } catch (e: Exception) {}
+                                    },
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .border(1.dp, Color(0x25FFFFFF), CircleShape)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.SkipNext,
+                                        contentDescription = "Skip Phase",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Next Track",
+                                    color = Color(0x45FFFFFF),
+                                    fontSize = 11.sp
+                                )
+                            }
                         }
                     }
-
-                    // Control Buttons: Play/Pause, Stop, Skip
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        androidx.compose.material3.IconButton(
-                            onClick = {
-                                lastInteractionTime = System.currentTimeMillis()
-                                onPlayPauseClick()
-                                try {
-                                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
-                                } catch (e: Exception) {}
-                            },
-                            modifier = Modifier
-                                .size(54.dp)
-                                .border(1.dp, Color(0x40FFFFFF), CircleShape)
-                                .background(Color(0x10FFFFFF), CircleShape)
-                        ) {
-                            Icon(
-                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = if (isPlaying) "Pause Timer" else "Play Timer",
-                                tint = Color.White,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
-
-                        androidx.compose.material3.IconButton(
-                            onClick = {
-                                lastInteractionTime = System.currentTimeMillis()
-                                onStopClick()
-                                try {
-                                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
-                                } catch (e: Exception) {}
-                            },
-                            modifier = Modifier
-                                .size(54.dp)
-                                .border(1.dp, Color(0x40FFFFFF), CircleShape)
-                                .background(Color(0x10FFFFFF), CircleShape)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Stop,
-                                contentDescription = "Stop Timer",
-                                tint = Color.White,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
-
-                        androidx.compose.material3.IconButton(
-                            onClick = {
-                                lastInteractionTime = System.currentTimeMillis()
-                                onSkipClick()
-                                try {
-                                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
-                                } catch (e: Exception) {}
-                            },
-                            modifier = Modifier
-                                .size(54.dp)
-                                .border(1.dp, Color(0x40FFFFFF), CircleShape)
-                                .background(Color(0x10FFFFFF), CircleShape)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.SkipNext,
-                                contentDescription = "Skip Phase",
-                                tint = Color.White,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
-                    }
-
-                    Text(
-                        text = "Double tap anywhere to return",
-                        color = Color(0x40FFFFFF),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Normal,
-                        letterSpacing = 0.5.sp,
-                        modifier = Modifier.padding(bottom = 4.dp).alpha(textAlphaMultiplier)
-                    )
                 }
+
+                // Elegant Landscape Selector
+                AudioModeSelector(modifier = Modifier.padding(top = 10.dp))
             }
         } else {
             // PORTRAIT LAYOUT
@@ -1078,7 +1264,11 @@ fun BatterySaverOverlay(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
-                            text = ambientSoundTitle,
+                            text = when {
+                                radioIsPlaying -> "Radio: ${radioStationName ?: "Playing"}"
+                                currentAmbientId != "none" -> currentAmbientLabel
+                                else -> "Silence 🔇"
+                            },
                             color = Color(0x60FFFFFF),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium,
@@ -1088,9 +1278,12 @@ fun BatterySaverOverlay(
                     }
                 }
 
+                // Custom Audio mode selector in Portrait
+                AudioModeSelector(modifier = Modifier.padding(bottom = 16.dp))
+
                 // Stats section
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -1141,7 +1334,7 @@ fun BatterySaverOverlay(
 
                 // Control Buttons
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -1351,20 +1544,20 @@ fun BatterySaverScreen(
     val radioPlaying by radioViewModel.isPlaying.collectAsState()
     val currentStation by radioViewModel.currentStation.collectAsState()
 
-    val activeAudioName = if (radioPlaying && currentStation != null) {
-        "Radio: ${currentStation?.name}"
-    } else if (state.currentAmbientId != "none") {
-        val ambientLabel = when (state.currentAmbientId) {
-            "rain" -> "Rain 🌧️"
-            "white_noise" -> "White Noise 🌫️"
-            "campfire" -> "Campfire 🔥"
-            "stream" -> "Stream 🌊"
-            "space" -> "Space Ambient 🌌"
-            else -> "Ambient"
+    // Capture the playing station only if it is actively playing when opening
+    var capturedStation by remember { mutableStateOf<com.example.data.RadioStation?>(null) }
+    var hasCaptured by remember { mutableStateOf(false) }
+
+    LaunchedEffect(currentStation, radioPlaying) {
+        if (!hasCaptured) {
+            if (radioPlaying && currentStation != null) {
+                capturedStation = currentStation
+                hasCaptured = true
+            } else if (!radioPlaying) {
+                capturedStation = null
+                hasCaptured = true
+            }
         }
-        "Playing: $ambientLabel"
-    } else {
-        "No Audio Playing"
     }
 
     val totalDurationMs = when (state.phase) {
@@ -1387,7 +1580,24 @@ fun BatterySaverScreen(
         onDismiss = onDismiss,
         batteryLevel = batteryLevel.value,
         remainingTimeFormatted = remainingText,
-        ambientSoundTitle = activeAudioName,
+        radioStationName = capturedStation?.name,
+        radioStationThumbnail = capturedStation?.logoUrl,
+        radioIsPlaying = radioPlaying && capturedStation != null,
+        currentAmbientId = state.currentAmbientId,
+        onSelectRadio = {
+            capturedStation?.let { station ->
+                radioViewModel.selectStation(station, context)
+            }
+            viewModel.setAmbientSound("none")
+        },
+        onSelectAmbient = { ambientId ->
+            viewModel.setAmbientSound(ambientId)
+            radioViewModel.pausePlayback(context)
+        },
+        onSelectNoAudio = {
+            viewModel.setAmbientSound("none")
+            radioViewModel.pausePlayback(context)
+        },
         onPlayPauseClick = {
             if (state.isRunning) {
                 viewModel.pauseTimer()

@@ -2,8 +2,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Attributions to prevent AppOps attribution tag errors -->
+    <attribution android:tag="default" android:label="@string/app_name" />
+
     <!-- Intent permission for manual package installation -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!-- Audio control and modification permissions -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
     <!-- Foreground service for timer -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -77,7 +83,7 @@
         <!-- Foreground Timer Service -->
         <service
             android:name=".service.PomodoroTimerService"
-            android:foregroundServiceType="specialUse"
+            android:foregroundServiceType="specialUse|mediaPlayback"
             android:exported="false">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
@@ -110,7 +116,7 @@
             android:foregroundServiceType="mediaPlayback"
             android:exported="true">
             <intent-filter>
-                <action android:name="androidx.media3.session.MediaSessionService" />
+                <action android:name="androidx.media3.session.MediaLibraryService" />
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>

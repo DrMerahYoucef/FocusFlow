@@ -13,6 +13,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import androidx.media3.session.SessionCommands
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaLibraryService.LibraryParams
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession
@@ -80,11 +81,19 @@ class RadioPlayerService : MediaLibraryService() {
                 session: MediaSession,
                 controller: MediaSession.ControllerInfo
             ): MediaSession.ConnectionResult {
-                val connectionResult = super.onConnect(session, controller)
-                val sessionCommands = connectionResult.availableSessionCommands.buildUpon()
+                val sessionCommands = SessionCommands.Builder()
+                    .add(androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_GET_LIBRARY_ROOT)
+                    .add(androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_GET_ITEM)
+                    .add(androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_GET_CHILDREN)
+                    .add(androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_SUBSCRIBE)
+                    .add(androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_UNSUBSCRIBE)
+                    .build()
+                val playerCommands = Player.Commands.Builder()
+                    .addAllCommands()
+                    .build()
                 return MediaSession.ConnectionResult.accept(
-                    sessionCommands.build(),
-                    connectionResult.availablePlayerCommands
+                    sessionCommands,
+                    playerCommands
                 )
             }
 

@@ -27,6 +27,7 @@ class RadioViewModel(application: Application) : AndroidViewModel(application) {
     private val db = FocusFlowApplication.instance.database
 
     init {
+        initController(application)
         viewModelScope.launch {
             try {
                 // Proactively purge default Algerian database entries from previous runs so they disappear instantly
@@ -212,6 +213,21 @@ class RadioViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 })
                 _isPlaying.value = controller.isPlaying
+                controller.currentMediaItem?.mediaMetadata?.let { meta ->
+                    val title = meta.title?.toString()
+                    if (title != null) {
+                        _currentStation.value = RadioStation(
+                            id = controller.currentMediaItem?.mediaId ?: "",
+                            name = title,
+                            country = meta.artist?.toString() ?: "",
+                            categoryId = "",
+                            streamUrl = controller.currentMediaItem?.localConfiguration?.uri?.toString() ?: "",
+                            logoUrl = meta.artworkUri?.toString() ?: "",
+                            description = meta.description?.toString() ?: "",
+                            isCustom = false
+                        )
+                    }
+                }
 
                 val actions = ArrayList(pendingActions)
                 pendingActions.clear()
@@ -268,6 +284,14 @@ class RadioViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     _currentStation.value?.let { selectStation(it, context) }
                 }
+            }
+        }
+    }
+
+    fun pausePlayback(context: Context) {
+        executeWhenControllerReady(context) { controller ->
+            if (controller.isPlaying) {
+                controller.pause()
             }
         }
     }
