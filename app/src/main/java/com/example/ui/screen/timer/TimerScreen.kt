@@ -70,6 +70,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
 import android.os.PowerManager
 
 data class SoundOption(val id: String, val name: String, val emoji: String)
@@ -513,6 +516,388 @@ fun TimerScreen(
 }
 
 @Composable
+fun NeumorphicMonoButton(
+    text: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    isActive: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val view = androidx.compose.ui.platform.LocalView.current
+    val shape = RoundedCornerShape(12.dp)
+    
+    val borderCol = if (isActive) Color(0x35FFFFFF) else Color(0x10FFFFFF)
+    val bgCol = if (isActive) Color(0xFF0F0F0F) else Color(0xFF1C1C1C)
+    val contentColor = if (isActive) Color.White else Color(0x70FFFFFF)
+    
+    Box(
+        modifier = modifier
+            .height(44.dp)
+            .shadow(
+                elevation = if (isActive) 0.dp else 4.dp,
+                shape = shape,
+                clip = false,
+                ambientColor = Color.Black,
+                spotColor = Color.Black
+            )
+            .drawBehind {
+                if (!isActive) {
+                    drawRoundRect(
+                        color = Color(0x15FFFFFF),
+                        topLeft = Offset(-1.5.dp.toPx(), -1.5.dp.toPx()),
+                        size = androidx.compose.ui.geometry.Size(size.width + 1.dp.toPx(), size.height + 1.dp.toPx()),
+                        cornerRadius = CornerRadius(12.dp.toPx(), 12.dp.toPx())
+                    )
+                    drawRoundRect(
+                        color = Color(0x45000000),
+                        topLeft = Offset(1.5.dp.toPx(), 1.5.dp.toPx()),
+                        size = size,
+                        cornerRadius = CornerRadius(12.dp.toPx(), 12.dp.toPx())
+                    )
+                } else {
+                    drawRoundRect(
+                        color = Color(0x25000000),
+                        topLeft = Offset(0f, 0f),
+                        size = size,
+                        cornerRadius = CornerRadius(12.dp.toPx(), 12.dp.toPx())
+                    )
+                }
+            }
+            .background(bgCol, shape)
+            .border(1.dp, borderCol, shape)
+            .clickable {
+                onClick()
+                try {
+                    view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                } catch (e: Exception) {}
+            }
+            .padding(horizontal = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = text,
+                tint = contentColor,
+                modifier = Modifier.size(14.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = text,
+                color = contentColor,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+fun NeumorphicAudioInfoBar(
+    currentStationName: String?,
+    radioIsPlaying: Boolean,
+    currentAmbientId: String,
+    currentAmbientLabel: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val view = androidx.compose.ui.platform.LocalView.current
+    val shape = RoundedCornerShape(14.dp)
+    
+    val (icon, title, subtitle) = when {
+        radioIsPlaying && !currentStationName.isNullOrBlank() -> {
+            Triple(Icons.Default.Radio, currentStationName, "Streaming Live Radio")
+        }
+        currentAmbientId != "none" -> {
+            Triple(Icons.Default.MusicNote, currentAmbientLabel, "Ambient Sound Loop")
+        }
+        else -> {
+            Triple(Icons.Default.VolumeMute, "Silence Active", "No background audio")
+        }
+    }
+    
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .shadow(
+                elevation = 4.dp,
+                shape = shape,
+                clip = false,
+                ambientColor = Color.Black,
+                spotColor = Color.Black
+            )
+            .drawBehind {
+                drawRoundRect(
+                    color = Color(0x12FFFFFF),
+                    topLeft = Offset(-1.5.dp.toPx(), -1.5.dp.toPx()),
+                    size = androidx.compose.ui.geometry.Size(size.width + 1.dp.toPx(), size.height + 1.dp.toPx()),
+                    cornerRadius = CornerRadius(14.dp.toPx(), 14.dp.toPx())
+                )
+                drawRoundRect(
+                    color = Color(0x45000000),
+                    topLeft = Offset(1.5.dp.toPx(), 1.5.dp.toPx()),
+                    size = size,
+                    cornerRadius = CornerRadius(14.dp.toPx(), 14.dp.toPx())
+                )
+            }
+            .background(Color(0xFF181818), shape)
+            .border(1.dp, Color(0x0EFFFFFF), shape)
+            .clickable {
+                onClick()
+                try {
+                    view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                } catch (e: Exception) {}
+            }
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(Color(0xFF101010), CircleShape)
+                    .border(1.dp, Color(0x10FFFFFF), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = subtitle,
+                    color = Color(0x80FFFFFF),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            
+            Text(
+                text = "▼",
+                color = Color(0x60FFFFFF),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+fun StationRowItem(
+    station: com.example.data.RadioStation,
+    isFav: Boolean,
+    isCurrent: Boolean,
+    onSelect: () -> Unit,
+    onToggleFav: () -> Unit
+) {
+    val view = androidx.compose.ui.platform.LocalView.current
+    val shape = RoundedCornerShape(10.dp)
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = if (isCurrent) 0.dp else 2.dp,
+                shape = shape,
+                clip = false,
+                ambientColor = Color.Black,
+                spotColor = Color.Black
+            )
+            .drawBehind {
+                if (!isCurrent) {
+                    drawRoundRect(
+                        color = Color(0x0EFFFFFF),
+                        topLeft = Offset(-1.dp.toPx(), -1.dp.toPx()),
+                        size = androidx.compose.ui.geometry.Size(size.width + 0.5.dp.toPx(), size.height + 0.5.dp.toPx()),
+                        cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx())
+                    )
+                    drawRoundRect(
+                        color = Color(0x30000000),
+                        topLeft = Offset(1.dp.toPx(), 1.dp.toPx()),
+                        size = size,
+                        cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx())
+                    )
+                }
+            }
+            .background(if (isCurrent) Color(0xFF0F0F0F) else Color(0xFF1B1B1B), shape)
+            .border(1.dp, if (isCurrent) Color(0x25FFFFFF) else Color(0x08FFFFFF), shape)
+            .clickable {
+                onSelect()
+                try {
+                    view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                } catch (e: Exception) {}
+            }
+            .padding(12.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(Color(0xFF0F0F0F), CircleShape)
+                    .border(0.5.dp, Color(0x10FFFFFF), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Radio,
+                    contentDescription = null,
+                    tint = if (isCurrent) Color.White else Color(0x60FFFFFF),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(10.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = station.name,
+                    color = if (isCurrent) Color.White else Color(0xDFFFFFFF),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = station.country.ifEmpty { "🌍 Global" },
+                    color = Color(0x50FFFFFF),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            
+            androidx.compose.material3.IconButton(
+                onClick = {
+                    onToggleFav()
+                    try {
+                        view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                    } catch (e: Exception) {}
+                },
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = if (isFav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    contentDescription = "Favorite",
+                    tint = if (isFav) Color.White else Color(0x40FFFFFF),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AmbientRowItem(
+    label: String,
+    isCurrent: Boolean,
+    onSelect: () -> Unit
+) {
+    val view = androidx.compose.ui.platform.LocalView.current
+    val shape = RoundedCornerShape(10.dp)
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = if (isCurrent) 0.dp else 2.dp,
+                shape = shape,
+                clip = false,
+                ambientColor = Color.Black,
+                spotColor = Color.Black
+            )
+            .drawBehind {
+                if (!isCurrent) {
+                    drawRoundRect(
+                        color = Color(0x0EFFFFFF),
+                        topLeft = Offset(-1.dp.toPx(), -1.dp.toPx()),
+                        size = androidx.compose.ui.geometry.Size(size.width + 0.5.dp.toPx(), size.height + 0.5.dp.toPx()),
+                        cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx())
+                    )
+                    drawRoundRect(
+                        color = Color(0x30000000),
+                        topLeft = Offset(1.dp.toPx(), 1.dp.toPx()),
+                        size = size,
+                        cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx())
+                    )
+                }
+            }
+            .background(if (isCurrent) Color(0xFF0F0F0F) else Color(0xFF1B1B1B), shape)
+            .border(1.dp, if (isCurrent) Color(0x25FFFFFF) else Color(0x08FFFFFF), shape)
+            .clickable {
+                onSelect()
+                try {
+                    view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                } catch (e: Exception) {}
+            }
+            .padding(12.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(Color(0xFF0F0F0F), CircleShape)
+                    .border(0.5.dp, Color(0x10FFFFFF), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MusicNote,
+                    contentDescription = null,
+                    tint = if (isCurrent) Color.White else Color(0x60FFFFFF),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(10.dp))
+            
+            Text(
+                text = label,
+                color = if (isCurrent) Color.White else Color(0xDFFFFFFF),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
+            )
+            
+            if (isCurrent) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Active",
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun BatterySaverOverlay(
     onDismiss: () -> Unit,
     batteryLevel: Int,
@@ -521,6 +906,10 @@ fun BatterySaverOverlay(
     radioStationThumbnail: String?,
     radioIsPlaying: Boolean,
     currentAmbientId: String,
+    allStations: List<com.example.data.RadioStation>,
+    favouriteIds: Set<String>,
+    onToggleFavourite: (com.example.data.RadioStation) -> Unit,
+    onSelectRadioStation: (com.example.data.RadioStation) -> Unit,
     onSelectRadio: () -> Unit,
     onSelectAmbient: (String) -> Unit,
     onSelectNoAudio: () -> Unit,
@@ -704,6 +1093,7 @@ fun BatterySaverOverlay(
     val isSystemPowerSaveMode = remember(powerManager) { powerManager?.isPowerSaveMode == true }
 
     var totalDragY by remember { mutableFloatStateOf(0f) }
+    var showAudioPopup by remember { mutableStateOf(false) }
 
     val ambientIds = listOf("rain", "white_noise", "campfire", "stream", "space")
     val ambientLabels = mapOf(
@@ -717,7 +1107,6 @@ fun BatterySaverOverlay(
 
     @Composable
     fun AudioModeSelector(modifier: Modifier = Modifier) {
-        val isRadioAvailable = !radioStationName.isNullOrBlank()
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = modifier.fillMaxWidth().alpha(textAlphaMultiplier)
@@ -736,151 +1125,64 @@ fun BatterySaverOverlay(
                 modifier = Modifier.padding(horizontal = 16.dp)
             ) {
                 // 1. Radio Option
-                if (isRadioAvailable) {
-                    val isRadioActive = radioIsPlaying
-                    val radioBorderColor = if (isRadioActive) Color(0x6081C784) else Color(0x15FFFFFF)
-                    val radioBgColor = if (isRadioActive) Color(0x2081C784) else Color(0x05FFFFFF)
-                    val radioTextColor = if (isRadioActive) Color(0xDF81C784) else Color(0x70FFFFFF)
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .weight(1.2f)
-                            .height(44.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(radioBgColor)
-                            .border(1.dp, radioBorderColor, RoundedCornerShape(8.dp))
-                            .clickable {
-                                onSelectRadio()
-                                try {
-                                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
-                                } catch (e: Exception) {}
-                            }
-                            .padding(horizontal = 8.dp),
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        if (!radioStationThumbnail.isNullOrEmpty()) {
-                            coil.compose.SubcomposeAsyncImage(
-                                model = radioStationThumbnail,
-                                contentDescription = "Radio thumbnail",
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .clip(CircleShape)
-                                    .border(0.5.dp, Color(0x30FFFFFF), CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
+                val isRadioActive = radioIsPlaying
+                NeumorphicMonoButton(
+                    text = "Radio",
+                    icon = Icons.Default.Radio,
+                    isActive = isRadioActive,
+                    onClick = {
+                        if (radioStationName.isNullOrBlank()) {
+                            showAudioPopup = true
                         } else {
-                            Icon(
-                                imageVector = Icons.Default.Radio,
-                                contentDescription = "Radio",
-                                tint = radioTextColor,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            onSelectRadio()
                         }
-                        Text(
-                            text = radioStationName ?: "Radio",
-                            color = radioTextColor,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
+                    },
+                    modifier = Modifier.weight(1f)
+                )
 
                 // 2. Ambient Option
                 val isAmbientActive = currentAmbientId != "none"
-                val ambientBorderColor = if (isAmbientActive) Color(0x6064B5F6) else Color(0x15FFFFFF)
-                val ambientBgColor = if (isAmbientActive) Color(0x2064B5F6) else Color(0x05FFFFFF)
-                val ambientTextColor = if (isAmbientActive) Color(0xDF64B5F6) else Color(0x70FFFFFF)
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .weight(if (isRadioAvailable) 1.2f else 1f)
-                        .height(44.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(ambientBgColor)
-                        .border(1.dp, ambientBorderColor, RoundedCornerShape(8.dp))
-                        .clickable {
-                            val nextId = if (isAmbientActive) {
-                                val currentIndex = ambientIds.indexOf(currentAmbientId)
-                                if (currentIndex == -1 || currentIndex == ambientIds.lastIndex) {
-                                    ambientIds.first()
-                                } else {
-                                    ambientIds[currentIndex + 1]
-                                }
+                NeumorphicMonoButton(
+                    text = if (isAmbientActive) currentAmbientLabel else "Ambient",
+                    icon = Icons.Default.MusicNote,
+                    isActive = isAmbientActive,
+                    onClick = {
+                        if (!isAmbientActive) {
+                            onSelectAmbient(if (currentAmbientId != "none") currentAmbientId else "rain")
+                        } else {
+                            val currentIndex = ambientIds.indexOf(currentAmbientId)
+                            val nextId = if (currentIndex == -1 || currentIndex == ambientIds.lastIndex) {
+                                ambientIds.first()
                             } else {
-                                "rain"
+                                ambientIds[currentIndex + 1]
                             }
                             onSelectAmbient(nextId)
-                            try {
-                                view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
-                            } catch (e: Exception) {}
                         }
-                        .padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.MusicNote,
-                        contentDescription = "Ambient",
-                        tint = ambientTextColor,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (isAmbientActive) currentAmbientLabel else "Ambient",
-                        color = ambientTextColor,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center
-                    )
-                }
+                    },
+                    modifier = Modifier.weight(1f)
+                )
 
                 // 3. No Audio Option
                 val isSilenceActive = !radioIsPlaying && currentAmbientId == "none"
-                val silenceBorderColor = if (isSilenceActive) Color(0x60E57373) else Color(0x15FFFFFF)
-                val silenceBgColor = if (isSilenceActive) Color(0x20E57373) else Color(0x05FFFFFF)
-                val silenceTextColor = if (isSilenceActive) Color(0xDFE57373) else Color(0x70FFFFFF)
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .weight(if (isRadioAvailable) 0.8f else 1f)
-                        .height(44.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(silenceBgColor)
-                        .border(1.dp, silenceBorderColor, RoundedCornerShape(8.dp))
-                        .clickable {
-                            onSelectNoAudio()
-                            try {
-                                view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
-                            } catch (e: Exception) {}
-                        }
-                        .padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.VolumeMute,
-                        contentDescription = "Silence",
-                        tint = silenceTextColor,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Silent",
-                        color = silenceTextColor,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        textAlign = TextAlign.Center
-                    )
-                }
+                NeumorphicMonoButton(
+                    text = "Silent",
+                    icon = Icons.Default.VolumeMute,
+                    isActive = isSilenceActive,
+                    onClick = { onSelectNoAudio() },
+                    modifier = Modifier.weight(1f)
+                )
             }
+            
+            Spacer(modifier = Modifier.height(14.dp))
+            
+            NeumorphicAudioInfoBar(
+                currentStationName = radioStationName,
+                radioIsPlaying = radioIsPlaying,
+                currentAmbientId = currentAmbientId,
+                currentAmbientLabel = currentAmbientLabel,
+                onClick = { showAudioPopup = true },
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
         }
     }
 
@@ -1508,6 +1810,232 @@ fun BatterySaverOverlay(
                     .background(Color.White.copy(alpha = flashAlpha))
             )
         }
+
+        // --- Custom Neomorphic Monochromatic Dialog Box ---
+        AnimatedVisibility(
+            visible = showAudioPopup,
+            enter = fadeIn(animationSpec = tween(300)),
+            exit = fadeOut(animationSpec = tween(300))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.85f))
+                    .clickable { showAudioPopup = false },
+                contentAlignment = Alignment.Center
+            ) {
+                val popupShape = RoundedCornerShape(20.dp)
+                Box(
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .widthIn(max = 440.dp)
+                        .fillMaxHeight(0.75f)
+                        .clickable(enabled = false) {} // prevent click-through
+                        .shadow(
+                            elevation = 8.dp,
+                            shape = popupShape,
+                            clip = false,
+                            ambientColor = Color.Black,
+                            spotColor = Color.Black
+                        )
+                        .drawBehind {
+                            drawRoundRect(
+                                color = Color(0x18FFFFFF),
+                                topLeft = Offset(-2.dp.toPx(), -2.dp.toPx()),
+                                size = androidx.compose.ui.geometry.Size(size.width + 1.dp.toPx(), size.height + 1.dp.toPx()),
+                                cornerRadius = CornerRadius(20.dp.toPx(), 20.dp.toPx())
+                            )
+                            drawRoundRect(
+                                color = Color(0x70000000),
+                                topLeft = Offset(2.dp.toPx(), 2.dp.toPx()),
+                                size = size,
+                                cornerRadius = CornerRadius(20.dp.toPx(), 20.dp.toPx())
+                            )
+                        }
+                        .background(Color(0xFF141414), popupShape)
+                        .border(1.dp, Color(0x12FFFFFF), popupShape)
+                        .padding(20.dp)
+                ) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "AUDIO SELECTOR",
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.5.sp
+                            )
+                            androidx.compose.material3.IconButton(
+                                onClick = { showAudioPopup = false }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Close",
+                                    tint = Color(0x80FFFFFF)
+                                )
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        var activeTab by remember { mutableStateOf("radio") } // "radio", "favorites", "ambient"
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            val tabs = listOf(
+                                "radio" to "All Radio",
+                                "favorites" to "Favorites",
+                                "ambient" to "Ambient"
+                            )
+                            tabs.forEach { (id, label) ->
+                                val isTabActive = activeTab == id
+                                val chipShape = RoundedCornerShape(10.dp)
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(38.dp)
+                                        .shadow(
+                                            elevation = if (isTabActive) 0.dp else 2.dp,
+                                            shape = chipShape,
+                                            clip = false,
+                                            ambientColor = Color.Black,
+                                            spotColor = Color.Black
+                                        )
+                                        .drawBehind {
+                                            if (!isTabActive) {
+                                                drawRoundRect(
+                                                    color = Color(0x10FFFFFF),
+                                                    topLeft = Offset(-1.dp.toPx(), -1.dp.toPx()),
+                                                    size = androidx.compose.ui.geometry.Size(size.width + 0.5.dp.toPx(), size.height + 0.5.dp.toPx()),
+                                                    cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx())
+                                                )
+                                                drawRoundRect(
+                                                    color = Color(0x35000000),
+                                                    topLeft = Offset(1.dp.toPx(), 1.dp.toPx()),
+                                                    size = size,
+                                                    cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx())
+                                                )
+                                            }
+                                        }
+                                        .background(
+                                            if (isTabActive) Color(0xFF0C0C0C) else Color(0xFF1D1D1D),
+                                            chipShape
+                                        )
+                                        .border(
+                                            1.dp,
+                                            if (isTabActive) Color(0x25FFFFFF) else Color(0x0AFFFFFF),
+                                            chipShape
+                                        )
+                                        .clickable { activeTab = id }
+                                        .padding(horizontal = 4.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        color = if (isTabActive) Color.White else Color(0x80FFFFFF),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                            when (activeTab) {
+                                "radio" -> {
+                                    if (allStations.isEmpty()) {
+                                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                            Text("No stations found", color = Color(0x40FFFFFF), fontSize = 12.sp)
+                                        }
+                                    } else {
+                                        androidx.compose.foundation.lazy.LazyColumn(
+                                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                                            modifier = Modifier.fillMaxSize()
+                                        ) {
+                                            items(allStations.size) { index ->
+                                                val station = allStations[index]
+                                                val isFav = favouriteIds.contains(station.id)
+                                                val isCurrentlyPlaying = radioIsPlaying && radioStationName == station.name
+                                                
+                                                StationRowItem(
+                                                    station = station,
+                                                    isFav = isFav,
+                                                    isCurrent = isCurrentlyPlaying,
+                                                    onSelect = {
+                                                        onSelectRadioStation(station)
+                                                        showAudioPopup = false
+                                                    },
+                                                    onToggleFav = { onToggleFavourite(station) }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                "favorites" -> {
+                                    val favStations = allStations.filter { favouriteIds.contains(it.id) }
+                                    if (favStations.isEmpty()) {
+                                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                            Text("No favorite stations yet", color = Color(0x40FFFFFF), fontSize = 12.sp, textAlign = TextAlign.Center)
+                                        }
+                                    } else {
+                                        androidx.compose.foundation.lazy.LazyColumn(
+                                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                                            modifier = Modifier.fillMaxSize()
+                                        ) {
+                                            items(favStations.size) { index ->
+                                                val station = favStations[index]
+                                                val isCurrentlyPlaying = radioIsPlaying && radioStationName == station.name
+                                                
+                                                StationRowItem(
+                                                    station = station,
+                                                    isFav = true,
+                                                    isCurrent = isCurrentlyPlaying,
+                                                    onSelect = {
+                                                        onSelectRadioStation(station)
+                                                        showAudioPopup = false
+                                                    },
+                                                    onToggleFav = { onToggleFavourite(station) }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                "ambient" -> {
+                                    androidx.compose.foundation.lazy.LazyColumn(
+                                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                                        modifier = Modifier.fillMaxSize()
+                                    ) {
+                                        items(ambientIds.size) { index ->
+                                            val ambientId = ambientIds[index]
+                                            val label = ambientLabels[ambientId] ?: ambientId
+                                            val isCurrent = currentAmbientId == ambientId
+                                            
+                                            AmbientRowItem(
+                                                label = label,
+                                                isCurrent = isCurrent,
+                                                onSelect = {
+                                                    onSelectAmbient(ambientId)
+                                                    showAudioPopup = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1576,6 +2104,9 @@ fun BatterySaverScreen(
     val seconds = (state.remainingMs / 1000) % 60
     val remainingText = String.format("%02d:%02d", minutes, seconds)
 
+    val allStations by radioViewModel.displayedStations.collectAsState()
+    val favouriteIds by radioViewModel.favouriteIds.collectAsState()
+
     BatterySaverOverlay(
         onDismiss = onDismiss,
         batteryLevel = batteryLevel.value,
@@ -1584,9 +2115,25 @@ fun BatterySaverScreen(
         radioStationThumbnail = capturedStation?.logoUrl,
         radioIsPlaying = radioPlaying && capturedStation != null,
         currentAmbientId = state.currentAmbientId,
+        allStations = allStations,
+        favouriteIds = favouriteIds,
+        onToggleFavourite = { station ->
+            radioViewModel.toggleFavourite(station)
+        },
+        onSelectRadioStation = { station ->
+            capturedStation = station
+            radioViewModel.selectStation(station, context)
+            viewModel.setAmbientSound("none")
+        },
         onSelectRadio = {
             capturedStation?.let { station ->
                 radioViewModel.selectStation(station, context)
+            } ?: run {
+                if (allStations.isNotEmpty()) {
+                    val defaultStation = allStations.first()
+                    capturedStation = defaultStation
+                    radioViewModel.selectStation(defaultStation, context)
+                }
             }
             viewModel.setAmbientSound("none")
         },

@@ -81,20 +81,7 @@ class RadioPlayerService : MediaLibraryService() {
                 session: MediaSession,
                 controller: MediaSession.ControllerInfo
             ): MediaSession.ConnectionResult {
-                val sessionCommands = SessionCommands.Builder()
-                    .add(androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_GET_LIBRARY_ROOT)
-                    .add(androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_GET_ITEM)
-                    .add(androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_GET_CHILDREN)
-                    .add(androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_SUBSCRIBE)
-                    .add(androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_UNSUBSCRIBE)
-                    .build()
-                val playerCommands = Player.Commands.Builder()
-                    .addAllCommands()
-                    .build()
-                return MediaSession.ConnectionResult.accept(
-                    sessionCommands,
-                    playerCommands
-                )
+                return super.onConnect(session, controller)
             }
 
             override fun onGetLibraryRoot(
