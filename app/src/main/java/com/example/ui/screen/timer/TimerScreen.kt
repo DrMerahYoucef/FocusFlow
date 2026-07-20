@@ -898,6 +898,1014 @@ fun AmbientRowItem(
 }
 
 @Composable
+fun AudioModeSelector(
+    textAlphaMultiplier: Float,
+    radioIsPlaying: Boolean,
+    currentAmbientId: String,
+    currentAmbientLabel: String,
+    radioStationName: String?,
+    ambientIds: List<String>,
+    onSelectRadio: () -> Unit,
+    onSelectAmbient: (String) -> Unit,
+    onSelectNoAudio: () -> Unit,
+    onShowAudioPopup: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier.fillMaxWidth().alpha(textAlphaMultiplier)
+    ) {
+        Text(
+            text = "AUDIO PLAYBACK",
+            color = Color(0x35FFFFFF),
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        ) {
+            // 1. Radio Option
+            val isRadioActive = radioIsPlaying
+            NeumorphicMonoButton(
+                text = "Radio",
+                icon = Icons.Default.Radio,
+                isActive = isRadioActive,
+                onClick = {
+                    if (radioStationName.isNullOrBlank()) {
+                        onShowAudioPopup()
+                    } else {
+                        onSelectRadio()
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            )
+
+            // 2. Ambient Option
+            val isAmbientActive = currentAmbientId != "none"
+            NeumorphicMonoButton(
+                text = if (isAmbientActive) currentAmbientLabel else "Ambient",
+                icon = Icons.Default.MusicNote,
+                isActive = isAmbientActive,
+                onClick = {
+                    if (!isAmbientActive) {
+                        onSelectAmbient(if (currentAmbientId != "none") currentAmbientId else "rain")
+                    } else {
+                        val currentIndex = ambientIds.indexOf(currentAmbientId)
+                        val nextId = if (currentIndex == -1 || currentIndex == ambientIds.lastIndex) {
+                            ambientIds.first()
+                        } else {
+                            ambientIds[currentIndex + 1]
+                        }
+                        onSelectAmbient(nextId)
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            )
+
+            // 3. No Audio Option
+            val isSilenceActive = !radioIsPlaying && currentAmbientId == "none"
+            NeumorphicMonoButton(
+                text = "Silent",
+                icon = Icons.Default.VolumeMute,
+                isActive = isSilenceActive,
+                onClick = { onSelectNoAudio() },
+                modifier = Modifier.weight(1f)
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(14.dp))
+        
+        NeumorphicAudioInfoBar(
+            currentStationName = radioStationName,
+            radioIsPlaying = radioIsPlaying,
+            currentAmbientId = currentAmbientId,
+            currentAmbientLabel = currentAmbientLabel,
+            onClick = { onShowAudioPopup() },
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+    }
+}
+
+@Composable
+fun LandscapeBatterySaverLayout(
+    batteryLevel: Int,
+    textAlphaMultiplier: Float,
+    remainingTimeFormatted: String,
+    phaseLabel: String,
+    arcColor: Color,
+    animatedProgress: Float,
+    radioIsPlaying: Boolean,
+    radioStationName: String?,
+    currentAmbientId: String,
+    currentAmbientLabel: String,
+    isSystemPowerSaveMode: Boolean,
+    sessionCount: Int,
+    totalFocusSecs: Long,
+    isPlaying: Boolean,
+    ambientIds: List<String>,
+    onPlayPauseClick: () -> Unit,
+    onStopClick: () -> Unit,
+    onSkipClick: () -> Unit,
+    onSelectRadio: () -> Unit,
+    onSelectAmbient: (String) -> Unit,
+    onSelectNoAudio: () -> Unit,
+    onShowAudioPopup: () -> Unit,
+    onInteraction: () -> Unit,
+    view: android.view.View
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // LEFT SIDE: Big Timer
+        Box(
+            modifier = Modifier
+                .weight(1.2f)
+                .fillMaxHeight(),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .aspectRatio(1f)
+                    .padding(8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val strokeWidth = 5.dp.toPx()
+                    val diameter = size.minDimension - strokeWidth
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.05f),
+                        radius = diameter / 2f,
+                        style = Stroke(width = strokeWidth)
+                    )
+                    drawArc(
+                        color = arcColor,
+                        startAngle = -90f,
+                        sweepAngle = 360f * animatedProgress,
+                        useCenter = false,
+                        style = Stroke(width = strokeWidth, cap = androidx.compose.ui.graphics.StrokeCap.Round),
+                        size = androidx.compose.ui.geometry.Size(diameter, diameter),
+                        topLeft = androidx.compose.ui.geometry.Offset((size.width - diameter)/2f, (size.height - diameter)/2f)
+                    )
+                }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = phaseLabel.uppercase(),
+                        color = Color(0xB0FFFFFF),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 2.sp,
+                        modifier = Modifier.alpha(textAlphaMultiplier)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = remainingTimeFormatted,
+                        color = Color.White,
+                        fontSize = 48.sp,
+                        fontWeight = FontWeight.Light,
+                        modifier = Modifier.alpha(textAlphaMultiplier)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = when {
+                            radioIsPlaying -> "Radio: ${radioStationName ?: "Playing"}"
+                            currentAmbientId != "none" -> currentAmbientLabel
+                            else -> "Silence 🔇"
+                        },
+                        color = Color(0x60FFFFFF),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.alpha(textAlphaMultiplier),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        // RIGHT SIDE: Header, Stats, Audio Selection, Controls, Hint
+        Column(
+            modifier = Modifier
+                .weight(1.0f)
+                .fillMaxHeight()
+                .padding(vertical = 4.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "BATTERY SAVER ACTIVE 🔋",
+                    color = if (isSystemPowerSaveMode) Color(0x6081C784) else Color(0x60FFFFFF),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp,
+                    modifier = Modifier.alpha(textAlphaMultiplier)
+                )
+                Text(
+                    text = "Battery: $batteryLevel%",
+                    color = Color(0x40FFFFFF),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Normal,
+                    modifier = Modifier.alpha(textAlphaMultiplier)
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "COMPLETED",
+                        color = Color(0x40FFFFFF),
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp,
+                        modifier = Modifier.alpha(textAlphaMultiplier)
+                    )
+                    Text(
+                        text = "$sessionCount sessions",
+                        color = Color(0xC0FFFFFF),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.alpha(textAlphaMultiplier)
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .height(16.dp)
+                        .width(1.dp)
+                        .background(Color(0x15FFFFFF))
+                )
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "FOCUS TIME",
+                        color = Color(0x40FFFFFF),
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp,
+                        modifier = Modifier.alpha(textAlphaMultiplier)
+                    )
+                    val totalMins = totalFocusSecs / 60
+                    Text(
+                        text = "$totalMins min",
+                        color = Color(0xC0FFFFFF),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.alpha(textAlphaMultiplier)
+                    )
+                }
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                ) {
+                    val isRadioActive = radioIsPlaying
+                    NeumorphicMonoButton(
+                        text = "Radio",
+                        icon = Icons.Default.Radio,
+                        isActive = isRadioActive,
+                        onClick = {
+                            if (radioStationName.isNullOrBlank()) {
+                                onShowAudioPopup()
+                            } else {
+                                onSelectRadio()
+                            }
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    val isSilenceActive = !radioIsPlaying && currentAmbientId == "none"
+                    NeumorphicMonoButton(
+                        text = "Silent",
+                        icon = Icons.Default.VolumeMute,
+                        isActive = isSilenceActive,
+                        onClick = { onSelectNoAudio() },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                val isAmbientActive = currentAmbientId != "none"
+                NeumorphicMonoButton(
+                    text = if (isAmbientActive) currentAmbientLabel else "Ambient Sounds",
+                    icon = Icons.Default.MusicNote,
+                    isActive = isAmbientActive,
+                    onClick = {
+                        if (!isAmbientActive) {
+                            onSelectAmbient(if (currentAmbientId != "none") currentAmbientId else "rain")
+                        } else {
+                            val currentIndex = ambientIds.indexOf(currentAmbientId)
+                            val nextId = if (currentIndex == -1 || currentIndex == ambientIds.lastIndex) {
+                                ambientIds.first()
+                            } else {
+                                ambientIds[currentIndex + 1]
+                            }
+                            onSelectAmbient(nextId)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                androidx.compose.material3.IconButton(
+                    onClick = {
+                        onInteraction()
+                        onPlayPauseClick()
+                        try {
+                            view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+                        } catch (e: Exception) {}
+                    },
+                    modifier = Modifier
+                        .size(40.dp)
+                        .border(1.dp, Color(0x30FFFFFF), CircleShape)
+                        .background(Color(0x0AFFFFFF), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = if (isPlaying) "Pause Timer" else "Play Timer",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                androidx.compose.material3.IconButton(
+                    onClick = {
+                        onInteraction()
+                        onStopClick()
+                        try {
+                            view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+                        } catch (e: Exception) {}
+                    },
+                    modifier = Modifier
+                        .size(40.dp)
+                        .border(1.dp, Color(0x30FFFFFF), CircleShape)
+                        .background(Color(0x0AFFFFFF), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Stop,
+                        contentDescription = "Stop Timer",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                androidx.compose.material3.IconButton(
+                    onClick = {
+                        onInteraction()
+                        onSkipClick()
+                        try {
+                            view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+                        } catch (e: Exception) {}
+                    },
+                    modifier = Modifier
+                        .size(40.dp)
+                        .border(1.dp, Color(0x30FFFFFF), CircleShape)
+                        .background(Color(0x0AFFFFFF), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.SkipNext,
+                        contentDescription = "Skip Phase",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            val infiniteTransition = rememberInfiniteTransition(label = "indicator")
+            val chevronTranslationY by infiniteTransition.animateFloat(
+                initialValue = 3f,
+                targetValue = -4f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(1200, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "chevronTranslationY"
+            )
+            val chevronAlpha by infiniteTransition.animateFloat(
+                initialValue = 0.3f,
+                targetValue = 0.8f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(1200, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "chevronAlpha"
+            )
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.alpha(textAlphaMultiplier)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowUp,
+                    contentDescription = null,
+                    tint = Color(0xFF9482FF).copy(alpha = chevronAlpha),
+                    modifier = Modifier
+                        .size(18.dp)
+                        .offset(y = chevronTranslationY.dp)
+                )
+                Text(
+                    text = "Swipe up for stats & milestones 📊",
+                    color = Color.White.copy(alpha = 0.65f),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Double tap to return",
+                    color = Color(0x25FFFFFF),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Normal,
+                    letterSpacing = 0.5.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PortraitBatterySaverLayout(
+    batteryLevel: Int,
+    textAlphaMultiplier: Float,
+    remainingTimeFormatted: String,
+    phaseLabel: String,
+    arcColor: Color,
+    animatedProgress: Float,
+    radioIsPlaying: Boolean,
+    radioStationName: String?,
+    currentAmbientId: String,
+    currentAmbientLabel: String,
+    isSystemPowerSaveMode: Boolean,
+    sessionCount: Int,
+    totalFocusSecs: Long,
+    isPlaying: Boolean,
+    ambientIds: List<String>,
+    onPlayPauseClick: () -> Unit,
+    onStopClick: () -> Unit,
+    onSkipClick: () -> Unit,
+    onSelectRadio: () -> Unit,
+    onSelectAmbient: (String) -> Unit,
+    onSelectNoAudio: () -> Unit,
+    onShowAudioPopup: () -> Unit,
+    onInteraction: () -> Unit,
+    view: android.view.View
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp, vertical = 32.dp),
+        verticalArrangement = Arrangement.SpaceBetween,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().statusBarsPadding(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "BATTERY SAVER ACTIVE 🔋",
+                color = if (isSystemPowerSaveMode) Color(0x6081C784) else Color(0x60FFFFFF),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+                modifier = Modifier.alpha(textAlphaMultiplier)
+            )
+            Text(
+                text = "$batteryLevel%",
+                color = Color(0x80FFFFFF),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp,
+                modifier = Modifier.alpha(textAlphaMultiplier)
+            )
+        }
+
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .weight(1f)
+                .size(280.dp)
+        ) {
+            Canvas(modifier = Modifier.size(260.dp)) {
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.05f),
+                    style = Stroke(width = 6.dp.toPx())
+                )
+                drawArc(
+                    color = arcColor,
+                    startAngle = -90f,
+                    sweepAngle = 360f * animatedProgress,
+                    useCenter = false,
+                    style = Stroke(width = 6.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                )
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = phaseLabel.uppercase(),
+                    color = Color(0xB0FFFFFF),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 3.sp,
+                    modifier = Modifier.alpha(textAlphaMultiplier)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = remainingTimeFormatted,
+                    color = Color.White,
+                    style = MaterialTheme.typography.displayLarge.copy(
+                        fontSize = 64.sp,
+                        fontWeight = FontWeight.Thin
+                    ),
+                    modifier = Modifier.alpha(textAlphaMultiplier)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = when {
+                        radioIsPlaying -> "Radio: ${radioStationName ?: "Playing"}"
+                        currentAmbientId != "none" -> currentAmbientLabel
+                        else -> "Silence 🔇"
+                    },
+                    color = Color(0x60FFFFFF),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.alpha(textAlphaMultiplier)
+                )
+            }
+        }
+
+        AudioModeSelector(
+            textAlphaMultiplier = textAlphaMultiplier,
+            radioIsPlaying = radioIsPlaying,
+            currentAmbientId = currentAmbientId,
+            currentAmbientLabel = currentAmbientLabel,
+            radioStationName = radioStationName,
+            ambientIds = ambientIds,
+            onSelectRadio = onSelectRadio,
+            onSelectAmbient = onSelectAmbient,
+            onSelectNoAudio = onSelectNoAudio,
+            onShowAudioPopup = onShowAudioPopup,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "COMPLETED",
+                    color = Color(0x50FFFFFF),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.alpha(textAlphaMultiplier)
+                )
+                Text(
+                    text = "$sessionCount sessions",
+                    color = Color(0xD0FFFFFF),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.alpha(textAlphaMultiplier)
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .height(24.dp)
+                    .width(1.dp)
+                    .background(Color(0x1AFFFFFF))
+            )
+
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "FOCUS TIME",
+                    color = Color(0x50FFFFFF),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.alpha(textAlphaMultiplier)
+                )
+                val totalMins = totalFocusSecs / 60
+                Text(
+                    text = "$totalMins min",
+                    color = Color(0xD0FFFFFF),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.alpha(textAlphaMultiplier)
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            androidx.compose.material3.IconButton(
+                onClick = {
+                    onInteraction()
+                    onPlayPauseClick()
+                    try {
+                        view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+                    } catch (e: Exception) {}
+                },
+                modifier = Modifier
+                    .size(54.dp)
+                    .border(1.dp, Color(0x40FFFFFF), CircleShape)
+                    .background(Color(0x10FFFFFF), CircleShape)
+            ) {
+                Icon(
+                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = if (isPlaying) "Pause Timer" else "Play Timer",
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+
+            androidx.compose.material3.IconButton(
+                onClick = {
+                    onInteraction()
+                    onStopClick()
+                    try {
+                        view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+                    } catch (e: Exception) {}
+                },
+                modifier = Modifier
+                    .size(54.dp)
+                    .border(1.dp, Color(0x40FFFFFF), CircleShape)
+                    .background(Color(0x10FFFFFF), CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Stop,
+                    contentDescription = "Stop Timer",
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+
+            androidx.compose.material3.IconButton(
+                onClick = {
+                    onInteraction()
+                    onSkipClick()
+                    try {
+                        view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+                    } catch (e: Exception) {}
+                },
+                modifier = Modifier
+                    .size(54.dp)
+                    .border(1.dp, Color(0x40FFFFFF), CircleShape)
+                    .background(Color(0x10FFFFFF), CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.SkipNext,
+                    contentDescription = "Skip Phase",
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
+
+        val infiniteTransition = rememberInfiniteTransition(label = "indicator")
+        val chevronTranslationY by infiniteTransition.animateFloat(
+            initialValue = 4f,
+            targetValue = -6f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1200, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "chevronTranslationY"
+        )
+        val chevronAlpha by infiniteTransition.animateFloat(
+            initialValue = 0.3f,
+            targetValue = 0.8f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1200, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "chevronAlpha"
+        )
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .padding(bottom = 8.dp)
+                .navigationBarsPadding()
+                .alpha(textAlphaMultiplier)
+        ) {
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowUp,
+                contentDescription = null,
+                tint = Color(0xFF9482FF).copy(alpha = chevronAlpha),
+                modifier = Modifier
+                    .size(24.dp)
+                    .offset(y = chevronTranslationY.dp)
+            )
+            Text(
+                text = "Swipe up to view statistics & milestones 📊",
+                color = Color.White.copy(alpha = 0.65f),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Double tap anywhere to return",
+                color = Color(0x30FFFFFF),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Normal,
+                letterSpacing = 0.5.sp
+            )
+        }
+    }
+}
+
+@Composable
+fun AudioSelectorDialog(
+    visible: Boolean,
+    allStations: List<com.example.data.RadioStation>,
+    favouriteIds: Set<String>,
+    currentAmbientId: String,
+    currentAmbientLabel: String,
+    radioIsPlaying: Boolean,
+    radioStationName: String?,
+    ambientIds: List<String>,
+    ambientLabels: Map<String, String>,
+    onToggleFavourite: (com.example.data.RadioStation) -> Unit,
+    onSelectRadioStation: (com.example.data.RadioStation) -> Unit,
+    onSelectAmbient: (String) -> Unit,
+    onDismissRequest: () -> Unit
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = tween(300)),
+        exit = fadeOut(animationSpec = tween(300))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.85f))
+                .clickable { onDismissRequest() },
+            contentAlignment = Alignment.Center
+        ) {
+            val popupShape = RoundedCornerShape(20.dp)
+            Box(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .widthIn(max = 440.dp)
+                    .fillMaxHeight(0.75f)
+                    .clickable(enabled = false) {}
+                    .shadow(
+                        elevation = 8.dp,
+                        shape = popupShape,
+                        clip = false,
+                        ambientColor = Color.Black,
+                        spotColor = Color.Black
+                    )
+                    .drawBehind {
+                        drawRoundRect(
+                            color = Color(0x18FFFFFF),
+                            topLeft = Offset(-2.dp.toPx(), -2.dp.toPx()),
+                            size = androidx.compose.ui.geometry.Size(size.width + 1.dp.toPx(), size.height + 1.dp.toPx()),
+                            cornerRadius = CornerRadius(20.dp.toPx(), 20.dp.toPx())
+                        )
+                        drawRoundRect(
+                            color = Color(0x70000000),
+                            topLeft = Offset(2.dp.toPx(), 2.dp.toPx()),
+                            size = size,
+                            cornerRadius = CornerRadius(20.dp.toPx(), 20.dp.toPx())
+                        )
+                    }
+                    .background(Color(0xFF141414), popupShape)
+                    .border(1.dp, Color(0x12FFFFFF), popupShape)
+                    .padding(20.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "AUDIO SELECTOR",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.5.sp
+                        )
+                        androidx.compose.material3.IconButton(
+                            onClick = { onDismissRequest() }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = Color(0x80FFFFFF)
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    var activeTab by remember { mutableStateOf("radio") }
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val tabs = listOf(
+                            "radio" to "All Radio",
+                            "favorites" to "Favorites",
+                            "ambient" to "Ambient"
+                        )
+                        tabs.forEach { (id, label) ->
+                            val isTabActive = activeTab == id
+                            val chipShape = RoundedCornerShape(10.dp)
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(38.dp)
+                                    .shadow(
+                                        elevation = if (isTabActive) 0.dp else 2.dp,
+                                        shape = chipShape,
+                                        clip = false,
+                                        ambientColor = Color.Black,
+                                        spotColor = Color.Black
+                                    )
+                                    .drawBehind {
+                                        if (!isTabActive) {
+                                            drawRoundRect(
+                                                color = Color(0x10FFFFFF),
+                                                topLeft = Offset(-1.dp.toPx(), -1.dp.toPx()),
+                                                size = androidx.compose.ui.geometry.Size(size.width + 0.5.dp.toPx(), size.height + 0.5.dp.toPx()),
+                                                cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx())
+                                            )
+                                            drawRoundRect(
+                                                color = Color(0x35000000),
+                                                topLeft = Offset(1.dp.toPx(), 1.dp.toPx()),
+                                                size = size,
+                                                cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx())
+                                            )
+                                        }
+                                    }
+                                    .background(
+                                        if (isTabActive) Color(0xFF0C0C0C) else Color(0xFF1D1D1D),
+                                        chipShape
+                                    )
+                                    .border(
+                                        1.dp,
+                                        if (isTabActive) Color(0x25FFFFFF) else Color(0x0AFFFFFF),
+                                        chipShape
+                                    )
+                                    .clickable { activeTab = id }
+                                    .padding(horizontal = 4.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = if (isTabActive) Color.White else Color(0x80FFFFFF),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        when (activeTab) {
+                            "radio" -> {
+                                if (allStations.isEmpty()) {
+                                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                        Text("No stations found", color = Color(0x40FFFFFF), fontSize = 12.sp)
+                                    }
+                                } else {
+                                    androidx.compose.foundation.lazy.LazyColumn(
+                                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                                        modifier = Modifier.fillMaxSize()
+                                    ) {
+                                        items(allStations.size) { index ->
+                                            val station = allStations[index]
+                                            val isFav = favouriteIds.contains(station.id)
+                                            val isCurrentlyPlaying = radioIsPlaying && radioStationName == station.name
+                                            
+                                            StationRowItem(
+                                                station = station,
+                                                isFav = isFav,
+                                                isCurrent = isCurrentlyPlaying,
+                                                onSelect = {
+                                                    onSelectRadioStation(station)
+                                                },
+                                                onToggleFav = { onToggleFavourite(station) }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            "favorites" -> {
+                                val favStations = allStations.filter { favouriteIds.contains(it.id) }
+                                if (favStations.isEmpty()) {
+                                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                        Text("No favorite stations yet", color = Color(0x40FFFFFF), fontSize = 12.sp, textAlign = TextAlign.Center)
+                                    }
+                                } else {
+                                    androidx.compose.foundation.lazy.LazyColumn(
+                                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                                        modifier = Modifier.fillMaxSize()
+                                    ) {
+                                        items(favStations.size) { index ->
+                                            val station = favStations[index]
+                                            val isCurrentlyPlaying = radioIsPlaying && radioStationName == station.name
+                                            
+                                            StationRowItem(
+                                                station = station,
+                                                isFav = true,
+                                                isCurrent = isCurrentlyPlaying,
+                                                onSelect = {
+                                                    onSelectRadioStation(station)
+                                                },
+                                                onToggleFav = { onToggleFavourite(station) }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            "ambient" -> {
+                                androidx.compose.foundation.lazy.LazyColumn(
+                                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    items(ambientIds.size) { index ->
+                                        val ambientId = ambientIds[index]
+                                        val label = ambientLabels[ambientId] ?: ambientId
+                                        val isCurrent = currentAmbientId == ambientId
+                                        
+                                        AmbientRowItem(
+                                            label = label,
+                                            isCurrent = isCurrent,
+                                            onSelect = {
+                                                onSelectAmbient(ambientId)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun BatterySaverOverlay(
     onDismiss: () -> Unit,
     batteryLevel: Int,
@@ -1027,6 +2035,24 @@ fun BatterySaverOverlay(
         }
     }
 
+    var showAnalyticsSheet by remember { mutableStateOf(false) }
+    var todaySessions by remember { mutableStateOf(emptyList<com.example.data.db.entity.SessionEntity>()) }
+    val todaySessionsFlow = remember {
+        val todayStart = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val todayEnd = todayStart + 86400000L - 1
+        com.example.FocusFlowApplication.instance.sessionRepository.getSessionsInRange(todayStart, todayEnd)
+    }
+    LaunchedEffect(todaySessionsFlow) {
+        todaySessionsFlow.collect {
+            todaySessions = it
+        }
+    }
+
     // 4. Milestone Pulse Animation state
     val percentCompleted = ((1f - progress) * 100).toInt()
     var lastMilestoneTriggered by remember { mutableIntStateOf(0) }
@@ -1118,87 +2144,6 @@ fun BatterySaverOverlay(
     )
     val currentAmbientLabel = ambientLabels[currentAmbientId] ?: "Rain 🌧️"
 
-    @Composable
-    fun AudioModeSelector(modifier: Modifier = Modifier) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = modifier.fillMaxWidth().alpha(textAlphaMultiplier)
-        ) {
-            Text(
-                text = "AUDIO PLAYBACK",
-                color = Color(0x35FFFFFF),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            ) {
-                // 1. Radio Option
-                val isRadioActive = radioIsPlaying
-                NeumorphicMonoButton(
-                    text = "Radio",
-                    icon = Icons.Default.Radio,
-                    isActive = isRadioActive,
-                    onClick = {
-                        if (radioStationName.isNullOrBlank()) {
-                            showAudioPopup = true
-                        } else {
-                            onSelectRadio()
-                        }
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-
-                // 2. Ambient Option
-                val isAmbientActive = currentAmbientId != "none"
-                NeumorphicMonoButton(
-                    text = if (isAmbientActive) currentAmbientLabel else "Ambient",
-                    icon = Icons.Default.MusicNote,
-                    isActive = isAmbientActive,
-                    onClick = {
-                        if (!isAmbientActive) {
-                            onSelectAmbient(if (currentAmbientId != "none") currentAmbientId else "rain")
-                        } else {
-                            val currentIndex = ambientIds.indexOf(currentAmbientId)
-                            val nextId = if (currentIndex == -1 || currentIndex == ambientIds.lastIndex) {
-                                ambientIds.first()
-                            } else {
-                                ambientIds[currentIndex + 1]
-                            }
-                            onSelectAmbient(nextId)
-                        }
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-
-                // 3. No Audio Option
-                val isSilenceActive = !radioIsPlaying && currentAmbientId == "none"
-                NeumorphicMonoButton(
-                    text = "Silent",
-                    icon = Icons.Default.VolumeMute,
-                    isActive = isSilenceActive,
-                    onClick = { onSelectNoAudio() },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(14.dp))
-            
-            NeumorphicAudioInfoBar(
-                currentStationName = radioStationName,
-                radioIsPlaying = radioIsPlaying,
-                currentAmbientId = currentAmbientId,
-                currentAmbientLabel = currentAmbientLabel,
-                onClick = { showAudioPopup = true },
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-        }
-    }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1231,6 +2176,12 @@ fun BatterySaverOverlay(
                         lastInteractionTime = System.currentTimeMillis()
                         totalDragY += dragAmount.y
                         if (totalDragY < -100f) {
+                            if (!showAnalyticsSheet) {
+                                showAnalyticsSheet = true
+                                try {
+                                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+                                } catch (e: Exception) {}
+                            }
                             showPeekStrip = true
                         }
                     },
@@ -1261,489 +2212,59 @@ fun BatterySaverOverlay(
         val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
         if (isLandscape) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Top header Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "BATTERY SAVER ACTIVE",
-                        color = Color(0x35FFFFFF),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp,
-                        modifier = Modifier.alpha(textAlphaMultiplier)
-                    )
-                    Text(
-                        text = "$batteryLevel%",
-                        color = Color(0x25FFFFFF),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp,
-                        modifier = Modifier.alpha(textAlphaMultiplier)
-                    )
-                }
-
-                // Middle section: Left circular timer, Right stats and controls
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Left: Circular Timer
-                    Box(
-                        modifier = Modifier
-                            .weight(1.2f)
-                            .fillMaxHeight(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Box(
-                            modifier = Modifier.size(200.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Canvas(modifier = Modifier.fillMaxSize()) {
-                                // Background track
-                                drawCircle(
-                                    color = Color.White.copy(alpha = 0.05f),
-                                    style = Stroke(width = 4.dp.toPx())
-                                )
-                                // Active progress arc
-                                drawArc(
-                                    color = arcColor,
-                                    startAngle = -90f,
-                                    sweepAngle = 360f * animatedProgress,
-                                    useCenter = false,
-                                    style = Stroke(width = 4.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
-                                )
-                            }
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Text(
-                                    text = when (phaseLabel.uppercase()) {
-                                        "FOCUS" -> "FOCUS SESSION"
-                                        "SHORT BREAK" -> "SHORT BREAK"
-                                        "LONG BREAK" -> "LONG BREAK"
-                                        else -> phaseLabel.uppercase()
-                                    },
-                                    color = Color(0x50FFFFFF),
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.5.sp,
-                                    modifier = Modifier.alpha(textAlphaMultiplier)
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = remainingTimeFormatted,
-                                    color = Color.White,
-                                    fontSize = 52.sp,
-                                    fontWeight = FontWeight.Light,
-                                    modifier = Modifier.alpha(textAlphaMultiplier)
-                                )
-                            }
-                        }
-                    }
-
-                    // Right: Stats & Controls Column
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
-                        verticalArrangement = Arrangement.SpaceEvenly,
-                        horizontalAlignment = Alignment.Start
-                    ) {
-                        // Session Overview & Stats Block
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                            horizontalAlignment = Alignment.Start
-                        ) {
-                            Text(
-                                text = "SESSION OVERVIEW",
-                                color = Color(0x35FFFFFF),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp,
-                                modifier = Modifier
-                                    .padding(bottom = 6.dp)
-                                    .alpha(textAlphaMultiplier)
-                            )
-
-                            val totalMins = totalFocusSecs / 60
-                            val dailyGoalSecs = 3600
-                            val progressPercent = ((totalFocusSecs.toFloat() / dailyGoalSecs.toFloat()) * 100).toInt().coerceIn(0, 100)
-
-                            Row {
-                                Text("FOCUS TIME: ", color = Color(0x35FFFFFF), fontSize = 14.sp, fontWeight = FontWeight.Normal)
-                                Text("$totalMins min", color = Color(0x95FFFFFF), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Row {
-                                Text("SESSIONS: ", color = Color(0x35FFFFFF), fontSize = 14.sp, fontWeight = FontWeight.Normal)
-                                Text("$sessionCount", color = Color(0x95FFFFFF), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Row {
-                                Text("DAILY GOAL: ", color = Color(0x35FFFFFF), fontSize = 14.sp, fontWeight = FontWeight.Normal)
-                                Text("1 hr", color = Color(0x95FFFFFF), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Row {
-                                Text("Daily Goal progress: ", color = Color(0x35FFFFFF), fontSize = 14.sp, fontWeight = FontWeight.Normal)
-                                Text("$progressPercent%", color = Color(0x95FFFFFF), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-
-                        // Media and Control Buttons
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(20.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Pause/Play
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                androidx.compose.material3.IconButton(
-                                    onClick = {
-                                        lastInteractionTime = System.currentTimeMillis()
-                                        onPlayPauseClick()
-                                        try {
-                                            view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
-                                        } catch (e: Exception) {}
-                                    },
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .border(1.dp, Color(0x25FFFFFF), CircleShape)
-                                ) {
-                                    Icon(
-                                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                        contentDescription = if (isPlaying) "Pause Timer" else "Play Timer",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = if (isPlaying) "Pause" else "Resume",
-                                    color = Color(0x45FFFFFF),
-                                    fontSize = 11.sp
-                                )
-                            }
-
-                            // End Session / Stop
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                androidx.compose.material3.IconButton(
-                                    onClick = {
-                                        lastInteractionTime = System.currentTimeMillis()
-                                        onStopClick()
-                                        try {
-                                            view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
-                                        } catch (e: Exception) {}
-                                    },
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .border(1.dp, Color(0x25FFFFFF), CircleShape)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Stop,
-                                        contentDescription = "Stop Timer",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "End Session",
-                                    color = Color(0x45FFFFFF),
-                                    fontSize = 11.sp
-                                )
-                            }
-
-                            // Next Track / Skip
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                androidx.compose.material3.IconButton(
-                                    onClick = {
-                                        lastInteractionTime = System.currentTimeMillis()
-                                        onSkipClick()
-                                        try {
-                                            view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
-                                        } catch (e: Exception) {}
-                                    },
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .border(1.dp, Color(0x25FFFFFF), CircleShape)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.SkipNext,
-                                        contentDescription = "Skip Phase",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Next Track",
-                                    color = Color(0x45FFFFFF),
-                                    fontSize = 11.sp
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Elegant Landscape Selector
-                AudioModeSelector(modifier = Modifier.padding(top = 10.dp))
-            }
+            LandscapeBatterySaverLayout(
+                batteryLevel = batteryLevel,
+                textAlphaMultiplier = textAlphaMultiplier,
+                remainingTimeFormatted = remainingTimeFormatted,
+                phaseLabel = phaseLabel,
+                arcColor = arcColor,
+                animatedProgress = animatedProgress,
+                radioIsPlaying = radioIsPlaying,
+                radioStationName = radioStationName,
+                currentAmbientId = currentAmbientId,
+                currentAmbientLabel = currentAmbientLabel,
+                isSystemPowerSaveMode = isSystemPowerSaveMode,
+                sessionCount = sessionCount,
+                totalFocusSecs = totalFocusSecs,
+                isPlaying = isPlaying,
+                ambientIds = ambientIds,
+                onPlayPauseClick = onPlayPauseClick,
+                onStopClick = onStopClick,
+                onSkipClick = onSkipClick,
+                onSelectRadio = onSelectRadio,
+                onSelectAmbient = onSelectAmbient,
+                onSelectNoAudio = onSelectNoAudio,
+                onShowAudioPopup = { showAudioPopup = true },
+                onInteraction = { lastInteractionTime = System.currentTimeMillis() },
+                view = view
+            )
         } else {
-            // PORTRAIT LAYOUT
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 24.dp, vertical = 32.dp),
-                verticalArrangement = Arrangement.SpaceBetween,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Top Header
-                Row(
-                    modifier = Modifier.fillMaxWidth().statusBarsPadding(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "BATTERY SAVER ACTIVE 🔋",
-                        color = if (isSystemPowerSaveMode) Color(0x6081C784) else Color(0x60FFFFFF),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp,
-                        modifier = Modifier.alpha(textAlphaMultiplier)
-                    )
-                    Text(
-                        text = "$batteryLevel%",
-                        color = Color(0x80FFFFFF),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp,
-                        modifier = Modifier.alpha(textAlphaMultiplier)
-                    )
-                }
-
-                // Center Timer with Circular Progress Ring and Breathing text
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .weight(1f)
-                        .size(280.dp)
-                ) {
-                    Canvas(modifier = Modifier.size(260.dp)) {
-                        // Background track
-                        drawCircle(
-                            color = Color.White.copy(alpha = 0.05f),
-                            style = Stroke(width = 6.dp.toPx())
-                        )
-                        // Active progress arc
-                        drawArc(
-                            color = arcColor,
-                            startAngle = -90f,
-                            sweepAngle = 360f * animatedProgress,
-                            useCenter = false,
-                            style = Stroke(width = 6.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
-                        )
-                    }
-
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = phaseLabel.uppercase(),
-                            color = Color(0xB0FFFFFF),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 3.sp,
-                            modifier = Modifier.alpha(textAlphaMultiplier)
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Text(
-                            text = remainingTimeFormatted,
-                            color = Color.White,
-                            style = MaterialTheme.typography.displayLarge.copy(
-                                fontSize = 64.sp,
-                                fontWeight = FontWeight.Thin
-                            ),
-                            modifier = Modifier.alpha(textAlphaMultiplier)
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Text(
-                            text = when {
-                                radioIsPlaying -> "Radio: ${radioStationName ?: "Playing"}"
-                                currentAmbientId != "none" -> currentAmbientLabel
-                                else -> "Silence 🔇"
-                            },
-                            color = Color(0x60FFFFFF),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.alpha(textAlphaMultiplier)
-                        )
-                    }
-                }
-
-                // Custom Audio mode selector in Portrait
-                AudioModeSelector(modifier = Modifier.padding(bottom = 16.dp))
-
-                // Stats section
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "COMPLETED",
-                            color = Color(0x50FFFFFF),
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp,
-                            modifier = Modifier.alpha(textAlphaMultiplier)
-                        )
-                        Text(
-                            text = "$sessionCount sessions",
-                            color = Color(0xD0FFFFFF),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.alpha(textAlphaMultiplier)
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .height(24.dp)
-                            .width(1.dp)
-                            .background(Color(0x1AFFFFFF))
-                    )
-
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "FOCUS TIME",
-                            color = Color(0x50FFFFFF),
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp,
-                            modifier = Modifier.alpha(textAlphaMultiplier)
-                        )
-                        val totalMins = totalFocusSecs / 60
-                        Text(
-                            text = "$totalMins min",
-                            color = Color(0xD0FFFFFF),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.alpha(textAlphaMultiplier)
-                        )
-                    }
-                }
-
-                // Control Buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    androidx.compose.material3.IconButton(
-                        onClick = {
-                            lastInteractionTime = System.currentTimeMillis()
-                            onPlayPauseClick()
-                            try {
-                                view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
-                            } catch (e: Exception) {}
-                        },
-                        modifier = Modifier
-                            .size(54.dp)
-                            .border(1.dp, Color(0x40FFFFFF), CircleShape)
-                            .background(Color(0x10FFFFFF), CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = if (isPlaying) "Pause Timer" else "Play Timer",
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-
-                    androidx.compose.material3.IconButton(
-                        onClick = {
-                            lastInteractionTime = System.currentTimeMillis()
-                            onStopClick()
-                            try {
-                                view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
-                            } catch (e: Exception) {}
-                        },
-                        modifier = Modifier
-                            .size(54.dp)
-                            .border(1.dp, Color(0x40FFFFFF), CircleShape)
-                            .background(Color(0x10FFFFFF), CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Stop,
-                            contentDescription = "Stop Timer",
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-
-                    androidx.compose.material3.IconButton(
-                        onClick = {
-                            lastInteractionTime = System.currentTimeMillis()
-                            onSkipClick()
-                            try {
-                                view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
-                            } catch (e: Exception) {}
-                        },
-                        modifier = Modifier
-                            .size(54.dp)
-                            .border(1.dp, Color(0x40FFFFFF), CircleShape)
-                            .background(Color(0x10FFFFFF), CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.SkipNext,
-                            contentDescription = "Skip Phase",
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                }
-
-                // Hint text
-                Text(
-                    text = "Double tap anywhere to return",
-                    color = Color(0x40FFFFFF),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Normal,
-                    letterSpacing = 0.5.sp,
-                    modifier = Modifier
-                        .padding(bottom = 8.dp)
-                        .navigationBarsPadding()
-                        .alpha(textAlphaMultiplier)
-                )
-            }
+            PortraitBatterySaverLayout(
+                batteryLevel = batteryLevel,
+                textAlphaMultiplier = textAlphaMultiplier,
+                remainingTimeFormatted = remainingTimeFormatted,
+                phaseLabel = phaseLabel,
+                arcColor = arcColor,
+                animatedProgress = animatedProgress,
+                radioIsPlaying = radioIsPlaying,
+                radioStationName = radioStationName,
+                currentAmbientId = currentAmbientId,
+                currentAmbientLabel = currentAmbientLabel,
+                isSystemPowerSaveMode = isSystemPowerSaveMode,
+                sessionCount = sessionCount,
+                totalFocusSecs = totalFocusSecs,
+                isPlaying = isPlaying,
+                ambientIds = ambientIds,
+                onPlayPauseClick = onPlayPauseClick,
+                onStopClick = onStopClick,
+                onSkipClick = onSkipClick,
+                onSelectRadio = onSelectRadio,
+                onSelectAmbient = onSelectAmbient,
+                onSelectNoAudio = onSelectNoAudio,
+                onShowAudioPopup = { showAudioPopup = true },
+                onInteraction = { lastInteractionTime = System.currentTimeMillis() },
+                view = view
+            )
         }
 
         // --- Brightness Dim Slider (Bar on the right side) ---
@@ -1839,222 +2360,443 @@ fun BatterySaverOverlay(
         }
 
         // --- Custom Neomorphic Monochromatic Dialog Box ---
-        AnimatedVisibility(
+        AudioSelectorDialog(
             visible = showAudioPopup,
-            enter = fadeIn(animationSpec = tween(300)),
-            exit = fadeOut(animationSpec = tween(300))
+            allStations = allStations,
+            favouriteIds = favouriteIds,
+            currentAmbientId = currentAmbientId,
+            currentAmbientLabel = currentAmbientLabel,
+            radioIsPlaying = radioIsPlaying,
+            radioStationName = radioStationName,
+            ambientIds = ambientIds,
+            ambientLabels = ambientLabels,
+            onToggleFavourite = onToggleFavourite,
+            onSelectRadioStation = onSelectRadioStation,
+            onSelectAmbient = onSelectAmbient,
+            onDismissRequest = { showAudioPopup = false }
+        )
+
+        FlowAnalyticsSheet(
+            visible = showAnalyticsSheet,
+            onDismiss = { showAnalyticsSheet = false },
+            percentCompleted = percentCompleted,
+            todaySessions = todaySessions
+        )
+    }
+}
+
+@Composable
+fun FlowAnalyticsSheet(
+    visible: Boolean,
+    onDismiss: () -> Unit,
+    percentCompleted: Int,
+    todaySessions: List<com.example.data.db.entity.SessionEntity>
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = slideInVertically(
+            initialOffsetY = { it },
+            animationSpec = tween(400, easing = FastOutSlowInEasing)
+        ) + fadeIn(),
+        exit = slideOutVertically(
+            targetOffsetY = { it },
+            animationSpec = tween(300, easing = FastOutSlowInEasing)
+        ) + fadeOut()
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.85f))
+                .clickable { onDismiss() },
+            contentAlignment = Alignment.BottomCenter
         ) {
-            Box(
+            val sheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+            Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.85f))
-                    .clickable { showAudioPopup = false },
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.85f)
+                    .clickable(enabled = false) {}
+                    .background(Color(0xFF0F0F12), sheetShape)
+                    .border(1.dp, Color(0x20FFFFFF), sheetShape)
+                    .padding(horizontal = 24.dp, vertical = 16.dp)
             ) {
-                val popupShape = RoundedCornerShape(20.dp)
                 Box(
                     modifier = Modifier
-                        .padding(24.dp)
-                        .widthIn(max = 440.dp)
-                        .fillMaxHeight(0.75f)
-                        .clickable(enabled = false) {} // prevent click-through
-                        .shadow(
-                            elevation = 8.dp,
-                            shape = popupShape,
-                            clip = false,
-                            ambientColor = Color.Black,
-                            spotColor = Color.Black
-                        )
-                        .drawBehind {
-                            drawRoundRect(
-                                color = Color(0x18FFFFFF),
-                                topLeft = Offset(-2.dp.toPx(), -2.dp.toPx()),
-                                size = androidx.compose.ui.geometry.Size(size.width + 1.dp.toPx(), size.height + 1.dp.toPx()),
-                                cornerRadius = CornerRadius(20.dp.toPx(), 20.dp.toPx())
-                            )
-                            drawRoundRect(
-                                color = Color(0x70000000),
-                                topLeft = Offset(2.dp.toPx(), 2.dp.toPx()),
-                                size = size,
-                                cornerRadius = CornerRadius(20.dp.toPx(), 20.dp.toPx())
-                            )
-                        }
-                        .background(Color(0xFF141414), popupShape)
-                        .border(1.dp, Color(0x12FFFFFF), popupShape)
-                        .padding(20.dp)
+                        .width(40.dp)
+                        .height(4.dp)
+                        .background(Color(0x30FFFFFF), CircleShape)
+                        .align(Alignment.CenterHorizontally)
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                    Column {
+                        Text(
+                            text = "FLOW ANALYTICS 📊",
+                            color = Color.White,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            text = "Today's Focus Statistics & Achievements",
+                            color = Color(0x70FFFFFF),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Normal
+                        )
+                    }
+
+                    androidx.compose.material3.IconButton(
+                        onClick = { onDismiss() },
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(Color(0x10FFFFFF), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close Analytics",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                androidx.compose.foundation.lazy.LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.weight(1f).fillMaxWidth()
+                ) {
+                    item {
+                        val nextMilestone = when {
+                            percentCompleted < 25 -> 25
+                            percentCompleted < 50 -> 50
+                            percentCompleted < 75 -> 75
+                            else -> 100
+                        }
+                        
+                        val prevMilestone = when (nextMilestone) {
+                            25 -> 0
+                            50 -> 25
+                            75 -> 50
+                            else -> 75
+                        }
+
+                        val milestoneProgress = ((percentCompleted - prevMilestone) / 25f).coerceIn(0f, 1f)
+                        val inspirationalText = when (nextMilestone) {
+                            25 -> "Keep it up! Your first milestone is just around the corner."
+                            50 -> "Halfway there! Your concentration is outstanding today."
+                            75 -> "You're in the deep focus zone. Just a bit more!"
+                            else -> "Incredible job! Push through to finish the whole session."
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0x06FFFFFF), RoundedCornerShape(16.dp))
+                                .border(1.dp, Color(0x12FFFFFF), RoundedCornerShape(16.dp))
+                                .padding(16.dp)
                         ) {
-                            Text(
-                                text = "AUDIO SELECTOR",
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.5.sp
-                            )
-                            androidx.compose.material3.IconButton(
-                                onClick = { showAudioPopup = false }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Close",
-                                    tint = Color(0x80FFFFFF)
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Star,
+                                            contentDescription = "Milestone",
+                                            tint = Color(0xFFFDCB6E),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Text(
+                                            text = "NEXT MILESTONE: $nextMilestone%",
+                                            color = Color.White,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 1.sp
+                                        )
+                                    }
+                                    
+                                    Text(
+                                        text = "${percentCompleted}% / ${nextMilestone}%",
+                                        color = Color(0xFFA29BFE),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(8.dp)
+                                        .background(Color(0x10FFFFFF), CircleShape)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth((percentCompleted / 100f).coerceIn(0f, 1f))
+                                            .fillMaxHeight()
+                                            .background(
+                                                Brush.horizontalGradient(
+                                                    listOf(Color(0xFFA29BFE), Color(0xFF74B9FF))
+                                                ),
+                                                CircleShape
+                                            )
+                                    )
+                                }
+
+                                Text(
+                                    text = inspirationalText,
+                                    color = Color(0x95FFFFFF),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    lineHeight = 15.sp
                                 )
                             }
                         }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        var activeTab by remember { mutableStateOf("radio") } // "radio", "favorites", "ambient"
-                        
+                    }
+
+                    item {
+                        val completedCountToday = todaySessions.count { it.completed }
+                        val totalFocusSecsToday = todaySessions.filter { it.completed }.sumOf { it.durationSeconds.toLong() }
+                        val totalFocusMinsToday = totalFocusSecsToday / 60
+                        val pointsToday = todaySessions.filter { it.completed }.sumOf { it.focusScore }
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            val tabs = listOf(
-                                "radio" to "All Radio",
-                                "favorites" to "Favorites",
-                                "ambient" to "Ambient"
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .background(Color(0x06FFFFFF), RoundedCornerShape(14.dp))
+                                    .border(1.dp, Color(0x10FFFFFF), RoundedCornerShape(14.dp))
+                                    .padding(12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "SESSIONS",
+                                    color = Color(0x50FFFFFF),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "$completedCountToday",
+                                    color = Color.White,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Column(
+                                modifier = Modifier
+                                    .weight(1.2f)
+                                    .background(Color(0x06FFFFFF), RoundedCornerShape(14.dp))
+                                    .border(1.dp, Color(0x10FFFFFF), RoundedCornerShape(14.dp))
+                                    .padding(12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "FOCUS TIME",
+                                    color = Color(0x50FFFFFF),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                val displayTime = if (totalFocusMinsToday >= 60) {
+                                    "${totalFocusMinsToday / 60}h ${totalFocusMinsToday % 60}m"
+                                } else {
+                                    "${totalFocusMinsToday}m"
+                                }
+                                Text(
+                                    text = displayTime,
+                                    color = Color(0xFF55E6C1),
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .background(Color(0x06FFFFFF), RoundedCornerShape(14.dp))
+                                    .border(1.dp, Color(0x10FFFFFF), RoundedCornerShape(14.dp))
+                                    .padding(12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "POINTS",
+                                    color = Color(0x50FFFFFF),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "+$pointsToday",
+                                    color = Color(0xFFFFD23F),
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    item {
+                        val calendar = remember { java.util.Calendar.getInstance() }
+                        var nightMins = 0f
+                        var morningMins = 0f
+                        var afternoonMins = 0f
+                        var eveningMins = 0f
+
+                        todaySessions.filter { it.completed }.forEach { session ->
+                            calendar.timeInMillis = session.date
+                            val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+                            val mins = session.durationSeconds / 60f
+                            when (hour) {
+                                in 0..5 -> nightMins += mins
+                                in 6..11 -> morningMins += mins
+                                in 12..17 -> afternoonMins += mins
+                                else -> eveningMins += mins
+                            }
+                        }
+
+                        val maxVal = maxOf(nightMins, morningMins, afternoonMins, eveningMins, 25f)
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0x06FFFFFF), RoundedCornerShape(16.dp))
+                                .border(1.dp, Color(0x12FFFFFF), RoundedCornerShape(16.dp))
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            Text(
+                                text = "TODAY'S ACTIVITY BLOCKS",
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
                             )
-                            tabs.forEach { (id, label) ->
-                                val isTabActive = activeTab == id
-                                val chipShape = RoundedCornerShape(10.dp)
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(38.dp)
-                                        .shadow(
-                                            elevation = if (isTabActive) 0.dp else 2.dp,
-                                            shape = chipShape,
-                                            clip = false,
-                                            ambientColor = Color.Black,
-                                            spotColor = Color.Black
+
+                            val blocks = listOf(
+                                Triple("Morning (6 AM - 12 PM)", morningMins, Color(0xFFFF9F43)),
+                                Triple("Afternoon (12 PM - 6 PM)", afternoonMins, Color(0xFF0984E3)),
+                                Triple("Evening (6 PM - 12 AM)", eveningMins, Color(0xFF6C5CE7)),
+                                Triple("Night (12 AM - 6 AM)", nightMins, Color(0xFF00CEC9))
+                            )
+
+                            blocks.forEach { (label, mins, color) ->
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            color = Color(0xB0FFFFFF),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium
                                         )
-                                        .drawBehind {
-                                            if (!isTabActive) {
-                                                drawRoundRect(
-                                                    color = Color(0x10FFFFFF),
-                                                    topLeft = Offset(-1.dp.toPx(), -1.dp.toPx()),
-                                                    size = androidx.compose.ui.geometry.Size(size.width + 0.5.dp.toPx(), size.height + 0.5.dp.toPx()),
-                                                    cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx())
-                                                )
-                                                drawRoundRect(
-                                                    color = Color(0x35000000),
-                                                    topLeft = Offset(1.dp.toPx(), 1.dp.toPx()),
-                                                    size = size,
-                                                    cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx())
-                                                )
-                                            }
-                                        }
-                                        .background(
-                                            if (isTabActive) Color(0xFF0C0C0C) else Color(0xFF1D1D1D),
-                                            chipShape
+                                        Text(
+                                            text = "${mins.toInt()} mins",
+                                            color = Color.White,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
                                         )
-                                        .border(
-                                            1.dp,
-                                            if (isTabActive) Color(0x25FFFFFF) else Color(0x0AFFFFFF),
-                                            chipShape
+                                    }
+                                    
+                                    val ratio = (mins / maxVal).coerceIn(0f, 1f)
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(6.dp)
+                                            .background(Color(0x0AFFFFFF), CircleShape)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth(ratio)
+                                                .fillMaxHeight()
+                                                .background(color, CircleShape)
                                         )
-                                        .clickable { activeTab = id }
-                                        .padding(horizontal = 4.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = label,
-                                        color = if (isTabActive) Color.White else Color(0x80FFFFFF),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        textAlign = TextAlign.Center
-                                    )
+                                    }
                                 }
                             }
                         }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                            when (activeTab) {
-                                "radio" -> {
-                                    if (allStations.isEmpty()) {
-                                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                            Text("No stations found", color = Color(0x40FFFFFF), fontSize = 12.sp)
-                                        }
-                                    } else {
-                                        androidx.compose.foundation.lazy.LazyColumn(
-                                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                                            modifier = Modifier.fillMaxSize()
-                                        ) {
-                                            items(allStations.size) { index ->
-                                                val station = allStations[index]
-                                                val isFav = favouriteIds.contains(station.id)
-                                                val isCurrentlyPlaying = radioIsPlaying && radioStationName == station.name
-                                                
-                                                StationRowItem(
-                                                    station = station,
-                                                    isFav = isFav,
-                                                    isCurrent = isCurrentlyPlaying,
-                                                    onSelect = {
-                                                        onSelectRadioStation(station)
-                                                        showAudioPopup = false
-                                                    },
-                                                    onToggleFav = { onToggleFavourite(station) }
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                                "favorites" -> {
-                                    val favStations = allStations.filter { favouriteIds.contains(it.id) }
-                                    if (favStations.isEmpty()) {
-                                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                            Text("No favorite stations yet", color = Color(0x40FFFFFF), fontSize = 12.sp, textAlign = TextAlign.Center)
-                                        }
-                                    } else {
-                                        androidx.compose.foundation.lazy.LazyColumn(
-                                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                                            modifier = Modifier.fillMaxSize()
-                                        ) {
-                                            items(favStations.size) { index ->
-                                                val station = favStations[index]
-                                                val isCurrentlyPlaying = radioIsPlaying && radioStationName == station.name
-                                                
-                                                StationRowItem(
-                                                    station = station,
-                                                    isFav = true,
-                                                    isCurrent = isCurrentlyPlaying,
-                                                    onSelect = {
-                                                        onSelectRadioStation(station)
-                                                        showAudioPopup = false
-                                                    },
-                                                    onToggleFav = { onToggleFavourite(station) }
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                                "ambient" -> {
-                                    androidx.compose.foundation.lazy.LazyColumn(
-                                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                                        modifier = Modifier.fillMaxSize()
+                    }
+
+                    val completedSessions = todaySessions.filter { it.completed }
+                    if (completedSessions.isNotEmpty()) {
+                        item {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0x06FFFFFF), RoundedCornerShape(16.dp))
+                                    .border(1.dp, Color(0x12FFFFFF), RoundedCornerShape(16.dp))
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(
+                                    text = "TODAY'S SESSION LOGS",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp
+                                )
+
+                                val sdf = remember { java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault()) }
+
+                                completedSessions.forEachIndexed { index, session ->
+                                    val timeStr = sdf.format(java.util.Date(session.date))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        items(ambientIds.size) { index ->
-                                            val ambientId = ambientIds[index]
-                                            val label = ambientLabels[ambientId] ?: ambientId
-                                            val isCurrent = currentAmbientId == ambientId
-                                            
-                                            AmbientRowItem(
-                                                label = label,
-                                                isCurrent = isCurrent,
-                                                onSelect = {
-                                                    onSelectAmbient(ambientId)
-                                                    showAudioPopup = false
-                                                }
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(8.dp)
+                                                    .background(Color(0xFF55E6C1), CircleShape)
+                                            )
+                                            Text(
+                                                text = "Session #${completedSessions.size - index}",
+                                                color = Color.White,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold
                                             )
                                         }
+
+                                        Text(
+                                            text = "$timeStr — ${session.durationSeconds / 60} min",
+                                            color = Color(0x70FFFFFF),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Normal
+                                        )
+                                    }
+                                    if (index < completedSessions.lastIndex) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(1.dp)
+                                                .background(Color(0x0AFFFFFF))
+                                        )
                                     }
                                 }
                             }
