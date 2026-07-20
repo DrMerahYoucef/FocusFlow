@@ -1089,6 +1089,19 @@ fun BatterySaverOverlay(
         label = "idleDim"
     )
 
+    val arcColor = when {
+        phaseLabel.uppercase().contains("FOCUS") -> Color(0xFF9482FF) // Lavender violet
+        phaseLabel.uppercase().contains("SHORT") -> Color(0xFF8BCA9A) // Green
+        phaseLabel.uppercase().contains("LONG") -> Color(0xFFFF829C) // Red
+        else -> Color(0xFF9482FF)
+    }
+
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress.coerceIn(0f, 1f),
+        animationSpec = tween(500),
+        label = "saver_progress"
+    )
+
     val powerManager = remember(context) { context.getSystemService(Context.POWER_SERVICE) as? PowerManager }
     val isSystemPowerSaveMode = remember(powerManager) { powerManager?.isPowerSaveMode == true }
 
@@ -1293,13 +1306,25 @@ fun BatterySaverOverlay(
                             .fillMaxHeight(),
                         contentAlignment = Alignment.Center
                     ) {
-                        // Large outer circular border
                         Box(
-                            modifier = Modifier
-                                .size(200.dp)
-                                .border(1.5.dp, Color(0x25FFFFFF), CircleShape),
+                            modifier = Modifier.size(200.dp),
                             contentAlignment = Alignment.Center
                         ) {
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                // Background track
+                                drawCircle(
+                                    color = Color.White.copy(alpha = 0.05f),
+                                    style = Stroke(width = 4.dp.toPx())
+                                )
+                                // Active progress arc
+                                drawArc(
+                                    color = arcColor,
+                                    startAngle = -90f,
+                                    sweepAngle = 360f * animatedProgress,
+                                    useCenter = false,
+                                    style = Stroke(width = 4.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                                )
+                            }
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
@@ -1525,16 +1550,18 @@ fun BatterySaverOverlay(
                         .size(280.dp)
                 ) {
                     Canvas(modifier = Modifier.size(260.dp)) {
+                        // Background track
                         drawCircle(
-                            color = Color(0x10FFFFFF),
+                            color = Color.White.copy(alpha = 0.05f),
                             style = Stroke(width = 6.dp.toPx())
                         )
+                        // Active progress arc
                         drawArc(
-                            color = Color(0x30FFFFFF),
+                            color = arcColor,
                             startAngle = -90f,
-                            sweepAngle = 360f * (1f - progress),
+                            sweepAngle = 360f * animatedProgress,
                             useCenter = false,
-                            style = Stroke(width = 6.dp.toPx())
+                            style = Stroke(width = 6.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
                         )
                     }
 
@@ -2072,19 +2099,12 @@ fun BatterySaverScreen(
     val radioPlaying by radioViewModel.isPlaying.collectAsState()
     val currentStation by radioViewModel.currentStation.collectAsState()
 
-    // Capture the playing station only if it is actively playing when opening
+    // Keep the captured station in sync with the active or last selected station
     var capturedStation by remember { mutableStateOf<com.example.data.RadioStation?>(null) }
-    var hasCaptured by remember { mutableStateOf(false) }
 
-    LaunchedEffect(currentStation, radioPlaying) {
-        if (!hasCaptured) {
-            if (radioPlaying && currentStation != null) {
-                capturedStation = currentStation
-                hasCaptured = true
-            } else if (!radioPlaying) {
-                capturedStation = null
-                hasCaptured = true
-            }
+    LaunchedEffect(currentStation) {
+        if (currentStation != null) {
+            capturedStation = currentStation
         }
     }
 
