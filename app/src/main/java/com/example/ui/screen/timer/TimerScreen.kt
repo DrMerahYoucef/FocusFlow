@@ -52,6 +52,16 @@ import com.example.ui.components.neumorphicShadow
 
 import com.example.ui.screen.settings.SettingsViewModel
 import com.example.service.UpdateState
+import com.example.data.repository.NotificationSummary
+import com.example.data.repository.NotificationSummaryRepository
+import com.example.service.FocusNotificationListenerService
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.unit.Dp
 
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -1341,7 +1351,7 @@ fun LandscapeBatterySaverLayout(
                         .offset(y = chevronTranslationY.dp)
                 )
                 Text(
-                    text = "Swipe up for stats & milestones 📊",
+                    text = "Swipe UP for notifications 🔔 • DOWN for stats 📊",
                     color = Color.White.copy(alpha = 0.65f),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -2036,6 +2046,7 @@ fun BatterySaverOverlay(
     }
 
     var showAnalyticsSheet by remember { mutableStateOf(false) }
+    var showNotificationSummarySheet by remember { mutableStateOf(false) }
     var todaySessions by remember { mutableStateOf(emptyList<com.example.data.db.entity.SessionEntity>()) }
     val todaySessionsFlow = remember {
         val todayStart = java.util.Calendar.getInstance().apply {
@@ -2176,13 +2187,20 @@ fun BatterySaverOverlay(
                         lastInteractionTime = System.currentTimeMillis()
                         totalDragY += dragAmount.y
                         if (totalDragY < -100f) {
+                            if (!showNotificationSummarySheet) {
+                                showNotificationSummarySheet = true
+                                try {
+                                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+                                } catch (e: Exception) {}
+                            }
+                            showPeekStrip = true
+                        } else if (totalDragY > 100f) {
                             if (!showAnalyticsSheet) {
                                 showAnalyticsSheet = true
                                 try {
                                     view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
                                 } catch (e: Exception) {}
                             }
-                            showPeekStrip = true
                         }
                     },
                     onDragEnd = {
@@ -2381,6 +2399,11 @@ fun BatterySaverOverlay(
             onDismiss = { showAnalyticsSheet = false },
             percentCompleted = percentCompleted,
             todaySessions = todaySessions
+        )
+
+        NotificationSummarySheet(
+            visible = showNotificationSummarySheet,
+            onDismiss = { showNotificationSummarySheet = false }
         )
     }
 }
@@ -2922,6 +2945,313 @@ fun BatterySaverScreen(
         phaseLabel = state.phase.label,
         progress = progress
     )
+}
+
+@Composable
+fun NotificationSummarySheet(
+    visible: Boolean,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var isGranted by remember(visible) { mutableStateOf(isNotificationAccessGranted(context)) }
+    val notifications by NotificationSummaryRepository.notifications.collectAsState()
+
+    LaunchedEffect(visible) {
+        if (visible) {
+            isGranted = isNotificationAccessGranted(context)
+            if (isGranted) {
+                FocusNotificationListenerService.refreshNotifications(context)
+            }
+        }
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = slideInVertically(
+            initialOffsetY = { it },
+            animationSpec = tween(400, easing = FastOutSlowInEasing)
+        ) + fadeIn(),
+        exit = slideOutVertically(
+            targetOffsetY = { it },
+            animationSpec = tween(300, easing = FastOutSlowInEasing)
+        ) + fadeOut()
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.85f))
+                .clickable { onDismiss() },
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            val sheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.85f)
+                    .clickable(enabled = false) {}
+                    .background(Color(0xFF0F0F12), sheetShape)
+                    .border(1.dp, Color(0x20FFFFFF), sheetShape)
+                    .padding(horizontal = 24.dp, vertical = 16.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(40.dp)
+                        .height(4.dp)
+                        .background(Color(0x30FFFFFF), CircleShape)
+                        .align(Alignment.CenterHorizontally)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "NOTIFICATION SUMMARY 🔔",
+                            color = Color.White,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            text = "Live résumé of recent app notifications",
+                            color = Color(0x70FFFFFF),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Normal
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { onDismiss() },
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(Color(0x10FFFFFF), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                if (!isGranted) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .background(Color(0x06FFFFFF), RoundedCornerShape(16.dp))
+                            .border(1.dp, Color(0x12FFFFFF), RoundedCornerShape(16.dp))
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.NotificationsOff,
+                            contentDescription = null,
+                            tint = Color(0xFFA29BFE),
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            text = "Notification Access Required",
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = "Enable notification access to see message summaries here while in battery saver mode.",
+                            color = Color(0x90FFFFFF),
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 18.sp
+                        )
+                        Spacer(Modifier.height(20.dp))
+                        Button(
+                            onClick = {
+                                openNotificationAccessSettings(context)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C5CE7))
+                        ) {
+                            Text("Enable Access in Settings", color = Color.White)
+                        }
+                    }
+                } else if (notifications.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .background(Color(0x06FFFFFF), RoundedCornerShape(16.dp))
+                            .border(1.dp, Color(0x12FFFFFF), RoundedCornerShape(16.dp))
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.NotificationsNone,
+                                contentDescription = null,
+                                tint = Color(0x40FFFFFF),
+                                modifier = Modifier.size(40.dp)
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                text = "No recent notifications",
+                                color = Color(0x80FFFFFF),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = "New incoming notifications will summarize here automatically.",
+                                color = Color(0x50FFFFFF),
+                                fontSize = 11.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        items(notifications, key = { it.packageName + it.sender + it.postedAt }) { item ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0x08FFFFFF), RoundedCornerShape(14.dp))
+                                    .border(1.dp, Color(0x10FFFFFF), RoundedCornerShape(14.dp))
+                                    .padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                NotificationAppIcon(packageName = item.packageName, size = 32.dp)
+                                Spacer(Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "${item.sender} · ${item.appName}",
+                                            color = Color.White,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        val timeAgo = remember(item.postedAt) {
+                                            formatNotifTimeAgo(item.postedAt)
+                                        }
+                                        Text(
+                                            text = timeAgo,
+                                            color = Color(0x50FFFFFF),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Normal,
+                                            modifier = Modifier.padding(start = 6.dp)
+                                        )
+                                    }
+                                    Spacer(Modifier.height(3.dp))
+                                    Text(
+                                        text = item.messageResume,
+                                        color = Color(0x90FFFFFF),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Normal,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                        lineHeight = 16.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NotificationAppIcon(packageName: String, size: Dp = 28.dp) {
+    val context = LocalContext.current
+    val bitmap = remember(packageName) {
+        try {
+            val drawable = context.packageManager.getApplicationIcon(packageName)
+            val bmp = drawableToBitmap(drawable)
+            bmp.asImageBitmap()
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    if (bitmap != null) {
+        androidx.compose.foundation.Image(
+            bitmap = bitmap,
+            contentDescription = null,
+            modifier = Modifier.size(size)
+        )
+    } else {
+        Icon(
+            imageVector = Icons.Default.Notifications,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.7f),
+            modifier = Modifier.size(size)
+        )
+    }
+}
+
+private fun drawableToBitmap(drawable: android.graphics.drawable.Drawable): android.graphics.Bitmap {
+    if (drawable is android.graphics.drawable.BitmapDrawable && drawable.bitmap != null) {
+        return drawable.bitmap
+    }
+    val width = if (drawable.intrinsicWidth > 0) drawable.intrinsicWidth else 1
+    val height = if (drawable.intrinsicHeight > 0) drawable.intrinsicHeight else 1
+    val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+    drawable.setBounds(0, 0, canvas.width, canvas.height)
+    drawable.draw(canvas)
+    return bitmap
+}
+
+private fun formatNotifTimeAgo(timeMs: Long): String {
+    val diff = System.currentTimeMillis() - timeMs
+    val seconds = diff / 1000
+    val minutes = seconds / 60
+    val hours = minutes / 60
+    return when {
+        seconds < 60 -> "just now"
+        minutes < 60 -> "${minutes}m ago"
+        hours < 24 -> "${hours}h ago"
+        else -> "${hours / 24}d ago"
+    }
+}
+
+private fun isNotificationAccessGranted(context: Context): Boolean {
+    val enabledListeners = Settings.Secure.getString(
+        context.contentResolver, "enabled_notification_listeners"
+    )
+    return enabledListeners?.contains(context.packageName) == true
+}
+
+private fun openNotificationAccessSettings(context: Context) {
+    try {
+        val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
 }
 
 

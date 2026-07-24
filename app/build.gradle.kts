@@ -103,6 +103,7 @@ dependencies {
   implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
   implementation("androidx.fragment:fragment-ktx:1.8.9")
+  implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
   // Media3 (ExoPlayer + MediaSession)
   implementation("androidx.media3:media3-exoplayer:1.3.1")

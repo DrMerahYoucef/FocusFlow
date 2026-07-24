@@ -59,8 +59,26 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _state = MutableStateFlow(SettingsState())
     val state: StateFlow<SettingsState> = _state.asStateFlow()
 
+    private val _geminiApiKey = MutableStateFlow<String?>(null)
+    val geminiApiKey: StateFlow<String?> = _geminiApiKey.asStateFlow()
+
     init {
         loadSettings()
+        loadGeminiApiKey()
+    }
+
+    fun loadGeminiApiKey() {
+        _geminiApiKey.value = com.example.util.SecureStorage.getGeminiApiKey(getApplication())
+    }
+
+    fun saveGeminiApiKey(key: String) {
+        com.example.util.SecureStorage.saveGeminiApiKey(getApplication(), key)
+        _geminiApiKey.value = key.trim().ifEmpty { null }
+    }
+
+    fun clearGeminiApiKey() {
+        com.example.util.SecureStorage.clearGeminiApiKey(getApplication())
+        _geminiApiKey.value = null
     }
 
     /**
