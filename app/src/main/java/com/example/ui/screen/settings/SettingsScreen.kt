@@ -125,6 +125,7 @@ fun SettingsScreen(
 
     // State of each expandable section
     var isGeminiExpanded by remember { mutableStateOf(false) }
+    var isTrackedAppsExpanded by remember { mutableStateOf(false) }
     var isExamsExpanded by remember { mutableStateOf(false) }
     var isTimerIntervalsExpanded by remember { mutableStateOf(false) }
     var isSystemSettingsExpanded by remember { mutableStateOf(false) }
@@ -562,6 +563,16 @@ fun SettingsScreen(
                     viewModel.clearGeminiApiKey()
                 }
             )
+        }
+
+        // 3.6. Section: Apps to Summarize
+        ExpandableSection(
+            title = "APPS TO SUMMARIZE",
+            icon = Icons.Default.MarkUnreadChatAlt,
+            isExpanded = isTrackedAppsExpanded,
+            onHeaderClick = { isTrackedAppsExpanded = !isTrackedAppsExpanded }
+        ) {
+            NotificationAppsPickerSetting()
         }
 
         // 4. Section: App Blocker Setup
@@ -1478,6 +1489,141 @@ fun GeminiApiKeySetting(
                 }
             ) {
                 Text("Clear", color = NeumorphicColors.TextPrimary)
+            }
+        }
+    }
+}
+
+@Composable
+fun NotificationAppsPickerSetting(
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var installedApps by remember { mutableStateOf<List<com.example.util.InstalledAppInfo>>(emptyList()) }
+    var trackedPackages by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val apps = com.example.util.TrackedAppsStorage.getInstalledApps(context)
+            val tracked = com.example.util.TrackedAppsStorage.getTrackedApps(context)
+            installedApps = apps
+            trackedPackages = tracked
+            isLoading = false
+        }
+    }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = "Choose which apps' messages should be summarized",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = NeumorphicColors.TextPrimary
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = "Only notifications from toggled apps will be captured and summarized by AI.",
+            style = MaterialTheme.typography.labelSmall,
+            color = NeumorphicColors.TextSecondary
+        )
+        Spacer(Modifier.height(12.dp))
+
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier
+                    .size(28.dp)
+                    .align(Alignment.CenterHorizontally),
+                color = NeumorphicColors.Primary
+            )
+        } else if (installedApps.isEmpty()) {
+            Text(
+                text = "No launchable apps found.",
+                style = MaterialTheme.typography.bodySmall,
+                color = NeumorphicColors.TextSecondary
+            )
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(
+                    onClick = {
+                        val allPkgs = installedApps.map { it.packageName }.toSet()
+                        trackedPackages = allPkgs
+                        com.example.util.TrackedAppsStorage.saveTrackedApps(context, allPkgs)
+                    }
+                ) {
+                    Text("Select All", fontSize = 12.sp, color = NeumorphicColors.Primary)
+                }
+                TextButton(
+                    onClick = {
+                        trackedPackages = emptySet()
+                        com.example.util.TrackedAppsStorage.saveTrackedApps(context, emptySet())
+                    }
+                ) {
+                    Text("Clear All", fontSize = 12.sp, color = NeumorphicColors.TextSecondary)
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 320.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                installedApps.forEach { app ->
+                    val isChecked = trackedPackages.contains(app.packageName)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = if (isChecked) NeumorphicColors.Primary.copy(alpha = 0.08f) else Color.Transparent,
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                            .clickable {
+                                val newSet = if (isChecked) {
+                                    trackedPackages - app.packageName
+                                } else {
+                                    trackedPackages + app.packageName
+                                }
+                                trackedPackages = newSet
+                                com.example.util.TrackedAppsStorage.saveTrackedApps(context, newSet)
+                            }
+                    ) {
+                        androidx.compose.foundation.Image(
+                            bitmap = app.icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = app.label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (isChecked) FontWeight.Bold else FontWeight.Normal,
+                            color = NeumorphicColors.TextPrimary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Switch(
+                            checked = isChecked,
+                            onCheckedChange = { checked ->
+                                val newSet = if (checked) {
+                                    trackedPackages + app.packageName
+                                } else {
+                                    trackedPackages - app.packageName
+                                }
+                                trackedPackages = newSet
+                                com.example.util.TrackedAppsStorage.saveTrackedApps(context, newSet)
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = NeumorphicColors.Primary
+                            )
+                        )
+                    }
+                }
             }
         }
     }

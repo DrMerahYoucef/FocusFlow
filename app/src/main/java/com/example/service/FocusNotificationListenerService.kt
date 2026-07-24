@@ -13,6 +13,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+import com.example.data.repository.ConversationRepository
+import com.example.data.repository.ConversationSummaryManager
+import com.example.util.TrackedAppsStorage
+
 class FocusNotificationListenerService : NotificationListenerService() {
 
     private val db by lazy { FocusFlowApplication.instance.database }
@@ -76,6 +80,11 @@ class FocusNotificationListenerService : NotificationListenerService() {
 
     private fun processAndRecordNotification(sbn: StatusBarNotification) {
         try {
+            if (sbn.packageName == packageName) return
+
+            val trackedApps = TrackedAppsStorage.getTrackedApps(applicationContext)
+            if (trackedApps.isNotEmpty() && sbn.packageName !in trackedApps) return
+
             val extras = sbn.notification.extras
             val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
             val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty()
@@ -85,15 +94,40 @@ class FocusNotificationListenerService : NotificationListenerService() {
                 ).toString()
             } catch (e: Exception) { sbn.packageName }
 
-            if (sbn.packageName != packageName && (title.isNotBlank() || text.isNotBlank())) {
-                val entry = NotificationSummary(
-                    appName = appLabel,
-                    packageName = sbn.packageName,
-                    sender = title.ifBlank { appLabel },
-                    messageResume = text.take(120),
-                    postedAt = sbn.postTime
-                )
-                NotificationSummaryRepository.addOrUpdate(entry)
+            val messagingStyle = androidx.core.app.NotificationCompat.MessagingStyle
+                .extractMessagingStyleFromNotification(sbn.notification)
+            val messageLines: List<String> = messagingStyle?.messages
+                ?.mapNotNull { it.text?.toString() }
+                ?.filter { it.isNotBlank() }
+                ?: listOfNotNull(text.ifBlank { null })
+
+            if (title.isBlank() && messageLines.isEmpty()) return
+
+            val senderName = title.ifBlank { appLabel }
+
+            ConversationRepository.addMessages(
+                packageName = sbn.packageName,
+                appName = appLabel,
+                sender = senderName,
+                newMessages = messageLines
+            )
+
+            val lastLine = messageLines.lastOrNull() ?: text.take(120)
+            val entry = NotificationSummary(
+                appName = appLabel,
+                packageName = sbn.packageName,
+                sender = senderName,
+                messageResume = lastLine,
+                postedAt = sbn.postTime
+            )
+            NotificationSummaryRepository.addOrUpdate(entry)
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    ConversationSummaryManager.summarizePendingThreads(applicationContext)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()

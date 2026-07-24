@@ -54,6 +54,9 @@ import com.example.ui.screen.settings.SettingsViewModel
 import com.example.service.UpdateState
 import com.example.data.repository.NotificationSummary
 import com.example.data.repository.NotificationSummaryRepository
+import com.example.data.repository.ConversationRepository
+import com.example.data.repository.ConversationSummaryManager
+import com.example.data.repository.ConversationThread
 import com.example.service.FocusNotificationListenerService
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.lazy.LazyColumn
@@ -2954,13 +2957,21 @@ fun NotificationSummarySheet(
 ) {
     val context = LocalContext.current
     var isGranted by remember(visible) { mutableStateOf(isNotificationAccessGranted(context)) }
-    val notifications by NotificationSummaryRepository.notifications.collectAsState()
+    val conversationThreads by ConversationRepository.threads.collectAsState()
+    val legacyNotifications by NotificationSummaryRepository.notifications.collectAsState()
 
     LaunchedEffect(visible) {
         if (visible) {
             isGranted = isNotificationAccessGranted(context)
             if (isGranted) {
                 FocusNotificationListenerService.refreshNotifications(context)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    try {
+                        ConversationSummaryManager.summarizePendingThreads(context)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
             }
         }
     }
@@ -3017,7 +3028,7 @@ fun NotificationSummarySheet(
                             letterSpacing = 1.sp
                         )
                         Text(
-                            text = "Live résumé of recent app notifications",
+                            text = "AI-powered résumé & context of tracked app conversations",
                             color = Color(0x70FFFFFF),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Normal
@@ -3084,7 +3095,7 @@ fun NotificationSummarySheet(
                             Text("Enable Access in Settings", color = Color.White)
                         }
                     }
-                } else if (notifications.isEmpty()) {
+                } else if (conversationThreads.isEmpty() && legacyNotifications.isEmpty()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -3103,18 +3114,87 @@ fun NotificationSummarySheet(
                             )
                             Spacer(Modifier.height(12.dp))
                             Text(
-                                text = "No recent notifications",
+                                text = "No recent messages",
                                 color = Color(0x80FFFFFF),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                text = "New incoming notifications will summarize here automatically.",
+                                text = "New incoming notifications from tracked apps will summarize here.",
                                 color = Color(0x50FFFFFF),
                                 fontSize = 11.sp,
                                 textAlign = TextAlign.Center
                             )
+                        }
+                    }
+                } else if (conversationThreads.isNotEmpty()) {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        items(conversationThreads, key = { it.packageName + it.sender }) { thread ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0x08FFFFFF), RoundedCornerShape(14.dp))
+                                    .border(1.dp, Color(0x10FFFFFF), RoundedCornerShape(14.dp))
+                                    .padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                NotificationAppIcon(packageName = thread.packageName, size = 32.dp)
+                                Spacer(Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "${thread.sender} · ${thread.appName}",
+                                            color = Color.White,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        val timeAgo = remember(thread.lastUpdated) {
+                                            formatNotifTimeAgo(thread.lastUpdated)
+                                        }
+                                        Text(
+                                            text = timeAgo,
+                                            color = Color(0x50FFFFFF),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Normal,
+                                            modifier = Modifier.padding(start = 6.dp)
+                                        )
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                    val summaryText = thread.aiSummary ?: thread.messages.lastOrNull().orEmpty()
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        if (thread.aiSummary != null) {
+                                            Text(
+                                                text = "AI Résumé: ",
+                                                color = Color(0xFFA29BFE),
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        Text(
+                                            text = summaryText,
+                                            color = Color(0x90FFFFFF),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Normal,
+                                            maxLines = 3,
+                                            overflow = TextOverflow.Ellipsis,
+                                            lineHeight = 16.sp
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 } else {
@@ -3124,7 +3204,7 @@ fun NotificationSummarySheet(
                             .weight(1f)
                             .fillMaxWidth()
                     ) {
-                        items(notifications, key = { it.packageName + it.sender + it.postedAt }) { item ->
+                        items(legacyNotifications, key = { it.packageName + it.sender + it.postedAt }) { item ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
