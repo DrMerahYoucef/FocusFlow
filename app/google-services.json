@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "15963877054",
+    "project_id": "focuse-island",
+    "storage_bucket": "focuse-island.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:15963877054:android:96d280ae44802a00bbf8ef",
+        "android_client_info": {
+          "package_name": "com.focusisland"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAFKsKjqCROungwqAxXCHgqeUQEu-kg3go"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
