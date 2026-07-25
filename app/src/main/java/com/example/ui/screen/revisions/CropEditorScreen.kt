@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
+import android.media.ExifInterface
 import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -13,12 +14,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CropLandscape
 import androidx.compose.material.icons.filled.Gesture
+import androidx.compose.material.icons.filled.RotateRight
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -55,16 +59,18 @@ fun CropEditorScreen(
     val primaryColor = NeumorphicColors.Primary
 
     val sourceFile = remember(imagePath) { File(imagePath) }
-    val originalBitmap = remember(imagePath) {
+    val baseBitmap = remember(imagePath) {
         if (sourceFile.exists()) {
-            BitmapFactory.decodeFile(imagePath)
+            loadOrientedBitmap(imagePath)
         } else null
     }
+    var workingBitmap by remember(baseBitmap) { mutableStateOf(baseBitmap) }
 
     var cropMode by remember { mutableStateOf(CropMode.RECTANGLE) }
     var showModeDialog by remember { mutableStateOf(false) }
     var selectedExplainMode by remember { mutableStateOf(false) }
     var pendingCroppedBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var errorMessageToShow by remember { mutableStateOf<String?>(null) }
 
     // Rectangle crop state (normalized 0..1 scale)
     var rectNormLeft by remember { mutableStateOf(0.1f) }
@@ -75,7 +81,7 @@ fun CropEditorScreen(
     // Lasso path points state (normalized 0..1 scale)
     var lassoNormPoints by remember { mutableStateOf<List<Offset>>(emptyList()) }
 
-    if (originalBitmap == null) {
+    if (workingBitmap == null) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -101,7 +107,7 @@ fun CropEditorScreen(
 
             // Draw image scaled to fit
             Image(
-                bitmap = originalBitmap.asImageBitmap(),
+                bitmap = workingBitmap!!.asImageBitmap(),
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize()
@@ -257,7 +263,10 @@ fun CropEditorScreen(
                     Icon(Icons.Default.Close, contentDescription = "Cancel", tint = Color.White)
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     FilterChip(
                         selected = cropMode == CropMode.RECTANGLE,
                         onClick = { cropMode = CropMode.RECTANGLE },
@@ -270,6 +279,23 @@ fun CropEditorScreen(
                         label = { Text("Lasso") },
                         leadingIcon = { Icon(Icons.Default.Gesture, contentDescription = null) }
                     )
+                    IconButton(
+                        onClick = {
+                            workingBitmap?.let { current ->
+                                val matrix = android.graphics.Matrix().apply { postRotate(90f) }
+                                val rotated = Bitmap.createBitmap(current, 0, 0, current.width, current.height, matrix, true)
+                                workingBitmap = rotated
+                                rectNormLeft = 0.1f
+                                rectNormTop = 0.2f
+                                rectNormRight = 0.9f
+                                rectNormBottom = 0.8f
+                                lassoNormPoints = emptyList()
+                            }
+                        },
+                        modifier = Modifier.background(Color.White.copy(alpha = 0.15f), CircleShape)
+                    ) {
+                        Icon(Icons.Default.RotateRight, contentDescription = "Rotate 90°", tint = Color.White)
+                    }
                 }
             }
         }
@@ -299,8 +325,9 @@ fun CropEditorScreen(
                 Button(
                     onClick = {
                         try {
+                            val bitmapToCrop = workingBitmap ?: return@Button
                             val croppedBitmap = cropBitmap(
-                                originalBitmap = originalBitmap,
+                                originalBitmap = bitmapToCrop,
                                 mode = cropMode,
                                 rectNormLeft = rectNormLeft,
                                 rectNormTop = rectNormTop,
@@ -401,7 +428,9 @@ fun CropEditorScreen(
                                     Toast.makeText(context, "Card created successfully! ✨", Toast.LENGTH_SHORT).show()
                                     onCropConfirmed()
                                 } else {
-                                    Toast.makeText(context, state.ocrError ?: "OCR processing error", Toast.LENGTH_LONG).show()
+                                    val errorMsg = viewModel.uiState.value.ocrError.takeIf { !it.isNullOrBlank() }
+                                        ?: "Failed to extract text from image. Please ensure text is legible."
+                                    errorMessageToShow = errorMsg
                                 }
                             }
                         },
@@ -418,6 +447,52 @@ fun CropEditorScreen(
                         }
                     ) {
                         Text("Cancel", color = NeumorphicColors.TextSecondary)
+                    }
+                },
+                containerColor = NeumorphicColors.SurfaceLight
+            )
+        }
+
+        // Detailed OCR Error Dialog
+        if (errorMessageToShow != null) {
+            AlertDialog(
+                onDismissRequest = { errorMessageToShow = null },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "OCR / Scan Error",
+                            fontWeight = FontWeight.Bold,
+                            color = NeumorphicColors.TextPrimary
+                        )
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = errorMessageToShow!!,
+                            fontSize = 14.sp,
+                            color = NeumorphicColors.TextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Tip: Make sure the cropped selection is clear, oriented right-side up, or enter a Gemini API Key in Settings.",
+                            fontSize = 12.sp,
+                            color = NeumorphicColors.TextSecondary
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { errorMessageToShow = null },
+                        colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
+                    ) {
+                        Text("OK")
                     }
                 },
                 containerColor = NeumorphicColors.SurfaceLight
@@ -516,5 +591,36 @@ private fun cropBitmap(
         val bh = bounds.height().toInt().coerceIn(1, h - by)
 
         Bitmap.createBitmap(resultBitmap, bx, by, bw, bh)
+    }
+}
+
+private fun loadOrientedBitmap(filePath: String): Bitmap? {
+    val file = File(filePath)
+    if (!file.exists()) return null
+    val bitmap = BitmapFactory.decodeFile(filePath) ?: return null
+    return try {
+        val exif = ExifInterface(filePath)
+        val orientation = exif.getAttributeInt(
+            ExifInterface.TAG_ORIENTATION,
+            ExifInterface.ORIENTATION_NORMAL
+        )
+        val degrees = when (orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+            ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+            ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+            else -> 0f
+        }
+        if (degrees != 0f) {
+            val matrix = android.graphics.Matrix().apply { postRotate(degrees) }
+            val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+            if (rotated != bitmap) {
+                bitmap.recycle()
+            }
+            rotated
+        } else {
+            bitmap
+        }
+    } catch (e: Exception) {
+        bitmap
     }
 }

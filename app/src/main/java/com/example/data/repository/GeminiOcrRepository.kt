@@ -92,7 +92,7 @@ You are an OCR converter. Transcribe the text from this image VERBATIM.
 Return ONLY valid JSON matching this schema, nothing else:
 
 {
-  "title": "Short title (first line or heading of the text)",
+  "title": "Short title of the subject",
   "notes": [
     {
       "front": "First line or heading",
