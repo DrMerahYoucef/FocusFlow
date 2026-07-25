@@ -48,8 +48,16 @@ import com.example.ui.theme.NeumorphicColors
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 
+import androidx.compose.material.icons.filled.AutoAwesome
+import com.example.ui.screen.revisions.CaptureScreen
+import com.example.ui.screen.revisions.CropEditorScreen
+import com.example.ui.screen.revisions.RevisionSessionScreen
+import com.example.ui.screen.revisions.RevisionsHomeScreen
+import com.example.ui.screen.revisions.RevisionsViewModel
+
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Timer : Screen("timer", "Timer", Icons.Default.Timer)
+    object Revisions : Screen("revisions", "Révisions", Icons.Default.AutoAwesome)
     object Analytics : Screen("analytics", "Stats", Icons.Default.Analytics)
     object Radio : Screen("radio", "Radio", Icons.Default.Radio)
     object Community : Screen("community", "Islands", Icons.Default.Public)
@@ -95,6 +103,15 @@ fun MainPagerScreen(
                         viewModel = timerViewModel,
                         settingsViewModel = settingsViewModel,
                         onNavigateToBatterySaver = { navController.navigate("battery_saver") },
+                        modifier = screenModifier
+                    )
+                }
+                Screen.Revisions -> {
+                    val revisionsViewModel: RevisionsViewModel = viewModel()
+                    RevisionsHomeScreen(
+                        viewModel = revisionsViewModel,
+                        onAddClick = { navController.navigate("revisions/capture") },
+                        onStartSessionClick = { deckId -> navController.navigate("revisions/session?deckId=$deckId") },
                         modifier = screenModifier
                     )
                 }
@@ -268,6 +285,7 @@ fun AppNavGraph(
 ) {
     val items = listOf(
         Screen.Timer,
+        Screen.Revisions,
         Screen.Analytics,
         Screen.Radio,
         Screen.Community,
@@ -277,6 +295,7 @@ fun AppNavGraph(
     val timerViewModel: TimerViewModel = viewModel()
     val analyticsViewModel: AnalyticsViewModel = viewModel()
     val examsViewModel: ExamsViewModel = viewModel()
+    val revisionsViewModel: RevisionsViewModel = viewModel()
 
     val currentUser = try {
         Firebase.auth.currentUser
@@ -312,7 +331,7 @@ fun AppNavGraph(
                     initialPage = 0
                 )
             }
-            composable(Screen.Analytics.route) {
+            composable(Screen.Revisions.route) {
                 MainPagerScreen(
                     navController = navController,
                     settingsViewModel = settingsViewModel,
@@ -323,7 +342,7 @@ fun AppNavGraph(
                     initialPage = 1
                 )
             }
-            composable(Screen.Radio.route) {
+            composable(Screen.Analytics.route) {
                 MainPagerScreen(
                     navController = navController,
                     settingsViewModel = settingsViewModel,
@@ -334,7 +353,7 @@ fun AppNavGraph(
                     initialPage = 2
                 )
             }
-            composable(Screen.Community.route) {
+            composable(Screen.Radio.route) {
                 MainPagerScreen(
                     navController = navController,
                     settingsViewModel = settingsViewModel,
@@ -345,7 +364,7 @@ fun AppNavGraph(
                     initialPage = 3
                 )
             }
-            composable(Screen.Settings.route) {
+            composable(Screen.Community.route) {
                 MainPagerScreen(
                     navController = navController,
                     settingsViewModel = settingsViewModel,
@@ -354,6 +373,64 @@ fun AppNavGraph(
                     examsViewModel = examsViewModel,
                     items = items,
                     initialPage = 4
+                )
+            }
+            composable(Screen.Settings.route) {
+                MainPagerScreen(
+                    navController = navController,
+                    settingsViewModel = settingsViewModel,
+                    timerViewModel = timerViewModel,
+                    analyticsViewModel = analyticsViewModel,
+                    examsViewModel = examsViewModel,
+                    items = items,
+                    initialPage = 5
+                )
+            }
+            composable("revisions/capture") {
+                CaptureScreen(
+                    onImageCaptured = { path ->
+                        val encoded = java.net.URLEncoder.encode(path, "UTF-8")
+                        navController.navigate("revisions/crop?path=$encoded") {
+                            popUpTo("revisions/capture") { inclusive = true }
+                        }
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = "revisions/crop?path={path}",
+                arguments = listOf(
+                    androidx.navigation.navArgument("path") { type = androidx.navigation.NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val pathArg = backStackEntry.arguments?.getString("path") ?: ""
+                val decodedPath = java.net.URLDecoder.decode(pathArg, "UTF-8")
+                CropEditorScreen(
+                    imagePath = decodedPath,
+                    viewModel = revisionsViewModel,
+                    onCropConfirmed = {
+                        navController.navigate(Screen.Revisions.route) {
+                            popUpTo(Screen.Revisions.route) { inclusive = true }
+                        }
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = "revisions/session?deckId={deckId}",
+                arguments = listOf(
+                    androidx.navigation.navArgument("deckId") {
+                        type = androidx.navigation.NavType.StringType
+                        defaultValue = "default_deck"
+                    }
+                )
+            ) { backStackEntry ->
+                val deckIdArg = backStackEntry.arguments?.getString("deckId") ?: "default_deck"
+                RevisionSessionScreen(
+                    deckId = deckIdArg,
+                    viewModel = revisionsViewModel,
+                    onFinishSession = { navController.popBackStack() },
+                    onBack = { navController.popBackStack() }
                 )
             }
             composable("exams") {

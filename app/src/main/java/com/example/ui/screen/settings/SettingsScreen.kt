@@ -35,6 +35,7 @@ import com.example.ui.components.neumorphicShadow
 import com.example.ui.theme.NeumorphicColors
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
+import kotlinx.coroutines.launch
 
 @Composable
 fun ExpandableSection(
@@ -576,6 +577,249 @@ fun SettingsScreen(
                     modifier = Modifier.size(20.dp)
                 )
             }
+        }
+
+        // 5. Section: Data & Backup management
+        var isSrsSettingsExpanded by remember { mutableStateOf(false) }
+        var isImportDialogOpen by remember { mutableStateOf(false) }
+        var pendingImportFile by remember { mutableStateOf<com.example.data.repository.RevisionExportFile?>(null) }
+        var selectedImportMode by remember { mutableStateOf(com.example.data.repository.ImportMode.MERGE) }
+
+        val revisionsViewModel: com.example.ui.screen.revisions.RevisionsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+        val srsUiState by revisionsViewModel.uiState.collectAsState()
+
+        val jsonPickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+            contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+        ) { uri ->
+            uri?.let {
+                try {
+                    val inputStream = context.contentResolver.openInputStream(it)
+                    val jsonStr = inputStream?.bufferedReader()?.use { br -> br.readText() } ?: ""
+                    val parsed = revisionsViewModel.parseImportJson(jsonStr)
+                    if (parsed != null) {
+                        pendingImportFile = parsed
+                        isImportDialogOpen = true
+                    } else {
+                        Toast.makeText(context, "Fichier JSON invalide ou corrompu", Toast.LENGTH_LONG).show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Erreur lors de la lecture du fichier: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
+        ExpandableSection(
+            title = "RÉVISIONS & CLÉ GEMINI API",
+            icon = Icons.Default.AutoAwesome,
+            isExpanded = isSrsSettingsExpanded,
+            onHeaderClick = { isSrsSettingsExpanded = !isSrsSettingsExpanded }
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                // Gemini API Key Field
+                var localGeminiKey by remember(srsUiState.srsSettings.geminiApiKey) { mutableStateOf(srsUiState.srsSettings.geminiApiKey) }
+
+                Text(
+                    text = "Clé API Gemini (OCR Fiches)",
+                    fontWeight = FontWeight.Bold,
+                    color = NeumorphicColors.TextPrimary,
+                    fontSize = 13.sp
+                )
+                OutlinedTextField(
+                    value = localGeminiKey,
+                    onValueChange = { localGeminiKey = it },
+                    label = { Text("Clé API Gemini (AI Studio)") },
+                    placeholder = { Text("AIzaSy...") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = NeumorphicColors.TextPrimary,
+                        unfocusedTextColor = NeumorphicColors.TextPrimary,
+                        focusedBorderColor = NeumorphicColors.Primary,
+                        unfocusedBorderColor = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    NeumorphicButton(
+                        label = "Sauvegarder la clé",
+                        icon = Icons.Default.Save,
+                        onClick = {
+                            revisionsViewModel.setGeminiApiKey(localGeminiKey)
+                            Toast.makeText(context, "Clé API Gemini enregistrée localement !", Toast.LENGTH_SHORT).show()
+                        },
+                        accentColor = NeumorphicColors.Primary
+                    )
+                }
+
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
+
+                // Daily limits
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Max fiches nouvelles / jour",
+                            fontWeight = FontWeight.Bold,
+                            color = NeumorphicColors.TextPrimary,
+                            fontSize = 13.sp
+                        )
+                        Text(
+                            text = "Limite quotidienne de nouvelles fiches",
+                            fontSize = 11.sp,
+                            color = NeumorphicColors.TextSecondary
+                        )
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        IconButton(onClick = {
+                            if (srsUiState.srsSettings.newCardsPerDay > 5) {
+                                revisionsViewModel.updateSrsSettings(srsUiState.srsSettings.copy(newCardsPerDay = srsUiState.srsSettings.newCardsPerDay - 5))
+                            }
+                        }) {
+                            Text("-", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = NeumorphicColors.Primary)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    color = NeumorphicColors.Primary.copy(alpha = 0.12f),
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                )
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "${srsUiState.srsSettings.newCardsPerDay}",
+                                fontWeight = FontWeight.ExtraBold,
+                                color = NeumorphicColors.TextPrimary,
+                                fontSize = 15.sp
+                            )
+                        }
+                        IconButton(onClick = {
+                            if (srsUiState.srsSettings.newCardsPerDay < 100) {
+                                revisionsViewModel.updateSrsSettings(srsUiState.srsSettings.copy(newCardsPerDay = srsUiState.srsSettings.newCardsPerDay + 5))
+                            }
+                        }) {
+                            Text("+", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = NeumorphicColors.Primary)
+                        }
+                    }
+                }
+
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
+
+                // Notifications toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(text = "Rappels quotidiens de révision", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+                        Text(text = "Rappel à ${"%02d".format(srsUiState.srsSettings.reminderHour)}:${"%02d".format(srsUiState.srsSettings.reminderMinute)} quand des fiches sont dues", fontSize = 11.sp, color = NeumorphicColors.TextSecondary)
+                    }
+                    Switch(
+                        checked = srsUiState.srsSettings.notificationsEnabled,
+                        onCheckedChange = { checked ->
+                            revisionsViewModel.updateSrsSettings(srsUiState.srsSettings.copy(notificationsEnabled = checked))
+                        },
+                        colors = SwitchDefaults.colors(checkedThumbColor = NeumorphicColors.Primary)
+                    )
+                }
+
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
+
+                // Export / Import buttons
+                Text(text = "Sauvegarde & Export des Fiches", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+                if (srsUiState.lastExportSummary != null) {
+                    Text(text = "Dernier export: ${srsUiState.lastExportSummary}", fontSize = 11.sp, color = NeumorphicColors.TextSecondary)
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    val scope = rememberCoroutineScope()
+                    NeumorphicButton(
+                        label = "Exporter (JSON)",
+                        icon = Icons.Default.Upload,
+                        onClick = {
+                            scope.launch {
+                                val jsonStr = revisionsViewModel.getExportJson()
+                                try {
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "application/json"
+                                        putExtra(Intent.EXTRA_SUBJECT, "Export Fiches Révision")
+                                        putExtra(Intent.EXTRA_TEXT, jsonStr)
+                                    }
+                                    context.startActivity(Intent.createChooser(shareIntent, "Partager le fichier de fiches:"))
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Erreur export: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        accentColor = NeumorphicColors.Primary
+                    )
+
+                    NeumorphicButton(
+                        label = "Importer (JSON)",
+                        icon = Icons.Default.Download,
+                        onClick = {
+                            jsonPickerLauncher.launch("application/json")
+                        },
+                        modifier = Modifier.weight(1f),
+                        accentColor = NeumorphicColors.Accent
+                    )
+                }
+            }
+        }
+
+        if (isImportDialogOpen && pendingImportFile != null) {
+            val importData = pendingImportFile!!
+            AlertDialog(
+                onDismissRequest = { isImportDialogOpen = false },
+                title = { Text("Importer des fiches de révision") },
+                text = {
+                    Column {
+                        Text("Le fichier contient ${importData.notes.size} fiches et ${importData.decks.size} paquets.")
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("Choisissez le mode d'importation :", fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(
+                                selected = selectedImportMode == com.example.data.repository.ImportMode.MERGE,
+                                onClick = { selectedImportMode = com.example.data.repository.ImportMode.MERGE }
+                            )
+                            Text("Fusionner (conserver l'historique le plus récent)", fontSize = 13.sp)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(
+                                selected = selectedImportMode == com.example.data.repository.ImportMode.REPLACE_ALL,
+                                onClick = { selectedImportMode = com.example.data.repository.ImportMode.REPLACE_ALL }
+                            )
+                            Text("Remplacer tout (effacer les anciennes fiches)", fontSize = 13.sp)
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            revisionsViewModel.applyImport(importData, selectedImportMode) {
+                                Toast.makeText(context, "${importData.notes.size} fiches importées avec succès !", Toast.LENGTH_SHORT).show()
+                                isImportDialogOpen = false
+                            }
+                        }
+                    ) { Text("Importer") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { isImportDialogOpen = false }) { Text("Annuler") }
+                }
+            )
         }
 
         // 5. Section: Data & Backup management

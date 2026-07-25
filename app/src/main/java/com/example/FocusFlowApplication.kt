@@ -7,16 +7,27 @@ import com.example.data.repository.ExamRepository
 import com.example.data.repository.SessionRepository
 import com.google.firebase.FirebaseApp
 
+import com.example.data.repository.RevisionRepository
+import com.example.service.RevisionReminderWorker
+import com.example.service.RevisionSyncWorker
+
 class FocusFlowApplication : Application() {
 
     val database by lazy { AppDatabase.getDatabase(this) }
     val sessionRepository by lazy { SessionRepository(database.sessionDao()) }
     val examRepository by lazy { ExamRepository(database.examDao()) }
     val blockedAppRepository by lazy { BlockedAppRepository(database.blockedAppDao()) }
+    val revisionRepository by lazy { RevisionRepository(database.revisionDeckDao(), database.revisionNoteDao()) }
 
     override fun onCreate() {
         super.onCreate()
         instance = this
+        try {
+            RevisionReminderWorker.createNotificationChannel(this)
+            RevisionSyncWorker.schedulePeriodicSyncWork(this)
+        } catch (e: Throwable) {
+            android.util.Log.e("FocusFlowApplication", "Failed to init revision services", e)
+        }
         try {
             if (FirebaseApp.getApps(this).isEmpty()) {
                 val options = com.google.firebase.FirebaseOptions.Builder()

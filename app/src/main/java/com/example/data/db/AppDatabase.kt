@@ -11,20 +11,26 @@ import com.example.data.db.dao.SessionDao
 import com.example.data.db.dao.BlockedAppDao
 import com.example.data.db.dao.FavouriteStationDao
 import com.example.data.db.dao.RadioDao
+import com.example.data.db.dao.RevisionDeckDao
+import com.example.data.db.dao.RevisionNoteDao
 import com.example.data.db.entity.ExamEntity
 import com.example.data.db.entity.SessionEntity
 import com.example.data.db.entity.BlockedAppEntity
 import com.example.data.db.entity.FavouriteStationEntity
 import com.example.data.db.entity.CategoryEntity
 import com.example.data.db.entity.StationEntity
+import com.example.data.db.entity.RevisionDeckEntity
+import com.example.data.db.entity.RevisionNoteEntity
 
-@Database(entities = [SessionEntity::class, ExamEntity::class, BlockedAppEntity::class, FavouriteStationEntity::class, CategoryEntity::class, StationEntity::class], version = 4, exportSchema = false)
+@Database(entities = [SessionEntity::class, ExamEntity::class, BlockedAppEntity::class, FavouriteStationEntity::class, CategoryEntity::class, StationEntity::class, RevisionDeckEntity::class, RevisionNoteEntity::class], version = 5, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun sessionDao(): SessionDao
     abstract fun examDao(): ExamDao
     abstract fun blockedAppDao(): BlockedAppDao
     abstract fun favouriteStationDao(): FavouriteStationDao
     abstract fun radioDao(): RadioDao
+    abstract fun revisionDeckDao(): RevisionDeckDao
+    abstract fun revisionNoteDao(): RevisionNoteDao
 
     companion object {
         @Volatile
@@ -98,6 +104,38 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS revision_decks (
+                        id TEXT PRIMARY KEY NOT NULL,
+                        name TEXT NOT NULL,
+                        colorHex TEXT NOT NULL DEFAULT '#4CAF50',
+                        createdAt INTEGER NOT NULL
+                    )
+                """)
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS revision_notes (
+                        id TEXT PRIMARY KEY NOT NULL,
+                        deckId TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        contentMarkdown TEXT NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL,
+                        easeFactor REAL NOT NULL DEFAULT 2.5,
+                        intervalDays INTEGER NOT NULL DEFAULT 0,
+                        repetitions INTEGER NOT NULL DEFAULT 0,
+                        dueDate INTEGER NOT NULL,
+                        lastReviewedAt INTEGER,
+                        firestoreId TEXT,
+                        syncStatus TEXT NOT NULL DEFAULT 'PENDING_UPLOAD'
+                    )
+                """)
+                // Seed default deck
+                db.execSQL("INSERT OR IGNORE INTO revision_decks (id, name, colorHex, createdAt) VALUES ('default_deck', 'Général', '#4CAF50', ${System.currentTimeMillis()})")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -105,7 +143,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "focusflow_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
@@ -124,6 +162,9 @@ abstract class AppDatabase : RoomDatabase() {
                         db.execSQL("INSERT OR IGNORE INTO radio_stations (id, name, country, categoryId, streamUrl, fallbackUrl, logoUrl, description, isCustom) VALUES ('france_inter', 'France Inter', '🇫🇷 France', 'GLOBAL', 'https://icecast.radiofrance.fr/franceinter-hifi.aac', '', '', 'French public radio', 0)")
                         db.execSQL("INSERT OR IGNORE INTO radio_stations (id, name, country, categoryId, streamUrl, fallbackUrl, logoUrl, description, isCustom) VALUES ('monte_carlo', 'Radio Monte Carlo', '🇫🇷 France', 'GLOBAL', 'https://icy.unitedradio.it/RMC.mp3', '', '', 'French pop and hits', 0)")
                         db.execSQL("INSERT OR IGNORE INTO radio_stations (id, name, country, categoryId, streamUrl, fallbackUrl, logoUrl, description, isCustom) VALUES ('soma_groove', 'SomaFM Groove Salad', '🌍 Global', 'GLOBAL', 'https://ice1.somafm.com/groovesalad-128-mp3', '', '', 'A nicely chilled plate of ambient', 0)")
+
+                        // Seed default revision deck
+                        db.execSQL("INSERT OR IGNORE INTO revision_decks (id, name, colorHex, createdAt) VALUES ('default_deck', 'Général', '#4CAF50', ${System.currentTimeMillis()})")
                     }
                 })
                 .fallbackToDestructiveMigration()
