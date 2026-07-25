@@ -53,6 +53,7 @@ android {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
   }
+  @Suppress("DEPRECATION")
   kotlinOptions {
     jvmTarget = "11"
   }
@@ -94,7 +95,6 @@ dependencies {
   implementation(libs.androidx.camera.core)
   implementation(libs.androidx.camera.lifecycle)
   implementation(libs.androidx.camera.view)
-  implementation(libs.androidx.camera.video)
   implementation("androidx.work:work-runtime-ktx:2.9.1")
   implementation(libs.androidx.compose.material.icons.core)
   implementation(libs.androidx.compose.material.icons.extended)
