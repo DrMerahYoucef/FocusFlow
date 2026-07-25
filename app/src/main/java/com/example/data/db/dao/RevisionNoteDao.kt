@@ -45,6 +45,9 @@ interface RevisionNoteDao {
     @Delete
     suspend fun delete(note: RevisionNoteEntity)
 
+    @Query("DELETE FROM revision_notes WHERE deckId = :deckId")
+    suspend fun deleteNotesForDeck(deckId: String)
+
     @Query("DELETE FROM revision_notes")
     suspend fun deleteAll()
 }

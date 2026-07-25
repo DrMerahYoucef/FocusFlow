@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,6 +41,7 @@ import com.example.ui.theme.NeumorphicColors
 import java.io.File
 
 enum class CropMode { RECTANGLE, LASSO }
+enum class HandleType { TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, MOVE }
 
 @Composable
 fun CropEditorScreen(
@@ -60,6 +62,9 @@ fun CropEditorScreen(
     }
 
     var cropMode by remember { mutableStateOf(CropMode.RECTANGLE) }
+    var showModeDialog by remember { mutableStateOf(false) }
+    var selectedExplainMode by remember { mutableStateOf(false) }
+    var pendingCroppedBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     // Rectangle crop state (normalized 0..1 scale)
     var rectNormLeft by remember { mutableStateOf(0.1f) }
@@ -104,26 +109,72 @@ fun CropEditorScreen(
 
             // Overlays based on mode
             if (cropMode == CropMode.RECTANGLE) {
+                val currentLeft by rememberUpdatedState(rectNormLeft)
+                val currentTop by rememberUpdatedState(rectNormTop)
+                val currentRight by rememberUpdatedState(rectNormRight)
+                val currentBottom by rememberUpdatedState(rectNormBottom)
+
+                var draggedHandle by remember { mutableStateOf<HandleType?>(null) }
+
                 Canvas(
                     modifier = Modifier
                         .fillMaxSize()
                         .pointerInput(Unit) {
-                            detectDragGestures { change, dragAmount ->
-                                change.consume()
-                                val dx = dragAmount.x / containerWidthPx
-                                val dy = dragAmount.y / containerHeightPx
+                            detectDragGestures(
+                                onDragStart = { offset ->
+                                    val rLeft = currentLeft * containerWidthPx
+                                    val rTop = currentTop * containerHeightPx
+                                    val rRight = currentRight * containerWidthPx
+                                    val rBottom = currentBottom * containerHeightPx
+                                    val threshold = 60f
 
-                                val currentW = rectNormRight - rectNormLeft
-                                val currentH = rectNormBottom - rectNormTop
+                                    draggedHandle = when {
+                                        (offset - Offset(rLeft, rTop)).getDistance() < threshold -> HandleType.TOP_LEFT
+                                        (offset - Offset(rRight, rTop)).getDistance() < threshold -> HandleType.TOP_RIGHT
+                                        (offset - Offset(rLeft, rBottom)).getDistance() < threshold -> HandleType.BOTTOM_LEFT
+                                        (offset - Offset(rRight, rBottom)).getDistance() < threshold -> HandleType.BOTTOM_RIGHT
+                                        offset.x in rLeft..rRight && offset.y in rTop..rBottom -> HandleType.MOVE
+                                        else -> null
+                                    }
+                                },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    val dx = dragAmount.x / containerWidthPx
+                                    val dy = dragAmount.y / containerHeightPx
 
-                                val newL = (rectNormLeft + dx).coerceIn(0f, 0.8f)
-                                val newT = (rectNormTop + dy).coerceIn(0f, 0.8f)
-
-                                rectNormLeft = newL
-                                rectNormTop = newT
-                                rectNormRight = (newL + currentW).coerceAtMost(1f)
-                                rectNormBottom = (newT + currentH).coerceAtMost(1f)
-                            }
+                                    when (draggedHandle) {
+                                        HandleType.TOP_LEFT -> {
+                                            rectNormLeft = (currentLeft + dx).coerceIn(0f, currentRight - 0.1f)
+                                            rectNormTop = (currentTop + dy).coerceIn(0f, currentBottom - 0.1f)
+                                        }
+                                        HandleType.TOP_RIGHT -> {
+                                            rectNormRight = (currentRight + dx).coerceIn(currentLeft + 0.1f, 1f)
+                                            rectNormTop = (currentTop + dy).coerceIn(0f, currentBottom - 0.1f)
+                                        }
+                                        HandleType.BOTTOM_LEFT -> {
+                                            rectNormLeft = (currentLeft + dx).coerceIn(0f, currentRight - 0.1f)
+                                            rectNormBottom = (currentBottom + dy).coerceIn(currentTop + 0.1f, 1f)
+                                        }
+                                        HandleType.BOTTOM_RIGHT -> {
+                                            rectNormRight = (currentRight + dx).coerceIn(currentLeft + 0.1f, 1f)
+                                            rectNormBottom = (currentBottom + dy).coerceIn(currentTop + 0.1f, 1f)
+                                        }
+                                        HandleType.MOVE -> {
+                                            val w = currentRight - currentLeft
+                                            val h = currentBottom - currentTop
+                                            val newL = (currentLeft + dx).coerceIn(0f, 1f - w)
+                                            val newT = (currentTop + dy).coerceIn(0f, 1f - h)
+                                            rectNormLeft = newL
+                                            rectNormTop = newT
+                                            rectNormRight = newL + w
+                                            rectNormBottom = newT + h
+                                        }
+                                        null -> {}
+                                    }
+                                },
+                                onDragEnd = { draggedHandle = null },
+                                onDragCancel = { draggedHandle = null }
+                            )
                         }
                 ) {
                     val rLeft = rectNormLeft * containerWidthPx
@@ -148,8 +199,8 @@ fun CropEditorScreen(
 
                     // Handles
                     listOf(rect.topLeft, rect.topRight, rect.bottomLeft, rect.bottomRight).forEach { handle ->
-                        drawCircle(color = Color.White, radius = 14f, center = handle)
-                        drawCircle(color = primaryColor, radius = 10f, center = handle)
+                        drawCircle(color = Color.White, radius = 16f, center = handle)
+                        drawCircle(color = primaryColor, radius = 12f, center = handle)
                     }
                 }
             } else {
@@ -203,7 +254,7 @@ fun CropEditorScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Default.Close, contentDescription = "Annuler", tint = Color.White)
+                    Icon(Icons.Default.Close, contentDescription = "Cancel", tint = Color.White)
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -216,7 +267,7 @@ fun CropEditorScreen(
                     FilterChip(
                         selected = cropMode == CropMode.LASSO,
                         onClick = { cropMode = CropMode.LASSO },
-                        label = { Text("Lasso (Dessin)") },
+                        label = { Text("Lasso") },
                         leadingIcon = { Icon(Icons.Default.Gesture, contentDescription = null) }
                     )
                 }
@@ -240,7 +291,7 @@ fun CropEditorScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (cropMode == CropMode.RECTANGLE) "Ajustez la zone de texte" else "Entourez le texte avec votre doigt",
+                    text = if (cropMode == CropMode.RECTANGLE) "Adjust crop area" else "Trace text with your finger",
                     color = Color.White,
                     fontSize = 13.sp
                 )
@@ -258,8 +309,86 @@ fun CropEditorScreen(
                                 lassoNormPoints = lassoNormPoints
                             )
 
-                            viewModel.processCapturedImage(croppedBitmap) { success ->
-                                // Clean up transient photo file immediately
+                            pendingCroppedBitmap = croppedBitmap
+                            selectedExplainMode = false // Default to verbatim text
+                            showModeDialog = true
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Crop error: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = null)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Confirm")
+                }
+            }
+        }
+
+        // Extraction Mode Dialog
+        if (showModeDialog && pendingCroppedBitmap != null) {
+            AlertDialog(
+                onDismissRequest = {
+                    showModeDialog = false
+                    pendingCroppedBitmap = null
+                },
+                title = { Text("Card Extraction Mode", fontWeight = FontWeight.Bold, color = NeumorphicColors.TextPrimary) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            text = "Choose how to extract text for this card:",
+                            fontSize = 13.sp,
+                            color = NeumorphicColors.TextSecondary
+                        )
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedExplainMode = false }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            RadioButton(
+                                selected = !selectedExplainMode,
+                                onClick = { selectedExplainMode = false },
+                                colors = RadioButtonDefaults.colors(selectedColor = NeumorphicColors.Primary)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text("Verbatim (As it is)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = NeumorphicColors.TextPrimary)
+                                Text("Extract exact text as it appears in photo", fontSize = 12.sp, color = NeumorphicColors.TextSecondary)
+                            }
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedExplainMode = true }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            RadioButton(
+                                selected = selectedExplainMode,
+                                onClick = { selectedExplainMode = true },
+                                colors = RadioButtonDefaults.colors(selectedColor = NeumorphicColors.Primary)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text("Explain Mode (AI Q&A)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = NeumorphicColors.TextPrimary)
+                                Text("Synthesize text into a structured study Q&A", fontSize = 12.sp, color = NeumorphicColors.TextSecondary)
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val bitmapToProcess = pendingCroppedBitmap!!
+                            val useExplain = selectedExplainMode
+                            showModeDialog = false
+                            pendingCroppedBitmap = null
+
+                            viewModel.processCapturedImage(bitmapToProcess, explainMode = useExplain) { success ->
                                 try {
                                     if (sourceFile.exists()) {
                                         sourceFile.delete()
@@ -269,23 +398,30 @@ fun CropEditorScreen(
                                 }
 
                                 if (success) {
-                                    Toast.makeText(context, "Fiche de révision générée avec succès ! ✨", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Card created successfully! ✨", Toast.LENGTH_SHORT).show()
                                     onCropConfirmed()
                                 } else {
-                                    Toast.makeText(context, state.ocrError ?: "Erreur d'analyse OCR", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, state.ocrError ?: "OCR processing error", Toast.LENGTH_LONG).show()
                                 }
                             }
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "Erreur de découpage: ${e.message}", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
+                    ) {
+                        Text("Create Card")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            showModeDialog = false
+                            pendingCroppedBitmap = null
                         }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
-                ) {
-                    Icon(Icons.Default.Check, contentDescription = null)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Valider")
-                }
-            }
+                    ) {
+                        Text("Cancel", color = NeumorphicColors.TextSecondary)
+                    }
+                },
+                containerColor = NeumorphicColors.SurfaceLight
+            )
         }
 
         // Loading Overlay
@@ -308,13 +444,13 @@ fun CropEditorScreen(
                         CircularProgressIndicator(color = NeumorphicColors.Primary)
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "Conversion Gemini OCR...",
+                            text = "Processing OCR...",
                             fontWeight = FontWeight.Bold,
                             color = NeumorphicColors.TextPrimary
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Extraction du texte & structuration SM-2",
+                            text = "Extracting text and generating card...",
                             fontSize = 12.sp,
                             color = NeumorphicColors.TextSecondary
                         )

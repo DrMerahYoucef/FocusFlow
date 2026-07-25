@@ -9,5 +9,6 @@ data class SrsSettings(
     val reminderHour: Int = 19,
     val reminderMinute: Int = 0,
     val notificationsEnabled: Boolean = true,
-    val geminiApiKey: String = ""
+    val geminiApiKey: String = "",
+    val explainModeEnabled: Boolean = false
 )

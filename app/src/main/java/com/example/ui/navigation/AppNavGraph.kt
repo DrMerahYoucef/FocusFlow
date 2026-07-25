@@ -51,6 +51,8 @@ import com.google.firebase.auth.auth
 import androidx.compose.material.icons.filled.AutoAwesome
 import com.example.ui.screen.revisions.CaptureScreen
 import com.example.ui.screen.revisions.CropEditorScreen
+import com.example.ui.screen.revisions.RevisionDeckDetailScreen
+import com.example.ui.screen.revisions.RevisionNoteDetailScreen
 import com.example.ui.screen.revisions.RevisionSessionScreen
 import com.example.ui.screen.revisions.RevisionsHomeScreen
 import com.example.ui.screen.revisions.RevisionsViewModel
@@ -111,6 +113,8 @@ fun MainPagerScreen(
                     RevisionsHomeScreen(
                         viewModel = revisionsViewModel,
                         onAddClick = { navController.navigate("revisions/capture") },
+                        onDeckClick = { deckId -> navController.navigate("revisions/deck/$deckId") },
+                        onNoteClick = { noteId -> navController.navigate("revisions/note/$noteId") },
                         onStartSessionClick = { deckId -> navController.navigate("revisions/session?deckId=$deckId") },
                         modifier = screenModifier
                     )
@@ -430,6 +434,34 @@ fun AppNavGraph(
                     deckId = deckIdArg,
                     viewModel = revisionsViewModel,
                     onFinishSession = { navController.popBackStack() },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = "revisions/deck/{deckId}",
+                arguments = listOf(
+                    androidx.navigation.navArgument("deckId") { type = androidx.navigation.NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val deckIdArg = backStackEntry.arguments?.getString("deckId") ?: "default_deck"
+                RevisionDeckDetailScreen(
+                    deckId = deckIdArg,
+                    viewModel = revisionsViewModel,
+                    onNoteClick = { noteId -> navController.navigate("revisions/note/$noteId") },
+                    onStartReview = { deckId -> navController.navigate("revisions/session?deckId=$deckId") },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = "revisions/note/{noteId}",
+                arguments = listOf(
+                    androidx.navigation.navArgument("noteId") { type = androidx.navigation.NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val noteIdArg = backStackEntry.arguments?.getString("noteId") ?: ""
+                RevisionNoteDetailScreen(
+                    noteId = noteIdArg,
+                    viewModel = revisionsViewModel,
                     onBack = { navController.popBackStack() }
                 )
             }

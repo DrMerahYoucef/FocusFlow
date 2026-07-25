@@ -1,9 +1,14 @@
 package com.example.data.repository
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.util.Base64
 import com.example.data.db.entity.RevisionNoteEntity
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -14,52 +19,126 @@ import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+
+enum class ExtractionMode {
+    VERBATIM, EXPLAIN
+}
 
 data class GeminiHighlightItem(val text: String, val color: String)
 data class GeminiNoteItem(val front: String, val back: String, val highlights: List<GeminiHighlightItem>)
 data class GeminiNoteResult(val title: String, val notes: List<GeminiNoteItem>)
 
-class GeminiOcrRepository(
-    private val getApiKey: () -> String
-) {
+// Defensive single card converter
+fun GeminiNoteResult.toSingleNote(deckId: String, easeFactorDefault: Float = 2.5f): RevisionNoteEntity {
+    val merged = if (notes.size > 1) {
+        GeminiNoteItem(
+            front = notes.first().front.ifBlank { title },
+            back = notes.joinToString("\n\n") { it.back },
+            highlights = notes.flatMap { it.highlights }
+        )
+    } else notes.firstOrNull() ?: GeminiNoteItem(
+        front = title.ifBlank { "Scanned Card" },
+        back = "No text recognized",
+        highlights = emptyList()
+    )
+
+    var formattedBack = merged.back
+    merged.highlights.forEach { h ->
+        if (h.text.isNotBlank()) {
+            val colorTag = h.color.ifBlank { "amber" }
+            val replacement = "==color:$colorTag==${h.text}=="
+            if (formattedBack.contains(h.text)) {
+                formattedBack = formattedBack.replace(h.text, replacement)
+            } else {
+                formattedBack += "\n\n$replacement"
+            }
+        }
+    }
+
+    val nowMs = System.currentTimeMillis()
+    val finalTitle = if (merged.front.isNotBlank()) merged.front else title.ifBlank { "Scanned Card" }
+
+    return RevisionNoteEntity(
+        id = UUID.randomUUID().toString(),
+        deckId = deckId,
+        title = finalTitle.take(80),
+        contentMarkdown = formattedBack,
+        createdAt = nowMs,
+        updatedAt = nowMs,
+        easeFactor = easeFactorDefault,
+        intervalDays = 0,
+        repetitions = 0,
+        dueDate = nowMs
+    )
+}
+
+interface OcrEngine {
+    suspend fun extractStructuredContent(bitmap: Bitmap, mode: ExtractionMode = ExtractionMode.VERBATIM): GeminiNoteResult
+}
+
+class GeminiOcrEngine(
+    private val apiKeyProvider: () -> String
+) : OcrEngine {
     private val client = OkHttpClient.Builder()
         .connectTimeout(60, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    suspend fun extractNotesFromImage(bitmap: Bitmap, deckId: String): List<RevisionNoteEntity> = withContext(Dispatchers.IO) {
-        val apiKey = getApiKey().trim()
-        if (apiKey.isEmpty()) {
-            throw IllegalArgumentException("Clé API Gemini non configurée. Veuillez ajouter votre clé API dans la section Configuration de l'application.")
-        }
-
-        val base64Jpeg = bitmapToBase64(bitmap)
-
-        val prompt = """
-You are an OCR-to-flashcard converter. Read the text in this image (it may be a book page or a screenshot).
+    private val VERBATIM_PROMPT = """
+You are an OCR converter. Transcribe the text from this image VERBATIM.
 Return ONLY valid JSON matching this schema, nothing else:
 
 {
-  "title": "short descriptive title",
+  "title": "Short title (first line or heading of the text)",
   "notes": [
     {
-      "front": "question or key term",
-      "back": "answer or explanation, in Markdown",
+      "front": "First line or heading",
+      "back": "Full transcribed text verbatim in Markdown format",
+      "highlights": []
+    }
+  ]
+}
+
+Rules:
+- Extract the text exactly as written in the image.
+- Do NOT rewrite, explain, summarize, or rephrase.
+- Keep the entire extracted text in a SINGLE note in the "notes" array.
+""".trimIndent()
+
+    private val EXPLAIN_PROMPT = """
+You are a flashcard generator. Analyze this image and create a Q&A study card.
+Return ONLY valid JSON matching this schema, nothing else:
+
+{
+  "title": "Short title of the subject",
+  "notes": [
+    {
+      "front": "Main concept question or title",
+      "back": "Structured answer and explanation in Markdown",
       "highlights": [
-        {"text": "term to highlight", "color": "amber|green|blue|red"}
+        {"text": "key term", "color": "amber|green|blue|red"}
       ]
     }
   ]
 }
 
 Rules:
-- Split distinct concepts/definitions into separate notes (like Anki cards), don't dump everything into one.
-- Preserve emphasis (bold/italic/headers) as Markdown in the "back" field.
-- Use "highlights" for key terms, definitions, or dates that deserve a colored highlight.
-- If the image contains a single continuous passage with no clear Q/A structure, create one note with the passage summarized as "front" and full text as "back".
-- Do not invent information not present in the image.
+- Rephrase the core concept as a clean question and answer.
+- Preserve key definitions and details in Markdown.
+- Keep the result in a SINGLE note in the "notes" array.
 """.trimIndent()
+
+    override suspend fun extractStructuredContent(bitmap: Bitmap, mode: ExtractionMode): GeminiNoteResult = withContext(Dispatchers.IO) {
+        val apiKey = apiKeyProvider().trim()
+        if (apiKey.isEmpty()) {
+            throw IllegalArgumentException("Gemini API key is missing.")
+        }
+
+        val base64Jpeg = bitmapToBase64(bitmap)
+        val prompt = if (mode == ExtractionMode.EXPLAIN) EXPLAIN_PROMPT else VERBATIM_PROMPT
 
         val jsonRequest = JSONObject().apply {
             put("contents", JSONArray().apply {
@@ -82,7 +161,7 @@ Rules:
             })
         }
 
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=$apiKey"
+        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey"
         val requestBody = jsonRequest.toString().toRequestBody("application/json".toMediaType())
 
         val request = Request.Builder()
@@ -117,40 +196,10 @@ Rules:
             throw IllegalStateException("Empty text content returned by Gemini")
         }
 
-        val parsedResult = parseGeminiResponse(textResult)
-
-        val nowMs = System.currentTimeMillis()
-        parsedResult.notes.map { noteItem ->
-            var formattedBack = noteItem.back
-            noteItem.highlights.forEach { h ->
-                if (h.text.isNotBlank()) {
-                    val colorTag = h.color.ifBlank { "amber" }
-                    val replacement = "==color:$colorTag==${h.text}=="
-                    if (formattedBack.contains(h.text)) {
-                        formattedBack = formattedBack.replace(h.text, replacement)
-                    } else {
-                        formattedBack += "\n\n$replacement"
-                    }
-                }
-            }
-
-            RevisionNoteEntity(
-                id = UUID.randomUUID().toString(),
-                deckId = deckId,
-                title = if (noteItem.front.isNotBlank()) noteItem.front else parsedResult.title,
-                contentMarkdown = formattedBack,
-                createdAt = nowMs,
-                updatedAt = nowMs,
-                easeFactor = 2.5f,
-                intervalDays = 0,
-                repetitions = 0,
-                dueDate = nowMs // immediately due for review
-            )
-        }
+        parseGeminiResponse(textResult)
     }
 
     private fun parseGeminiResponse(jsonString: String): GeminiNoteResult {
-        // Strip code fencing if present
         val cleanJson = jsonString.trim()
             .removePrefix("```json")
             .removePrefix("```")
@@ -158,7 +207,7 @@ Rules:
             .trim()
 
         val obj = JSONObject(cleanJson)
-        val title = obj.optString("title", "Fiche de révision")
+        val title = obj.optString("title", "Scanned Card")
         val notesArray = obj.optJSONArray("notes") ?: JSONArray()
 
         val notesList = mutableListOf<GeminiNoteItem>()
@@ -186,9 +235,73 @@ Rules:
 
     private fun bitmapToBase64(bitmap: Bitmap): String {
         val outputStream = ByteArrayOutputStream()
-        // Compress to JPEG with high quality
         bitmap.compress(Bitmap.CompressFormat.JPEG, 90, outputStream)
         val byteArray = outputStream.toByteArray()
         return Base64.encodeToString(byteArray, Base64.NO_WRAP)
+    }
+}
+
+class MlKitOcrEngine(private val context: Context) : OcrEngine {
+    override suspend fun extractStructuredContent(bitmap: Bitmap, mode: ExtractionMode): GeminiNoteResult =
+        suspendCancellableCoroutine { cont ->
+            try {
+                val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                val image = InputImage.fromBitmap(bitmap, 0)
+                recognizer.process(image)
+                    .addOnSuccessListener { visionText ->
+                        val fullText = visionText.text.trim()
+                        val firstLine = visionText.textBlocks.firstOrNull()?.lines?.firstOrNull()?.text?.trim()
+                            ?: fullText.lineSequence().firstOrNull().orEmpty()
+
+                        val title = if (firstLine.isNotBlank()) firstLine.take(60) else "Scanned Card"
+                        val front = if (firstLine.isNotBlank()) firstLine else title
+                        val back = if (fullText.isNotBlank()) fullText else "No text recognized"
+
+                        cont.resume(
+                            GeminiNoteResult(
+                                title = title,
+                                notes = listOf(
+                                    GeminiNoteItem(
+                                        front = front,
+                                        back = back,
+                                        highlights = emptyList()
+                                    )
+                                )
+                            )
+                        ) {}
+                    }
+                    .addOnFailureListener { e ->
+                        cont.resumeWithException(e)
+                    }
+            } catch (e: Exception) {
+                cont.resumeWithException(e)
+            }
+        }
+}
+
+class OcrEngineProvider(
+    private val apiKeyProvider: () -> String,
+    private val context: Context
+) {
+    fun get(): OcrEngine {
+        val key = apiKeyProvider().trim()
+        return if (key.isNotBlank()) GeminiOcrEngine { key } else MlKitOcrEngine(context)
+    }
+}
+
+// Retain GeminiOcrRepository class for backward compatibility if needed elsewhere
+class GeminiOcrRepository(
+    private val getApiKey: () -> String
+) {
+    private val engine = GeminiOcrEngine(getApiKey)
+
+    suspend fun extractNotesFromImage(
+        bitmap: Bitmap,
+        deckId: String,
+        explainMode: Boolean = false
+    ): List<RevisionNoteEntity> {
+        val mode = if (explainMode) ExtractionMode.EXPLAIN else ExtractionMode.VERBATIM
+        val result = engine.extractStructuredContent(bitmap, mode)
+        return listOf(result.toSingleNote(deckId))
     }
 }

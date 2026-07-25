@@ -10,7 +10,9 @@ import com.example.data.db.entity.RevisionDeckEntity
 import com.example.data.db.entity.RevisionNoteEntity
 import com.example.data.repository.GeminiOcrRepository
 import com.example.data.repository.ImportMode
+import com.example.data.repository.OcrEngineProvider
 import com.example.data.repository.RevisionExportFile
+import com.example.data.repository.toSingleNote
 import com.example.data.srs.ReviewGrade
 import com.example.data.srs.Sm2Scheduler
 import com.example.data.srs.SrsSettings
@@ -40,11 +42,14 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
     private val _uiState = MutableStateFlow(RevisionsUiState())
     val uiState: StateFlow<RevisionsUiState> = _uiState.asStateFlow()
 
-    private val geminiOcrRepository = GeminiOcrRepository {
-        _uiState.value.srsSettings.geminiApiKey.ifBlank {
-            sharedPrefs.getString("gemini_api_key", "") ?: ""
-        }
-    }
+    private val ocrEngineProvider = com.example.data.repository.OcrEngineProvider(
+        apiKeyProvider = {
+            _uiState.value.srsSettings.geminiApiKey.ifBlank {
+                sharedPrefs.getString("gemini_api_key", "") ?: ""
+            }
+        },
+        context = application
+    )
 
     init {
         loadSettings()
@@ -59,7 +64,8 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
             reminderHour = sharedPrefs.getInt("srs_reminder_hour", 19),
             reminderMinute = sharedPrefs.getInt("srs_reminder_minute", 0),
             notificationsEnabled = sharedPrefs.getBoolean("srs_notifications_enabled", true),
-            geminiApiKey = sharedPrefs.getString("gemini_api_key", "") ?: ""
+            geminiApiKey = sharedPrefs.getString("gemini_api_key", "") ?: "",
+            explainModeEnabled = sharedPrefs.getBoolean("srs_explain_mode_enabled", false)
         )
         val lastSummary = sharedPrefs.getString("srs_last_export_summary", null)
         _uiState.update { it.copy(srsSettings = settings, lastExportSummary = lastSummary) }
@@ -109,6 +115,12 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun deleteDeckAndNotes(deckId: String) {
+        viewModelScope.launch {
+            repository.deleteDeckAndNotes(deckId)
+        }
+    }
+
     fun submitReviewGrade(note: RevisionNoteEntity, grade: ReviewGrade) {
         viewModelScope.launch {
             val updatedNote = Sm2Scheduler.schedule(note, grade)
@@ -117,21 +129,29 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun processCapturedImage(croppedBitmap: Bitmap, onComplete: (Boolean) -> Unit) {
+    fun processCapturedImage(
+        croppedBitmap: Bitmap,
+        explainMode: Boolean = false,
+        onComplete: (Boolean) -> Unit
+    ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isProcessingOcr = true, ocrError = null) }
             try {
                 val deckId = _uiState.value.selectedDeckId
-                val createdNotes = geminiOcrRepository.extractNotesFromImage(croppedBitmap, deckId)
-                if (createdNotes.isNotEmpty()) {
-                    repository.upsertNotes(createdNotes)
-                    RevisionSyncWorker.scheduleSyncWork(getApplication())
-                }
+                val mode = if (explainMode) com.example.data.repository.ExtractionMode.EXPLAIN else com.example.data.repository.ExtractionMode.VERBATIM
+
+                val engine = ocrEngineProvider.get()
+                val result = engine.extractStructuredContent(croppedBitmap, mode)
+                val singleNote = result.toSingleNote(deckId, _uiState.value.srsSettings.startingEaseFactor)
+
+                repository.upsertNote(singleNote)
+                RevisionSyncWorker.scheduleSyncWork(getApplication())
+
                 _uiState.update { it.copy(isProcessingOcr = false) }
                 onComplete(true)
             } catch (e: Exception) {
                 android.util.Log.e("RevisionsViewModel", "OCR failed", e)
-                _uiState.update { it.copy(isProcessingOcr = false, ocrError = e.localizedMessage ?: "Erreur lors de l'analyse Gemini") }
+                _uiState.update { it.copy(isProcessingOcr = false, ocrError = e.localizedMessage ?: "OCR processing failed") }
                 onComplete(false)
             }
         }
@@ -146,6 +166,7 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
             .putInt("srs_reminder_minute", settings.reminderMinute)
             .putBoolean("srs_notifications_enabled", settings.notificationsEnabled)
             .putString("gemini_api_key", settings.geminiApiKey)
+            .putBoolean("srs_explain_mode_enabled", settings.explainModeEnabled)
             .apply()
 
         _uiState.update { it.copy(srsSettings = settings) }

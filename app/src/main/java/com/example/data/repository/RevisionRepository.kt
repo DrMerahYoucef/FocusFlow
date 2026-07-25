@@ -56,6 +56,15 @@ class RevisionRepository(
 
     suspend fun upsertDeck(deck: RevisionDeckEntity) = deckDao.upsert(deck)
     suspend fun deleteDeck(deck: RevisionDeckEntity) = deckDao.delete(deck)
+    suspend fun deleteDeckAndNotes(deckId: String) {
+        deckDao.getDeckById(deckId)?.let { deck ->
+            noteDao.deleteNotesForDeck(deckId)
+            deckDao.delete(deck)
+        }
+    }
+
+    suspend fun getNoteById(noteId: String): RevisionNoteEntity? = noteDao.getById(noteId)
+    suspend fun getDeckById(deckId: String): RevisionDeckEntity? = deckDao.getDeckById(deckId)
 
     suspend fun upsertNote(note: RevisionNoteEntity) = noteDao.upsert(note)
     suspend fun upsertNotes(notes: List<RevisionNoteEntity>) = noteDao.upsertAll(notes)

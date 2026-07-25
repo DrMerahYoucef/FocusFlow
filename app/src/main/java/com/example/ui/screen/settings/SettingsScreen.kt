@@ -609,7 +609,7 @@ fun SettingsScreen(
         }
 
         ExpandableSection(
-            title = "RÉVISIONS & CLÉ GEMINI API",
+            title = "REVISIONS & GEMINI API KEY",
             icon = Icons.Default.AutoAwesome,
             isExpanded = isSrsSettingsExpanded,
             onHeaderClick = { isSrsSettingsExpanded = !isSrsSettingsExpanded }
@@ -619,7 +619,7 @@ fun SettingsScreen(
                 var localGeminiKey by remember(srsUiState.srsSettings.geminiApiKey) { mutableStateOf(srsUiState.srsSettings.geminiApiKey) }
 
                 Text(
-                    text = "Clé API Gemini (OCR Fiches)",
+                    text = "Gemini API Key (OCR Cards)",
                     fontWeight = FontWeight.Bold,
                     color = NeumorphicColors.TextPrimary,
                     fontSize = 13.sp
@@ -627,7 +627,7 @@ fun SettingsScreen(
                 OutlinedTextField(
                     value = localGeminiKey,
                     onValueChange = { localGeminiKey = it },
-                    label = { Text("Clé API Gemini (AI Studio)") },
+                    label = { Text("Gemini API Key (AI Studio)") },
                     placeholder = { Text("AIzaSy...") },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
@@ -643,11 +643,11 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.End
                 ) {
                     NeumorphicButton(
-                        label = "Sauvegarder la clé",
+                        label = "Save Key Locally",
                         icon = Icons.Default.Save,
                         onClick = {
                             revisionsViewModel.setGeminiApiKey(localGeminiKey)
-                            Toast.makeText(context, "Clé API Gemini enregistrée localement !", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Gemini API key saved locally!", Toast.LENGTH_SHORT).show()
                         },
                         accentColor = NeumorphicColors.Primary
                     )
@@ -663,13 +663,13 @@ fun SettingsScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Max fiches nouvelles / jour",
+                            text = "Max new cards / day",
                             fontWeight = FontWeight.Bold,
                             color = NeumorphicColors.TextPrimary,
                             fontSize = 13.sp
                         )
                         Text(
-                            text = "Limite quotidienne de nouvelles fiches",
+                            text = "Daily limit of new revision cards",
                             fontSize = 11.sp,
                             color = NeumorphicColors.TextSecondary
                         )
@@ -720,8 +720,8 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(text = "Rappels quotidiens de révision", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
-                        Text(text = "Rappel à ${"%02d".format(srsUiState.srsSettings.reminderHour)}:${"%02d".format(srsUiState.srsSettings.reminderMinute)} quand des fiches sont dues", fontSize = 11.sp, color = NeumorphicColors.TextSecondary)
+                        Text(text = "Daily Revision Reminders", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+                        Text(text = "Reminder at ${"%02d".format(srsUiState.srsSettings.reminderHour)}:${"%02d".format(srsUiState.srsSettings.reminderMinute)} when cards are due", fontSize = 11.sp, color = NeumorphicColors.TextSecondary)
                     }
                     Switch(
                         checked = srsUiState.srsSettings.notificationsEnabled,
@@ -735,9 +735,9 @@ fun SettingsScreen(
                 Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
 
                 // Export / Import buttons
-                Text(text = "Sauvegarde & Export des Fiches", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+                Text(text = "Backup & Export Cards", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
                 if (srsUiState.lastExportSummary != null) {
-                    Text(text = "Dernier export: ${srsUiState.lastExportSummary}", fontSize = 11.sp, color = NeumorphicColors.TextSecondary)
+                    Text(text = "Last export: ${srsUiState.lastExportSummary}", fontSize = 11.sp, color = NeumorphicColors.TextSecondary)
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -745,7 +745,7 @@ fun SettingsScreen(
                 ) {
                     val scope = rememberCoroutineScope()
                     NeumorphicButton(
-                        label = "Exporter (JSON)",
+                        label = "Export (JSON)",
                         icon = Icons.Default.Upload,
                         onClick = {
                             scope.launch {
@@ -753,12 +753,12 @@ fun SettingsScreen(
                                 try {
                                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                         type = "application/json"
-                                        putExtra(Intent.EXTRA_SUBJECT, "Export Fiches Révision")
+                                        putExtra(Intent.EXTRA_SUBJECT, "Revision Cards Export")
                                         putExtra(Intent.EXTRA_TEXT, jsonStr)
                                     }
-                                    context.startActivity(Intent.createChooser(shareIntent, "Partager le fichier de fiches:"))
+                                    context.startActivity(Intent.createChooser(shareIntent, "Share card file:"))
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, "Erreur export: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Export error: ${e.message}", Toast.LENGTH_SHORT).show()
                                 }
                             }
                         },
@@ -767,7 +767,7 @@ fun SettingsScreen(
                     )
 
                     NeumorphicButton(
-                        label = "Importer (JSON)",
+                        label = "Import (JSON)",
                         icon = Icons.Default.Download,
                         onClick = {
                             jsonPickerLauncher.launch("application/json")
