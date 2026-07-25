@@ -44,8 +44,18 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val ocrEngineProvider = com.example.data.repository.OcrEngineProvider(
         apiKeyProvider = {
-            _uiState.value.srsSettings.geminiApiKey.ifBlank {
-                sharedPrefs.getString("gemini_api_key", "") ?: ""
+            val userKey = _uiState.value.srsSettings.geminiApiKey.trim()
+            val prefKey = sharedPrefs.getString("gemini_api_key", "")?.trim().orEmpty()
+            val buildConfigKey = try {
+                val key = com.example.BuildConfig.GEMINI_API_KEY.trim()
+                if (key.isNotBlank() && key != "null" && key != "MY_GEMINI_API_KEY" && key != "DEFAULT_KEY") key else ""
+            } catch (e: Exception) { "" }
+
+            when {
+                userKey.isNotBlank() && userKey != "MY_GEMINI_API_KEY" -> userKey
+                prefKey.isNotBlank() && prefKey != "MY_GEMINI_API_KEY" -> prefKey
+                buildConfigKey.isNotBlank() -> buildConfigKey
+                else -> ""
             }
         },
         context = application
@@ -151,7 +161,12 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
                 onComplete(true)
             } catch (e: Exception) {
                 android.util.Log.e("RevisionsViewModel", "OCR failed", e)
-                _uiState.update { it.copy(isProcessingOcr = false, ocrError = e.localizedMessage ?: "OCR processing failed") }
+                val errorMessage = when {
+                    !e.message.isNullOrBlank() -> e.message!!
+                    !e.localizedMessage.isNullOrBlank() -> e.localizedMessage!!
+                    else -> "Failed to recognize text from image (${e.javaClass.simpleName}). Please check image or API key."
+                }
+                _uiState.update { it.copy(isProcessingOcr = false, ocrError = errorMessage) }
                 onComplete(false)
             }
         }

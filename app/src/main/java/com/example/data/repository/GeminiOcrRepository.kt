@@ -133,8 +133,8 @@ Rules:
 
     override suspend fun extractStructuredContent(bitmap: Bitmap, mode: ExtractionMode): GeminiNoteResult = withContext(Dispatchers.IO) {
         val apiKey = apiKeyProvider().trim()
-        if (apiKey.isEmpty()) {
-            throw IllegalArgumentException("Gemini API key is missing.")
+        if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
+            throw IllegalArgumentException("Gemini API key is missing or invalid.")
         }
 
         val base64Jpeg = bitmapToBase64(bitmap)
@@ -161,42 +161,73 @@ Rules:
             })
         }
 
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey"
-        val requestBody = jsonRequest.toString().toRequestBody("application/json".toMediaType())
+        val models = listOf("gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash")
+        var lastException: Exception? = null
 
-        val request = Request.Builder()
-            .url(url)
-            .post(requestBody)
-            .build()
+        for (model in models) {
+            try {
+                val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
+                val requestBody = jsonRequest.toString().toRequestBody("application/json".toMediaType())
 
-        val response = client.newCall(request).execute()
-        if (!response.isSuccessful) {
-            val errBody = response.body?.string() ?: ""
-            throw IllegalStateException("Gemini API Error (${response.code}): $errBody")
+                val request = Request.Builder()
+                    .url(url)
+                    .post(requestBody)
+                    .build()
+
+                val response = client.newCall(request).execute()
+                val responseBodyStr = response.body?.string() ?: ""
+
+                if (!response.isSuccessful) {
+                    val code = response.code
+                    if (code == 404 && model != models.last()) {
+                        continue
+                    }
+                    val friendlyError = try {
+                        val errObj = JSONObject(responseBodyStr).optJSONObject("error")
+                        errObj?.optString("message") ?: responseBodyStr
+                    } catch (e: Exception) { responseBodyStr }
+
+                    val msg = when (code) {
+                        401, 403 -> "Invalid Gemini API Key. Please verify your key in Settings."
+                        429 -> "Gemini API rate limit reached. Please try again shortly."
+                        else -> "Gemini API Error ($code): $friendlyError"
+                    }
+                    throw IllegalStateException(msg)
+                }
+
+                if (responseBodyStr.isBlank()) {
+                    throw IllegalStateException("Empty response received from Gemini API.")
+                }
+
+                val responseJson = JSONObject(responseBodyStr)
+                val candidates = responseJson.optJSONArray("candidates")
+                    ?: throw IllegalStateException("No candidates found in Gemini API response.")
+
+                if (candidates.length() == 0) {
+                    throw IllegalStateException("Gemini generated an empty response.")
+                }
+
+                val content = candidates.getJSONObject(0).optJSONObject("content")
+                    ?: throw IllegalStateException("No content object in candidate.")
+
+                val parts = content.optJSONArray("parts")
+                    ?: throw IllegalStateException("No parts found in Gemini response.")
+
+                val textResult = parts.getJSONObject(0).optString("text", "")
+                if (textResult.isEmpty()) {
+                    throw IllegalStateException("Gemini returned empty text content.")
+                }
+
+                return@withContext parseGeminiResponse(textResult)
+            } catch (e: Exception) {
+                lastException = e
+                if (e is IllegalStateException && e.message?.contains("Invalid Gemini API Key") == true) {
+                    throw e
+                }
+            }
         }
 
-        val responseBodyStr = response.body?.string() ?: throw IllegalStateException("Empty response from Gemini API")
-        val responseJson = JSONObject(responseBodyStr)
-
-        val candidates = responseJson.optJSONArray("candidates")
-            ?: throw IllegalStateException("No candidates found in Gemini response")
-
-        if (candidates.length() == 0) {
-            throw IllegalStateException("Empty candidates list from Gemini")
-        }
-
-        val content = candidates.getJSONObject(0).optJSONObject("content")
-            ?: throw IllegalStateException("No content object in candidate")
-
-        val parts = content.optJSONArray("parts")
-            ?: throw IllegalStateException("No parts found in content")
-
-        val textResult = parts.getJSONObject(0).optString("text", "")
-        if (textResult.isEmpty()) {
-            throw IllegalStateException("Empty text content returned by Gemini")
-        }
-
-        parseGeminiResponse(textResult)
+        throw lastException ?: IllegalStateException("Failed to process image with Gemini API.")
     }
 
     private fun parseGeminiResponse(jsonString: String): GeminiNoteResult {
@@ -250,12 +281,16 @@ class MlKitOcrEngine(private val context: Context) : OcrEngine {
                 recognizer.process(image)
                     .addOnSuccessListener { visionText ->
                         val fullText = visionText.text.trim()
+                        if (fullText.isBlank()) {
+                            cont.resumeWithException(IllegalStateException("No readable text detected in the image. Try selecting a clearer area."))
+                            return@addOnSuccessListener
+                        }
                         val firstLine = visionText.textBlocks.firstOrNull()?.lines?.firstOrNull()?.text?.trim()
                             ?: fullText.lineSequence().firstOrNull().orEmpty()
 
                         val title = if (firstLine.isNotBlank()) firstLine.take(60) else "Scanned Card"
                         val front = if (firstLine.isNotBlank()) firstLine else title
-                        val back = if (fullText.isNotBlank()) fullText else "No text recognized"
+                        val back = fullText
 
                         cont.resume(
                             GeminiNoteResult(
@@ -271,10 +306,18 @@ class MlKitOcrEngine(private val context: Context) : OcrEngine {
                         ) {}
                     }
                     .addOnFailureListener { e ->
-                        cont.resumeWithException(e)
+                        android.util.Log.e("MlKitOcrEngine", "ML Kit OCR failed", e)
+                        val msg = when {
+                            e.message?.contains("download", ignoreCase = true) == true ->
+                                "On-device OCR model is downloading. Connect to Wi-Fi/Internet or enter a Gemini API Key in Settings."
+                            else ->
+                                e.localizedMessage ?: e.message ?: "On-device OCR failed"
+                        }
+                        cont.resumeWithException(IllegalStateException(msg, e))
                     }
             } catch (e: Exception) {
-                cont.resumeWithException(e)
+                android.util.Log.e("MlKitOcrEngine", "Failed to start ML Kit OCR", e)
+                cont.resumeWithException(IllegalStateException("Failed to initialize OCR: ${e.localizedMessage ?: e.message}", e))
             }
         }
 }
@@ -285,7 +328,8 @@ class OcrEngineProvider(
 ) {
     fun get(): OcrEngine {
         val key = apiKeyProvider().trim()
-        return if (key.isNotBlank()) GeminiOcrEngine { key } else MlKitOcrEngine(context)
+        val isValidKey = key.isNotBlank() && key != "MY_GEMINI_API_KEY" && key != "null" && key != "DEFAULT_KEY"
+        return if (isValidKey) GeminiOcrEngine { key } else MlKitOcrEngine(context)
     }
 }
 
