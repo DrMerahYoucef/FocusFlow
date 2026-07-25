@@ -70,6 +70,14 @@ secrets {
   defaultPropertiesFileName = ".env.example"
 }
 
+configurations.all {
+  resolutionStrategy.eachDependency {
+    if (requested.group == "androidx.camera") {
+      useVersion("1.3.4")
+    }
+  }
+}
+
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
 dependencies {
@@ -86,6 +94,7 @@ dependencies {
   implementation(libs.androidx.camera.core)
   implementation(libs.androidx.camera.lifecycle)
   implementation(libs.androidx.camera.view)
+  implementation(libs.androidx.camera.video)
   implementation("androidx.work:work-runtime-ktx:2.9.1")
   implementation(libs.androidx.compose.material.icons.core)
   implementation(libs.androidx.compose.material.icons.extended)
