@@ -26,8 +26,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -124,8 +122,6 @@ fun SettingsScreen(
     var isDeleteAccountConfirmOpen by remember { mutableStateOf(false) }
 
     // State of each expandable section
-    var isGeminiExpanded by remember { mutableStateOf(false) }
-    var isTrackedAppsExpanded by remember { mutableStateOf(false) }
     var isExamsExpanded by remember { mutableStateOf(false) }
     var isTimerIntervalsExpanded by remember { mutableStateOf(false) }
     var isSystemSettingsExpanded by remember { mutableStateOf(false) }
@@ -135,8 +131,6 @@ fun SettingsScreen(
     var isAccountExpanded by remember { mutableStateOf(false) }
     var isUpdateExpanded by remember { mutableStateOf(false) }
     var isDeveloperExpanded by remember { mutableStateOf(false) }
-
-    val currentGeminiKey by viewModel.geminiApiKey.collectAsState()
 
     // Data queries
     val examDao = remember { com.example.FocusFlowApplication.instance.database.examDao() }
@@ -545,34 +539,6 @@ fun SettingsScreen(
                     }
                 }
             }
-        }
-
-        // 3.5. Section: Gemini API Key
-        ExpandableSection(
-            title = "GEMINI API KEY",
-            icon = Icons.Default.Key,
-            isExpanded = isGeminiExpanded,
-            onHeaderClick = { isGeminiExpanded = !isGeminiExpanded }
-        ) {
-            GeminiApiKeySetting(
-                currentKey = currentGeminiKey,
-                onSave = { key ->
-                    viewModel.saveGeminiApiKey(key)
-                },
-                onClear = {
-                    viewModel.clearGeminiApiKey()
-                }
-            )
-        }
-
-        // 3.6. Section: Apps to Summarize
-        ExpandableSection(
-            title = "APPS TO SUMMARIZE",
-            icon = Icons.Default.MarkUnreadChatAlt,
-            isExpanded = isTrackedAppsExpanded,
-            onHeaderClick = { isTrackedAppsExpanded = !isTrackedAppsExpanded }
-        ) {
-            NotificationAppsPickerSetting()
         }
 
         // 4. Section: App Blocker Setup
@@ -1418,213 +1384,5 @@ private fun shareCsvContent(context: Context, csvText: String) {
         context.startActivity(Intent.createChooser(shareIntent, "Save focus statistics report via:"))
     } catch (e: Exception) {
         Toast.makeText(context, "Failed to export data: ${e.message}", Toast.LENGTH_LONG).show()
-    }
-}
-
-@Composable
-fun GeminiApiKeySetting(
-    currentKey: String?,
-    onSave: (String) -> Unit,
-    onClear: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var keyInput by remember(currentKey) { mutableStateOf(currentKey ?: "") }
-    var isVisible by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = "Gemini API Key",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = NeumorphicColors.TextPrimary
-        )
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(
-            value = keyInput,
-            onValueChange = { keyInput = it },
-            singleLine = true,
-            placeholder = { Text("Paste your Gemini API key here") },
-            visualTransformation = if (isVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = {
-                IconButton(onClick = { isVisible = !isVisible }) {
-                    Icon(
-                        imageVector = if (isVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                        contentDescription = if (isVisible) "Hide Key" else "Show Key",
-                        tint = NeumorphicColors.TextSecondary
-                    )
-                }
-            },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = NeumorphicColors.Primary,
-                unfocusedBorderColor = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f)
-            ),
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = "Used for AI-powered features. Your key is stored only on this device.",
-            style = MaterialTheme.typography.labelSmall,
-            color = NeumorphicColors.TextSecondary
-        )
-        Spacer(Modifier.height(12.dp))
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Button(
-                onClick = {
-                    onSave(keyInput)
-                    Toast.makeText(context, "Gemini API key saved", Toast.LENGTH_SHORT).show()
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
-            ) {
-                Text("Save", color = Color.White)
-            }
-            OutlinedButton(
-                onClick = {
-                    keyInput = ""
-                    onClear()
-                    Toast.makeText(context, "Gemini API key cleared", Toast.LENGTH_SHORT).show()
-                }
-            ) {
-                Text("Clear", color = NeumorphicColors.TextPrimary)
-            }
-        }
-    }
-}
-
-@Composable
-fun NotificationAppsPickerSetting(
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    var installedApps by remember { mutableStateOf<List<com.example.util.InstalledAppInfo>>(emptyList()) }
-    var trackedPackages by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var isLoading by remember { mutableStateOf(true) }
-
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            val apps = com.example.util.TrackedAppsStorage.getInstalledApps(context)
-            val tracked = com.example.util.TrackedAppsStorage.getTrackedApps(context)
-            installedApps = apps
-            trackedPackages = tracked
-            isLoading = false
-        }
-    }
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = "Choose which apps' messages should be summarized",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = NeumorphicColors.TextPrimary
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            text = "Only notifications from toggled apps will be captured and summarized by AI.",
-            style = MaterialTheme.typography.labelSmall,
-            color = NeumorphicColors.TextSecondary
-        )
-        Spacer(Modifier.height(12.dp))
-
-        if (isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier
-                    .size(28.dp)
-                    .align(Alignment.CenterHorizontally),
-                color = NeumorphicColors.Primary
-            )
-        } else if (installedApps.isEmpty()) {
-            Text(
-                text = "No launchable apps found.",
-                style = MaterialTheme.typography.bodySmall,
-                color = NeumorphicColors.TextSecondary
-            )
-        } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                TextButton(
-                    onClick = {
-                        val allPkgs = installedApps.map { it.packageName }.toSet()
-                        trackedPackages = allPkgs
-                        com.example.util.TrackedAppsStorage.saveTrackedApps(context, allPkgs)
-                    }
-                ) {
-                    Text("Select All", fontSize = 12.sp, color = NeumorphicColors.Primary)
-                }
-                TextButton(
-                    onClick = {
-                        trackedPackages = emptySet()
-                        com.example.util.TrackedAppsStorage.saveTrackedApps(context, emptySet())
-                    }
-                ) {
-                    Text("Clear All", fontSize = 12.sp, color = NeumorphicColors.TextSecondary)
-                }
-            }
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 320.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                installedApps.forEach { app ->
-                    val isChecked = trackedPackages.contains(app.packageName)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                color = if (isChecked) NeumorphicColors.Primary.copy(alpha = 0.08f) else Color.Transparent,
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
-                            )
-                            .padding(horizontal = 8.dp, vertical = 6.dp)
-                            .clickable {
-                                val newSet = if (isChecked) {
-                                    trackedPackages - app.packageName
-                                } else {
-                                    trackedPackages + app.packageName
-                                }
-                                trackedPackages = newSet
-                                com.example.util.TrackedAppsStorage.saveTrackedApps(context, newSet)
-                            }
-                    ) {
-                        androidx.compose.foundation.Image(
-                            bitmap = app.icon,
-                            contentDescription = null,
-                            modifier = Modifier.size(28.dp)
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Text(
-                            text = app.label,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = if (isChecked) FontWeight.Bold else FontWeight.Normal,
-                            color = NeumorphicColors.TextPrimary,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Switch(
-                            checked = isChecked,
-                            onCheckedChange = { checked ->
-                                val newSet = if (checked) {
-                                    trackedPackages + app.packageName
-                                } else {
-                                    trackedPackages - app.packageName
-                                }
-                                trackedPackages = newSet
-                                com.example.util.TrackedAppsStorage.saveTrackedApps(context, newSet)
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = NeumorphicColors.Primary
-                            )
-                        )
-                    }
-                }
-            }
-        }
     }
 }
