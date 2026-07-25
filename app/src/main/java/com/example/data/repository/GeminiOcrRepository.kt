@@ -161,7 +161,13 @@ Rules:
             })
         }
 
-        val models = listOf("gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash")
+        val models = listOf(
+            "gemini-3.5-flash",
+            "gemini-2.5-flash",
+            "gemini-3.1-flash-lite-preview",
+            "gemini-2.5-flash-lite",
+            "gemini-1.5-flash-latest"
+        )
         var lastException: Exception? = null
 
         for (model in models) {
@@ -322,6 +328,25 @@ class MlKitOcrEngine(private val context: Context) : OcrEngine {
         }
 }
 
+class HybridOcrEngine(
+    private val geminiEngine: GeminiOcrEngine,
+    private val mlKitEngine: MlKitOcrEngine
+) : OcrEngine {
+    override suspend fun extractStructuredContent(bitmap: Bitmap, mode: ExtractionMode): GeminiNoteResult {
+        return try {
+            geminiEngine.extractStructuredContent(bitmap, mode)
+        } catch (e: Exception) {
+            android.util.Log.w("HybridOcrEngine", "Gemini API OCR failed (${e.message}), falling back to ML Kit on-device OCR", e)
+            try {
+                mlKitEngine.extractStructuredContent(bitmap, mode)
+            } catch (mlKitException: Exception) {
+                val combinedMessage = "Gemini OCR Error: ${e.message}\nML Kit Fallback Error: ${mlKitException.message}"
+                throw IllegalStateException(combinedMessage, e)
+            }
+        }
+    }
+}
+
 class OcrEngineProvider(
     private val apiKeyProvider: () -> String,
     private val context: Context
@@ -329,7 +354,12 @@ class OcrEngineProvider(
     fun get(): OcrEngine {
         val key = apiKeyProvider().trim()
         val isValidKey = key.isNotBlank() && key != "MY_GEMINI_API_KEY" && key != "null" && key != "DEFAULT_KEY"
-        return if (isValidKey) GeminiOcrEngine { key } else MlKitOcrEngine(context)
+        val mlKitEngine = MlKitOcrEngine(context)
+        return if (isValidKey) {
+            HybridOcrEngine(GeminiOcrEngine { key }, mlKitEngine)
+        } else {
+            mlKitEngine
+        }
     }
 }
 
