@@ -7,19 +7,19 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.FocusFlowApplication
 import com.example.data.db.entity.RevisionDeckEntity
+import com.example.data.db.entity.RevisionMediaType
 import com.example.data.db.entity.RevisionNoteEntity
-import com.example.data.repository.GeminiOcrRepository
+import com.example.data.repository.CaptureMediaKind
+import com.example.data.repository.GeminiQuestionEngine
 import com.example.data.repository.ImportMode
-import com.example.data.repository.OcrEngineProvider
 import com.example.data.repository.RevisionExportFile
-import com.example.data.repository.toSingleNote
 import com.example.data.srs.ReviewGrade
 import com.example.data.srs.Sm2Scheduler
 import com.example.data.srs.SrsSettings
 import com.example.service.RevisionReminderWorker
-import com.example.service.RevisionSyncWorker
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.io.File
 
 data class RevisionsUiState(
     val decks: List<RevisionDeckEntity> = emptyList(),
@@ -37,12 +37,13 @@ data class RevisionsUiState(
 class RevisionsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = FocusFlowApplication.instance.revisionRepository
+    private val localMediaStore = FocusFlowApplication.instance.localMediaStore
     private val sharedPrefs = application.getSharedPreferences("focusflow_prefs", Context.MODE_PRIVATE)
 
     private val _uiState = MutableStateFlow(RevisionsUiState())
     val uiState: StateFlow<RevisionsUiState> = _uiState.asStateFlow()
 
-    private val ocrEngineProvider = com.example.data.repository.OcrEngineProvider(
+    private val geminiQuestionEngine = GeminiQuestionEngine(
         apiKeyProvider = {
             val userKey = _uiState.value.srsSettings.geminiApiKey.trim()
             val prefKey = sharedPrefs.getString("gemini_api_key", "")?.trim().orEmpty()
@@ -134,7 +135,46 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             val updatedNote = Sm2Scheduler.schedule(note, grade)
             repository.upsertNote(updatedNote)
-            RevisionSyncWorker.scheduleSyncWork(getApplication())
+        }
+    }
+
+    fun captureNoteFromPhoto(
+        bitmap: Bitmap,
+        onComplete: (Boolean) -> Unit
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isProcessingOcr = true, ocrError = null) }
+            var savedPath: String? = null
+            try {
+                savedPath = localMediaStore.savePhoto(bitmap)
+                val fileBytes = File(savedPath).readBytes()
+                val questionResult = geminiQuestionEngine.generateQuestion(fileBytes, CaptureMediaKind.IMAGE_JPEG)
+
+                val note = RevisionNoteEntity(
+                    deckId = _uiState.value.selectedDeckId,
+                    question = questionResult.question,
+                    mediaType = RevisionMediaType.IMAGE,
+                    mediaFilePath = savedPath,
+                    title = questionResult.title,
+                    easeFactor = _uiState.value.srsSettings.startingEaseFactor
+                )
+
+                repository.upsertNote(note)
+                _uiState.update { it.copy(isProcessingOcr = false) }
+                onComplete(true)
+            } catch (e: Exception) {
+                android.util.Log.e("RevisionsViewModel", "Photo card creation failed", e)
+                if (savedPath != null) {
+                    localMediaStore.delete(savedPath)
+                }
+                val errorMessage = when {
+                    !e.message.isNullOrBlank() -> e.message!!
+                    !e.localizedMessage.isNullOrBlank() -> e.localizedMessage!!
+                    else -> "Failed to process photo (${e.javaClass.simpleName}). Please check API key."
+                }
+                _uiState.update { it.copy(isProcessingOcr = false, ocrError = errorMessage) }
+                onComplete(false)
+            }
         }
     }
 
@@ -143,27 +183,42 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
         explainMode: Boolean = false,
         onComplete: (Boolean) -> Unit
     ) {
+        captureNoteFromPhoto(croppedBitmap, onComplete)
+    }
+
+    fun captureNoteFromAudio(
+        tempRecordingFile: File,
+        onComplete: (Boolean) -> Unit
+    ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isProcessingOcr = true, ocrError = null) }
+            var savedPath: String? = null
             try {
-                val deckId = _uiState.value.selectedDeckId
-                val mode = if (explainMode) com.example.data.repository.ExtractionMode.EXPLAIN else com.example.data.repository.ExtractionMode.VERBATIM
+                savedPath = localMediaStore.saveAudioFrom(tempRecordingFile)
+                val fileBytes = File(savedPath).readBytes()
+                val questionResult = geminiQuestionEngine.generateQuestion(fileBytes, CaptureMediaKind.AUDIO_M4A)
 
-                val engine = ocrEngineProvider.get()
-                val result = engine.extractStructuredContent(croppedBitmap, mode)
-                val singleNote = result.toSingleNote(deckId, _uiState.value.srsSettings.startingEaseFactor)
+                val note = RevisionNoteEntity(
+                    deckId = _uiState.value.selectedDeckId,
+                    question = questionResult.question,
+                    mediaType = RevisionMediaType.AUDIO,
+                    mediaFilePath = savedPath,
+                    title = questionResult.title,
+                    easeFactor = _uiState.value.srsSettings.startingEaseFactor
+                )
 
-                repository.upsertNote(singleNote)
-                RevisionSyncWorker.scheduleSyncWork(getApplication())
-
+                repository.upsertNote(note)
                 _uiState.update { it.copy(isProcessingOcr = false) }
                 onComplete(true)
             } catch (e: Exception) {
-                android.util.Log.e("RevisionsViewModel", "OCR failed", e)
+                android.util.Log.e("RevisionsViewModel", "Audio card creation failed", e)
+                if (savedPath != null) {
+                    localMediaStore.delete(savedPath)
+                }
                 val errorMessage = when {
                     !e.message.isNullOrBlank() -> e.message!!
                     !e.localizedMessage.isNullOrBlank() -> e.localizedMessage!!
-                    else -> "Failed to recognize text from image (${e.javaClass.simpleName}). Please check image or API key."
+                    else -> "Failed to process audio (${e.javaClass.simpleName}). Please check API key."
                 }
                 _uiState.update { it.copy(isProcessingOcr = false, ocrError = errorMessage) }
                 onComplete(false)
@@ -213,7 +268,6 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
     fun applyImport(data: RevisionExportFile, mode: ImportMode, onComplete: () -> Unit) {
         viewModelScope.launch {
             repository.applyImport(data, mode)
-            RevisionSyncWorker.scheduleSyncWork(getApplication())
             onComplete()
         }
     }

@@ -34,7 +34,8 @@ fun RevisionDeckDetailScreen(
     viewModel: RevisionsViewModel,
     onNoteClick: (String) -> Unit,
     onStartReview: (String) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
     val deck = state.decks.find { it.id == deckId }
@@ -55,6 +56,7 @@ fun RevisionDeckDetailScreen(
     }
 
     Scaffold(
+        modifier = modifier,
         topBar = {
             TopAppBar(
                 title = { Text(text = deck?.name ?: "Deck", fontWeight = FontWeight.Bold) },
@@ -73,8 +75,10 @@ fun RevisionDeckDetailScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = NeumorphicColors.Background,
-                    titleContentColor = NeumorphicColors.TextPrimary
+                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
+                    titleContentColor = NeumorphicColors.TextPrimary,
+                    navigationIconContentColor = NeumorphicColors.TextPrimary,
+                    actionIconContentColor = NeumorphicColors.TextPrimary
                 )
             )
         },

@@ -1,7 +1,6 @@
 package com.example.data.srs
 
 import com.example.data.db.entity.RevisionNoteEntity
-import com.example.data.db.entity.SyncStatus
 import java.util.concurrent.TimeUnit
 
 enum class ReviewGrade(val label: String) {
@@ -56,8 +55,7 @@ object Sm2Scheduler {
             repetitions = reps,
             dueDate = nextDueMs,
             lastReviewedAt = nowMs,
-            updatedAt = nowMs,
-            syncStatus = SyncStatus.PENDING_UPLOAD
+            updatedAt = nowMs
         )
     }
 }

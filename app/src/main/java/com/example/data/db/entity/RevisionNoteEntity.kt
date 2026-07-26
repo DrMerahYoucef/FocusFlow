@@ -4,12 +4,16 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
 
+enum class RevisionMediaType { IMAGE, AUDIO }
+
 @Entity(tableName = "revision_notes")
 data class RevisionNoteEntity(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
     val deckId: String,
-    val title: String,
-    val contentMarkdown: String, // structured content from Gemini with Markdown & highlight spans
+    val question: String,            // Gemini-generated study question — this is the card FRONT
+    val mediaType: RevisionMediaType, // IMAGE or AUDIO
+    val mediaFilePath: String,       // local path under app-private storage — this is the card BACK
+    val title: String,               // short label for list screens, derived from the question
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
 
@@ -18,9 +22,5 @@ data class RevisionNoteEntity(
     val intervalDays: Int = 0,
     val repetitions: Int = 0,
     val dueDate: Long = System.currentTimeMillis(), // next review date timestamp (ms)
-    val lastReviewedAt: Long? = null,
-
-    // --- sync metadata ---
-    val firestoreId: String? = null,
-    val syncStatus: SyncStatus = SyncStatus.PENDING_UPLOAD
+    val lastReviewedAt: Long? = null
 )

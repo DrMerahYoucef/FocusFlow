@@ -18,6 +18,9 @@ interface RevisionNoteDao {
     @Query("SELECT * FROM revision_notes WHERE deckId = :deckId ORDER BY createdAt DESC")
     fun getNotesForDeck(deckId: String): Flow<List<RevisionNoteEntity>>
 
+    @Query("SELECT * FROM revision_notes WHERE deckId = :deckId ORDER BY createdAt DESC")
+    suspend fun getNotesForDeckOnce(deckId: String): List<RevisionNoteEntity>
+
     @Query("SELECT * FROM revision_notes ORDER BY createdAt DESC")
     fun getAllNotes(): Flow<List<RevisionNoteEntity>>
 
@@ -38,9 +41,6 @@ interface RevisionNoteDao {
 
     @Upsert
     suspend fun upsertAll(notes: List<RevisionNoteEntity>)
-
-    @Query("SELECT * FROM revision_notes WHERE syncStatus != 'SYNCED'")
-    suspend fun getUnsyncedNotes(): List<RevisionNoteEntity>
 
     @Delete
     suspend fun delete(note: RevisionNoteEntity)

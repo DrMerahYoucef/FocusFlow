@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.data.db.entity.RevisionDeckEntity
+import com.example.data.db.entity.RevisionMediaType
 import com.example.data.db.entity.RevisionNoteEntity
 import com.example.ui.components.ConfirmDeleteDialog
 import com.example.ui.components.NeumorphicButton
@@ -90,7 +91,7 @@ fun RevisionsHomeScreen(
                         color = NeumorphicColors.TextPrimary
                     )
                     Text(
-                        text = "SM-2 Spaced Repetition",
+                        text = "Répétition espacée SM-2",
                         fontSize = 12.sp,
                         color = NeumorphicColors.TextSecondary
                     )
@@ -99,7 +100,7 @@ fun RevisionsHomeScreen(
                 IconButton(onClick = { isAddDeckDialogOpen = true }) {
                     Icon(
                         imageVector = Icons.Default.CreateNewFolder,
-                        contentDescription = "New Deck",
+                        contentDescription = "Nouveau paquet",
                         tint = NeumorphicColors.Primary
                     )
                 }
@@ -126,14 +127,14 @@ fun RevisionsHomeScreen(
                             .clickable { activeDeck?.let { onDeckClick(it.id) } }
                     ) {
                         Text(
-                            text = "${activeDeckDueNotes.size} cards due",
+                            text = "${activeDeckDueNotes.size} fiches à réviser",
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Black,
                             color = if (activeDeckDueNotes.isNotEmpty()) NeumorphicColors.Accent else NeumorphicColors.TextPrimary
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "${activeDeckNotes.size} total cards in ${activeDeck?.name ?: "Deck"}",
+                            text = "${activeDeckNotes.size} fiches au total dans ${activeDeck?.name ?: "Paquet"}",
                             fontSize = 12.sp,
                             color = NeumorphicColors.TextSecondary
                         )
@@ -149,7 +150,7 @@ fun RevisionsHomeScreen(
                     } else {
                         Icon(
                             imageVector = Icons.Default.CheckCircle,
-                            contentDescription = "Up to date",
+                            contentDescription = "À jour",
                             tint = NeumorphicColors.Success,
                             modifier = Modifier.size(36.dp)
                         )
@@ -161,7 +162,7 @@ fun RevisionsHomeScreen(
 
             // Deck selector tabs
             Text(
-                text = "DECKS",
+                text = "PAQUETS",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Black,
                 letterSpacing = 1.sp,
@@ -239,7 +240,7 @@ fun RevisionsHomeScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "DECK CARDS (${activeDeckNotes.size})",
+                    text = "FICHES DE CE PAQUET (${activeDeckNotes.size})",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.sp,
@@ -269,14 +270,14 @@ fun RevisionsHomeScreen(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "No cards in this deck",
+                            text = "Aucune fiche dans ce paquet",
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
                             color = NeumorphicColors.TextPrimary
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Tap '+' to scan a page or photo into a new card",
+                            text = "Appuyez sur '+' pour capturer une photo ou un enregistrement vocal",
                             fontSize = 12.sp,
                             color = NeumorphicColors.TextSecondary,
                             modifier = Modifier.padding(horizontal = 16.dp),
@@ -313,7 +314,7 @@ fun RevisionsHomeScreen(
         ) {
             Icon(
                 imageVector = Icons.Default.Add,
-                contentDescription = "Scan a card",
+                contentDescription = "Ajouter une fiche",
                 modifier = Modifier.size(28.dp)
             )
         }
@@ -323,13 +324,21 @@ fun RevisionsHomeScreen(
     if (isAddDeckDialogOpen) {
         AlertDialog(
             onDismissRequest = { isAddDeckDialogOpen = false },
-            title = { Text("New Deck") },
+            title = { Text("Nouveau paquet", color = NeumorphicColors.TextPrimary, fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
                     value = newDeckName,
                     onValueChange = { newDeckName = it },
-                    label = { Text("Deck name (e.g., Biology)") },
+                    label = { Text("Nom du paquet (ex: Biologie)") },
                     singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = NeumorphicColors.Primary,
+                        unfocusedBorderColor = NeumorphicColors.TextSecondary,
+                        focusedLabelColor = NeumorphicColors.Primary,
+                        unfocusedLabelColor = NeumorphicColors.TextSecondary,
+                        focusedTextColor = NeumorphicColors.TextPrimary,
+                        unfocusedTextColor = NeumorphicColors.TextPrimary
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
             },
@@ -342,11 +351,12 @@ fun RevisionsHomeScreen(
                             isAddDeckDialogOpen = false
                         }
                     }
-                ) { Text("Create") }
+                ) { Text("Créer", color = NeumorphicColors.Primary, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
-                TextButton(onClick = { isAddDeckDialogOpen = false }) { Text("Cancel") }
-            }
+                TextButton(onClick = { isAddDeckDialogOpen = false }) { Text("Annuler", color = NeumorphicColors.TextSecondary) }
+            },
+            containerColor = NeumorphicColors.DialogBackground
         )
     }
 }
@@ -370,15 +380,36 @@ fun NoteListItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = note.title,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                color = NeumorphicColors.TextPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = if (note.mediaType == RevisionMediaType.IMAGE) Icons.Default.Image else Icons.Default.Mic,
+                    contentDescription = null,
+                    tint = NeumorphicColors.Primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = note.question,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = NeumorphicColors.TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = note.title,
+                        fontSize = 12.sp,
+                        color = NeumorphicColors.TextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
 
             IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
                 Icon(

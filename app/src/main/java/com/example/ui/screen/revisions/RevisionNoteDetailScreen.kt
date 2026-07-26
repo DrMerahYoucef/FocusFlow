@@ -1,6 +1,5 @@
 package com.example.ui.screen.revisions
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -13,11 +12,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.ui.components.CardBackView
 import com.example.ui.components.ConfirmDeleteDialog
-import com.example.ui.components.HighlightedMarkdownText
-import com.example.ui.revisions.HighlightedMarkdownWithTables
 import com.example.ui.theme.NeumorphicColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -25,7 +22,8 @@ import com.example.ui.theme.NeumorphicColors
 fun RevisionNoteDetailScreen(
     noteId: String,
     viewModel: RevisionsViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
     val note = state.allNotes.find { it.id == noteId }
@@ -46,17 +44,23 @@ fun RevisionNoteDetailScreen(
 
     if (note == null) {
         Scaffold(
+            modifier = modifier,
             topBar = {
                 TopAppBar(
-                    title = { Text("Card") },
+                    title = { Text("Fiche") },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                         }
-                    }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = androidx.compose.ui.graphics.Color.Transparent,
+                        titleContentColor = NeumorphicColors.TextPrimary,
+                        navigationIconContentColor = NeumorphicColors.TextPrimary
+                    )
                 )
             },
-            containerColor = NeumorphicColors.Background
+            containerColor = androidx.compose.ui.graphics.Color.Transparent
         ) { padding ->
             Box(
                 modifier = Modifier
@@ -68,6 +72,7 @@ fun RevisionNoteDetailScreen(
     }
 
     Scaffold(
+        modifier = modifier,
         topBar = {
             TopAppBar(
                 title = {
@@ -95,8 +100,10 @@ fun RevisionNoteDetailScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = NeumorphicColors.Background,
-                    titleContentColor = NeumorphicColors.TextPrimary
+                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
+                    titleContentColor = NeumorphicColors.TextPrimary,
+                    navigationIconContentColor = NeumorphicColors.TextPrimary,
+                    actionIconContentColor = NeumorphicColors.TextPrimary
                 )
             )
         },
@@ -112,25 +119,12 @@ fun RevisionNoteDetailScreen(
             Card(
                 colors = CardDefaults.cardColors(containerColor = NeumorphicColors.SurfaceLight),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().height(480.dp)
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = note.title,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = NeumorphicColors.TextPrimary
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    HorizontalDivider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    HighlightedMarkdownWithTables(
-                        markdown = note.contentMarkdown,
-                        fontSize = 16.sp,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
+                CardBackView(
+                    note = note,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
         }
     }

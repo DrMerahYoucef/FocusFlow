@@ -359,6 +359,7 @@ fun CropEditorScreen(
                     showModeDialog = false
                     pendingCroppedBitmap = null
                 },
+                containerColor = NeumorphicColors.DialogBackground,
                 title = { Text("Card Extraction Mode", fontWeight = FontWeight.Bold, color = NeumorphicColors.TextPrimary) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -448,8 +449,7 @@ fun CropEditorScreen(
                     ) {
                         Text("Cancel", color = NeumorphicColors.TextSecondary)
                     }
-                },
-                containerColor = NeumorphicColors.SurfaceLight
+                }
             )
         }
 
@@ -495,7 +495,7 @@ fun CropEditorScreen(
                         Text("OK")
                     }
                 },
-                containerColor = NeumorphicColors.SurfaceLight
+                containerColor = NeumorphicColors.DialogBackground
             )
         }
 
