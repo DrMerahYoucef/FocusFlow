@@ -24,10 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.data.db.entity.RevisionDeckEntity
-import com.example.data.db.entity.RevisionMediaType
 import com.example.data.db.entity.RevisionNoteEntity
 import com.example.ui.components.ConfirmDeleteDialog
-import com.example.ui.components.EditCardDialog
 import com.example.ui.components.NeumorphicButton
 import com.example.ui.components.NeumorphicCard
 import com.example.ui.theme.NeumorphicColors
@@ -46,8 +44,6 @@ fun RevisionsHomeScreen(
     var isAddDeckDialogOpen by remember { mutableStateOf(false) }
     var newDeckName by remember { mutableStateOf("") }
     var noteToDelete by remember { mutableStateOf<RevisionNoteEntity?>(null) }
-    var noteToEdit by remember { mutableStateOf<RevisionNoteEntity?>(null) }
-    var showCreateManualCardDialog by remember { mutableStateOf(false) }
 
     val activeDeck = state.decks.find { it.id == state.selectedDeckId } ?: state.decks.firstOrNull()
     val activeDeckNotes = state.allNotes.filter { it.deckId == (activeDeck?.id ?: "default_deck") }
@@ -66,40 +62,6 @@ fun RevisionsHomeScreen(
                 noteToDelete = null
             },
             onDismiss = { noteToDelete = null }
-        )
-    }
-
-    if (noteToEdit != null) {
-        val currentNote = noteToEdit!!
-        EditCardDialog(
-            initialTitle = currentNote.title,
-            initialQuestion = currentNote.question,
-            mediaFilePath = currentNote.mediaFilePath,
-            dialogTitle = "Modifier la fiche",
-            confirmButtonLabel = "Enregistrer",
-            onSave = { updatedTitle, updatedQuestion ->
-                viewModel.updateNote(currentNote.copy(title = updatedTitle, question = updatedQuestion))
-                noteToEdit = null
-            },
-            onDismiss = { noteToEdit = null }
-        )
-    }
-
-    if (showCreateManualCardDialog) {
-        EditCardDialog(
-            initialTitle = "",
-            initialQuestion = "",
-            dialogTitle = "Créer une fiche manuelle",
-            confirmButtonLabel = "Créer la fiche",
-            onSave = { title, question ->
-                viewModel.createManualCard(
-                    deckId = activeDeck?.id ?: "default_deck",
-                    title = title,
-                    question = question
-                )
-                showCreateManualCardDialog = false
-            },
-            onDismiss = { showCreateManualCardDialog = false }
         )
     }
 
@@ -128,7 +90,7 @@ fun RevisionsHomeScreen(
                         color = NeumorphicColors.TextPrimary
                     )
                     Text(
-                        text = "Répétition espacée SM-2",
+                        text = "SM-2 Spaced Repetition",
                         fontSize = 12.sp,
                         color = NeumorphicColors.TextSecondary
                     )
@@ -137,7 +99,7 @@ fun RevisionsHomeScreen(
                 IconButton(onClick = { isAddDeckDialogOpen = true }) {
                     Icon(
                         imageVector = Icons.Default.CreateNewFolder,
-                        contentDescription = "Nouveau paquet",
+                        contentDescription = "New Deck",
                         tint = NeumorphicColors.Primary
                     )
                 }
@@ -164,14 +126,14 @@ fun RevisionsHomeScreen(
                             .clickable { activeDeck?.let { onDeckClick(it.id) } }
                     ) {
                         Text(
-                            text = "${activeDeckDueNotes.size} fiches à réviser",
+                            text = "${activeDeckDueNotes.size} cards due",
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Black,
                             color = if (activeDeckDueNotes.isNotEmpty()) NeumorphicColors.Accent else NeumorphicColors.TextPrimary
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "${activeDeckNotes.size} fiches au total dans ${activeDeck?.name ?: "Paquet"}",
+                            text = "${activeDeckNotes.size} total cards in ${activeDeck?.name ?: "Deck"}",
                             fontSize = 12.sp,
                             color = NeumorphicColors.TextSecondary
                         )
@@ -187,7 +149,7 @@ fun RevisionsHomeScreen(
                     } else {
                         Icon(
                             imageVector = Icons.Default.CheckCircle,
-                            contentDescription = "À jour",
+                            contentDescription = "Up to date",
                             tint = NeumorphicColors.Success,
                             modifier = Modifier.size(36.dp)
                         )
@@ -199,7 +161,7 @@ fun RevisionsHomeScreen(
 
             // Deck selector tabs
             Text(
-                text = "PAQUETS",
+                text = "DECKS",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Black,
                 letterSpacing = 1.sp,
@@ -277,30 +239,12 @@ fun RevisionsHomeScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "FICHES DE CE PAQUET (${activeDeckNotes.size})",
+                    text = "DECK CARDS (${activeDeckNotes.size})",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.sp,
                     color = NeumorphicColors.TextSecondary
                 )
-                TextButton(
-                    onClick = { showCreateManualCardDialog = true },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = null,
-                        tint = NeumorphicColors.Primary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "+ Fiche Manuelle",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = NeumorphicColors.Primary
-                    )
-                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -325,14 +269,14 @@ fun RevisionsHomeScreen(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Aucune fiche dans ce paquet",
+                            text = "No cards in this deck",
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
                             color = NeumorphicColors.TextPrimary
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Appuyez sur '+' pour capturer une photo ou un enregistrement vocal",
+                            text = "Tap '+' to scan a page or photo into a new card",
                             fontSize = 12.sp,
                             color = NeumorphicColors.TextSecondary,
                             modifier = Modifier.padding(horizontal = 16.dp),
@@ -349,7 +293,6 @@ fun RevisionsHomeScreen(
                         NoteListItem(
                             note = note,
                             onClick = { onNoteClick(note.id) },
-                            onEdit = { noteToEdit = note },
                             onDelete = { noteToDelete = note }
                         )
                     }
@@ -370,7 +313,7 @@ fun RevisionsHomeScreen(
         ) {
             Icon(
                 imageVector = Icons.Default.Add,
-                contentDescription = "Ajouter une fiche",
+                contentDescription = "Scan a card",
                 modifier = Modifier.size(28.dp)
             )
         }
@@ -380,21 +323,13 @@ fun RevisionsHomeScreen(
     if (isAddDeckDialogOpen) {
         AlertDialog(
             onDismissRequest = { isAddDeckDialogOpen = false },
-            title = { Text("Nouveau paquet", color = NeumorphicColors.TextPrimary, fontWeight = FontWeight.Bold) },
+            title = { Text("New Deck") },
             text = {
                 OutlinedTextField(
                     value = newDeckName,
                     onValueChange = { newDeckName = it },
-                    label = { Text("Nom du paquet (ex: Biologie)") },
+                    label = { Text("Deck name (e.g., Biology)") },
                     singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = NeumorphicColors.Primary,
-                        unfocusedBorderColor = NeumorphicColors.TextSecondary,
-                        focusedLabelColor = NeumorphicColors.Primary,
-                        unfocusedLabelColor = NeumorphicColors.TextSecondary,
-                        focusedTextColor = NeumorphicColors.TextPrimary,
-                        unfocusedTextColor = NeumorphicColors.TextPrimary
-                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
             },
@@ -407,12 +342,11 @@ fun RevisionsHomeScreen(
                             isAddDeckDialogOpen = false
                         }
                     }
-                ) { Text("Créer", color = NeumorphicColors.Primary, fontWeight = FontWeight.Bold) }
+                ) { Text("Create") }
             },
             dismissButton = {
-                TextButton(onClick = { isAddDeckDialogOpen = false }) { Text("Annuler", color = NeumorphicColors.TextSecondary) }
-            },
-            containerColor = NeumorphicColors.DialogBackground
+                TextButton(onClick = { isAddDeckDialogOpen = false }) { Text("Cancel") }
+            }
         )
     }
 }
@@ -421,7 +355,6 @@ fun RevisionsHomeScreen(
 fun NoteListItem(
     note: RevisionNoteEntity,
     onClick: () -> Unit,
-    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     NeumorphicCard(
@@ -437,55 +370,23 @@ fun NoteListItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = if (note.mediaType == RevisionMediaType.IMAGE) Icons.Default.Image else Icons.Default.Mic,
-                    contentDescription = null,
-                    tint = NeumorphicColors.Primary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = note.question,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = NeumorphicColors.TextPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = note.title,
-                        fontSize = 12.sp,
-                        color = NeumorphicColors.TextSecondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
+            Text(
+                text = note.title,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                color = NeumorphicColors.TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Modifier la fiche",
-                        tint = NeumorphicColors.Primary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(4.dp))
-                IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.DeleteOutline,
-                        contentDescription = stringResource(R.string.delete),
-                        tint = NeumorphicColors.TextSecondary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
+            IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+                Icon(
+                    imageVector = Icons.Default.DeleteOutline,
+                    contentDescription = stringResource(R.string.delete),
+                    tint = NeumorphicColors.TextSecondary,
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
     }

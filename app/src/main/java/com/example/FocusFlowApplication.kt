@@ -4,7 +4,6 @@ import android.app.Application
 import com.example.data.db.AppDatabase
 import com.example.data.repository.BlockedAppRepository
 import com.example.data.repository.ExamRepository
-import com.example.data.repository.LocalMediaStore
 import com.example.data.repository.SessionRepository
 import com.google.firebase.FirebaseApp
 
@@ -18,8 +17,7 @@ class FocusFlowApplication : Application() {
     val sessionRepository by lazy { SessionRepository(database.sessionDao()) }
     val examRepository by lazy { ExamRepository(database.examDao()) }
     val blockedAppRepository by lazy { BlockedAppRepository(database.blockedAppDao()) }
-    val localMediaStore by lazy { LocalMediaStore(this) }
-    val revisionRepository by lazy { RevisionRepository(database.revisionDeckDao(), database.revisionNoteDao(), localMediaStore) }
+    val revisionRepository by lazy { RevisionRepository(database.revisionDeckDao(), database.revisionNoteDao()) }
 
     override fun onCreate() {
         super.onCreate()

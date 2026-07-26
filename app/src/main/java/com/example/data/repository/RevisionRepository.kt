@@ -3,8 +3,8 @@ package com.example.data.repository
 import com.example.data.db.dao.RevisionDeckDao
 import com.example.data.db.dao.RevisionNoteDao
 import com.example.data.db.entity.RevisionDeckEntity
-import com.example.data.db.entity.RevisionMediaType
 import com.example.data.db.entity.RevisionNoteEntity
+import com.example.data.db.entity.SyncStatus
 import kotlinx.coroutines.flow.Flow
 import org.json.JSONArray
 import org.json.JSONObject
@@ -22,10 +22,8 @@ data class ExportedDeck(
 data class ExportedNote(
     val id: String,
     val deckId: String,
-    val question: String,
-    val mediaType: RevisionMediaType,
-    val mediaFilePath: String,
     val title: String,
+    val contentMarkdown: String,
     val easeFactor: Float,
     val intervalDays: Int,
     val repetitions: Int,
@@ -44,8 +42,7 @@ enum class ImportMode { MERGE, REPLACE_ALL }
 
 class RevisionRepository(
     private val deckDao: RevisionDeckDao,
-    private val noteDao: RevisionNoteDao,
-    private val mediaStore: LocalMediaStore
+    private val noteDao: RevisionNoteDao
 ) {
     val allDecks: Flow<List<RevisionDeckEntity>> = deckDao.getAllDecks()
     val dueNotes: Flow<List<RevisionNoteEntity>> = noteDao.getDueNotes()
@@ -61,9 +58,7 @@ class RevisionRepository(
     suspend fun deleteDeck(deck: RevisionDeckEntity) = deckDao.delete(deck)
     suspend fun deleteDeckAndNotes(deckId: String) {
         deckDao.getDeckById(deckId)?.let { deck ->
-            val notes = noteDao.getNotesForDeckOnce(deckId)
             noteDao.deleteNotesForDeck(deckId)
-            notes.forEach { mediaStore.delete(it.mediaFilePath) }
             deckDao.delete(deck)
         }
     }
@@ -73,11 +68,9 @@ class RevisionRepository(
 
     suspend fun upsertNote(note: RevisionNoteEntity) = noteDao.upsert(note)
     suspend fun upsertNotes(notes: List<RevisionNoteEntity>) = noteDao.upsertAll(notes)
+    suspend fun deleteNote(note: RevisionNoteEntity) = noteDao.delete(note)
 
-    suspend fun deleteNote(note: RevisionNoteEntity) {
-        noteDao.delete(note)
-        mediaStore.delete(note.mediaFilePath)
-    }
+    suspend fun getUnsyncedNotes() = noteDao.getUnsyncedNotes()
 
     // Export JSON
     suspend fun buildExportJson(): String {
@@ -89,7 +82,7 @@ class RevisionRepository(
         }
 
         val root = JSONObject().apply {
-            put("formatVersion", 2)
+            put("formatVersion", 1)
             put("exportedAt", sdf.format(Date()))
 
             val decksArray = JSONArray()
@@ -107,10 +100,8 @@ class RevisionRepository(
                 notesArray.put(JSONObject().apply {
                     put("id", n.id)
                     put("deckId", n.deckId)
-                    put("question", n.question)
-                    put("mediaType", n.mediaType.name)
-                    put("mediaFilePath", n.mediaFilePath)
                     put("title", n.title)
+                    put("contentMarkdown", n.contentMarkdown)
                     put("easeFactor", n.easeFactor.toDouble())
                     put("intervalDays", n.intervalDays)
                     put("repetitions", n.repetitions)
@@ -152,16 +143,12 @@ class RevisionRepository(
         for (i in 0 until notesArray.length()) {
             val n = notesArray.getJSONObject(i)
             val lastRev = if (n.isNull("lastReviewedAt")) null else n.optLong("lastReviewedAt")
-            val typeStr = n.optString("mediaType", "IMAGE")
-            val mediaType = try { RevisionMediaType.valueOf(typeStr) } catch (e: Exception) { RevisionMediaType.IMAGE }
             notesList.add(
                 ExportedNote(
                     id = n.optString("id"),
                     deckId = n.optString("deckId", "default_deck"),
-                    question = n.optString("question", n.optString("title", "")),
-                    mediaType = mediaType,
-                    mediaFilePath = n.optString("mediaFilePath", ""),
                     title = n.optString("title", "Sans titre"),
+                    contentMarkdown = n.optString("contentMarkdown", ""),
                     easeFactor = n.optDouble("easeFactor", 2.5).toFloat(),
                     intervalDays = n.optInt("intervalDays", 0),
                     repetitions = n.optInt("repetitions", 0),
@@ -182,8 +169,6 @@ class RevisionRepository(
     // Apply Import
     suspend fun applyImport(importData: RevisionExportFile, mode: ImportMode) {
         if (mode == ImportMode.REPLACE_ALL) {
-            val existingNotes = noteDao.getAllNotesOnce()
-            existingNotes.forEach { mediaStore.delete(it.mediaFilePath) }
             noteDao.deleteAll()
             deckDao.deleteAll()
         }
@@ -212,17 +197,16 @@ class RevisionRepository(
                     RevisionNoteEntity(
                         id = n.id,
                         deckId = n.deckId,
-                        question = n.question,
-                        mediaType = n.mediaType,
-                        mediaFilePath = n.mediaFilePath,
                         title = n.title,
+                        contentMarkdown = n.contentMarkdown,
                         createdAt = nowMs,
                         updatedAt = nowMs,
                         easeFactor = n.easeFactor,
                         intervalDays = n.intervalDays,
                         repetitions = n.repetitions,
                         dueDate = n.dueDate,
-                        lastReviewedAt = n.lastReviewedAt
+                        lastReviewedAt = n.lastReviewedAt,
+                        syncStatus = SyncStatus.PENDING_UPLOAD
                     )
                 )
             }

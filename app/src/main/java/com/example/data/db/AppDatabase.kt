@@ -4,8 +4,6 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.room.TypeConverter
-import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.data.db.dao.ExamDao
@@ -22,31 +20,9 @@ import com.example.data.db.entity.FavouriteStationEntity
 import com.example.data.db.entity.CategoryEntity
 import com.example.data.db.entity.StationEntity
 import com.example.data.db.entity.RevisionDeckEntity
-import com.example.data.db.entity.RevisionMediaType
 import com.example.data.db.entity.RevisionNoteEntity
 
-class RevisionTypeConverters {
-    @TypeConverter
-    fun fromMediaType(value: RevisionMediaType?): String = value?.name ?: RevisionMediaType.IMAGE.name
-
-    @TypeConverter
-    fun toMediaType(value: String?): RevisionMediaType = try {
-        value?.let { RevisionMediaType.valueOf(it) } ?: RevisionMediaType.IMAGE
-    } catch (e: Exception) {
-        RevisionMediaType.IMAGE
-    }
-}
-
-@Database(
-    entities = [
-        SessionEntity::class, ExamEntity::class, BlockedAppEntity::class,
-        FavouriteStationEntity::class, CategoryEntity::class, StationEntity::class,
-        RevisionDeckEntity::class, RevisionNoteEntity::class
-    ],
-    version = 6,
-    exportSchema = false
-)
-@TypeConverters(RevisionTypeConverters::class)
+@Database(entities = [SessionEntity::class, ExamEntity::class, BlockedAppEntity::class, FavouriteStationEntity::class, CategoryEntity::class, StationEntity::class, RevisionDeckEntity::class, RevisionNoteEntity::class], version = 5, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun sessionDao(): SessionDao
     abstract fun examDao(): ExamDao
@@ -160,29 +136,6 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATION_5_6 = object : Migration(5, 6) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("DROP TABLE IF EXISTS revision_notes")
-                db.execSQL("""
-                    CREATE TABLE revision_notes (
-                        id TEXT NOT NULL PRIMARY KEY,
-                        deckId TEXT NOT NULL,
-                        question TEXT NOT NULL,
-                        mediaType TEXT NOT NULL,
-                        mediaFilePath TEXT NOT NULL,
-                        title TEXT NOT NULL,
-                        createdAt INTEGER NOT NULL,
-                        updatedAt INTEGER NOT NULL,
-                        easeFactor REAL NOT NULL,
-                        intervalDays INTEGER NOT NULL,
-                        repetitions INTEGER NOT NULL,
-                        dueDate INTEGER NOT NULL,
-                        lastReviewedAt INTEGER
-                    )
-                """)
-            }
-        }
-
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -190,7 +143,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "focusflow_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)

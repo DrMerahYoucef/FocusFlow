@@ -10,6 +10,5 @@ data class SrsSettings(
     val reminderMinute: Int = 0,
     val notificationsEnabled: Boolean = true,
     val geminiApiKey: String = "",
-    val geminiModel: String = "gemini-3.5-flash",
-    val customModels: List<String> = emptyList()
+    val explainModeEnabled: Boolean = false
 )

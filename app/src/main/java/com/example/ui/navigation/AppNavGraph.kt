@@ -392,16 +392,10 @@ fun AppNavGraph(
             }
             composable("revisions/capture") {
                 CaptureScreen(
-                    viewModel = revisionsViewModel,
                     onImageCaptured = { path ->
                         val encoded = java.net.URLEncoder.encode(path, "UTF-8")
                         navController.navigate("revisions/crop?path=$encoded") {
                             popUpTo("revisions/capture") { inclusive = true }
-                        }
-                    },
-                    onAudioCaptured = {
-                        navController.navigate(Screen.Revisions.route) {
-                            popUpTo(Screen.Revisions.route) { inclusive = true }
                         }
                     },
                     onBack = { navController.popBackStack() }
@@ -436,15 +430,12 @@ fun AppNavGraph(
                 )
             ) { backStackEntry ->
                 val deckIdArg = backStackEntry.arguments?.getString("deckId") ?: "default_deck"
-                com.example.ui.components.ForestScaffold { padding ->
-                    RevisionSessionScreen(
-                        deckId = deckIdArg,
-                        viewModel = revisionsViewModel,
-                        onFinishSession = { navController.popBackStack() },
-                        onBack = { navController.popBackStack() },
-                        modifier = Modifier.padding(padding)
-                    )
-                }
+                RevisionSessionScreen(
+                    deckId = deckIdArg,
+                    viewModel = revisionsViewModel,
+                    onFinishSession = { navController.popBackStack() },
+                    onBack = { navController.popBackStack() }
+                )
             }
             composable(
                 route = "revisions/deck/{deckId}",
@@ -453,16 +444,13 @@ fun AppNavGraph(
                 )
             ) { backStackEntry ->
                 val deckIdArg = backStackEntry.arguments?.getString("deckId") ?: "default_deck"
-                com.example.ui.components.ForestScaffold { padding ->
-                    RevisionDeckDetailScreen(
-                        deckId = deckIdArg,
-                        viewModel = revisionsViewModel,
-                        onNoteClick = { noteId -> navController.navigate("revisions/note/$noteId") },
-                        onStartReview = { deckId -> navController.navigate("revisions/session?deckId=$deckId") },
-                        onBack = { navController.popBackStack() },
-                        modifier = Modifier.padding(padding)
-                    )
-                }
+                RevisionDeckDetailScreen(
+                    deckId = deckIdArg,
+                    viewModel = revisionsViewModel,
+                    onNoteClick = { noteId -> navController.navigate("revisions/note/$noteId") },
+                    onStartReview = { deckId -> navController.navigate("revisions/session?deckId=$deckId") },
+                    onBack = { navController.popBackStack() }
+                )
             }
             composable(
                 route = "revisions/note/{noteId}",
@@ -471,14 +459,11 @@ fun AppNavGraph(
                 )
             ) { backStackEntry ->
                 val noteIdArg = backStackEntry.arguments?.getString("noteId") ?: ""
-                com.example.ui.components.ForestScaffold { padding ->
-                    RevisionNoteDetailScreen(
-                        noteId = noteIdArg,
-                        viewModel = revisionsViewModel,
-                        onBack = { navController.popBackStack() },
-                        modifier = Modifier.padding(padding)
-                    )
-                }
+                RevisionNoteDetailScreen(
+                    noteId = noteIdArg,
+                    viewModel = revisionsViewModel,
+                    onBack = { navController.popBackStack() }
+                )
             }
             composable("exams") {
                 com.example.ui.components.ForestScaffold(

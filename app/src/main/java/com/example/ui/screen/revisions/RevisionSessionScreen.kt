@@ -10,10 +10,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
@@ -22,9 +24,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.db.entity.RevisionNoteEntity
 import com.example.data.srs.ReviewGrade
-import com.example.ui.components.CardBackView
-import com.example.ui.components.CardFrontView
+import com.example.ui.components.HighlightedMarkdownText
 import com.example.ui.components.NeumorphicCard
+import com.example.ui.revisions.HighlightedMarkdownWithTables
 import com.example.ui.theme.NeumorphicColors
 
 @Composable
@@ -32,8 +34,7 @@ fun RevisionSessionScreen(
     deckId: String,
     viewModel: RevisionsViewModel,
     onFinishSession: () -> Unit,
-    onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    onBack: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
 
@@ -46,15 +47,15 @@ fun RevisionSessionScreen(
     }
 
     val totalInSession = remember(dueNotes.size) { dueNotes.size }
-    var currentIndex by remember { mutableIntStateOf(0) }
+    var currentIndex by remember { mutableStateOf(0) }
     var isFlipped by remember { mutableStateOf(false) }
 
     val currentNote = dueNotes.getOrNull(currentIndex)
 
     Box(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
-            .background(androidx.compose.ui.graphics.Color.Transparent)
+            .background(NeumorphicColors.Background)
     ) {
         Column(
             modifier = Modifier
@@ -170,14 +171,85 @@ fun RevisionSessionScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(12.dp),
+                                .padding(24.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             if (rotation <= 90f) {
-                                CardFrontView(note = currentNote)
+                                // Front Side
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    Text(
+                                        text = "QUESTION",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Black,
+                                        letterSpacing = 2.sp,
+                                        color = NeumorphicColors.Primary
+                                    )
+                                    Spacer(modifier = Modifier.height(20.dp))
+                                    Text(
+                                        text = currentNote.title,
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = NeumorphicColors.TextPrimary,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(32.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(20.dp))
+                                            .background(NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
+                                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Flip,
+                                            contentDescription = null,
+                                            tint = NeumorphicColors.TextSecondary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Appuyez pour révéler la réponse",
+                                            fontSize = 12.sp,
+                                            color = NeumorphicColors.TextSecondary
+                                        )
+                                    }
+                                }
                             } else {
-                                Box(modifier = Modifier.fillMaxSize().graphicsLayer { rotationY = 180f }) {
-                                    CardBackView(note = currentNote)
+                                // Back Side (Rendered flipped back)
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .graphicsLayer { rotationY = 180f },
+                                    horizontalAlignment = Alignment.Start
+                                ) {
+                                    Text(
+                                        text = "RÉPONSE & EXPLICATION",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Black,
+                                        letterSpacing = 2.sp,
+                                        color = NeumorphicColors.Accent
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = currentNote.title,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = NeumorphicColors.TextSecondary
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    HighlightedMarkdownWithTables(
+                                        markdown = currentNote.contentMarkdown,
+                                        fontSize = 16.sp,
+                                        modifier = Modifier.weight(1f)
+                                    )
                                 }
                             }
                         }
@@ -186,7 +258,7 @@ fun RevisionSessionScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Answer Rating Buttons
+                // Answer Rating Buttons (Shown when card is flipped or user ready)
                 if (isFlipped) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -249,7 +321,7 @@ fun RevisionSessionScreen(
                             .fillMaxWidth()
                             .height(52.dp)
                     ) {
-                        Text("Afficher le support", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("Afficher la réponse", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
                 }
             }

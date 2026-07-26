@@ -1,22 +1,23 @@
 package com.example.ui.screen.revisions
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.R
-import com.example.ui.components.CardBackView
 import com.example.ui.components.ConfirmDeleteDialog
-import com.example.ui.components.EditCardDialog
+import com.example.ui.components.HighlightedMarkdownText
+import com.example.ui.revisions.HighlightedMarkdownWithTables
 import com.example.ui.theme.NeumorphicColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -24,14 +25,12 @@ import com.example.ui.theme.NeumorphicColors
 fun RevisionNoteDetailScreen(
     noteId: String,
     viewModel: RevisionsViewModel,
-    onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    onBack: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
     val note = state.allNotes.find { it.id == noteId }
 
     var showDeleteCardDialog by remember { mutableStateOf(false) }
-    var showEditCardDialog by remember { mutableStateOf(false) }
 
     if (showDeleteCardDialog && note != null) {
         ConfirmDeleteDialog(
@@ -45,40 +44,19 @@ fun RevisionNoteDetailScreen(
         )
     }
 
-    if (showEditCardDialog && note != null) {
-        EditCardDialog(
-            initialTitle = note.title,
-            initialQuestion = note.question,
-            mediaFilePath = note.mediaFilePath,
-            dialogTitle = "Modifier la fiche",
-            confirmButtonLabel = "Enregistrer",
-            onSave = { updatedTitle, updatedQuestion ->
-                viewModel.updateNote(note.copy(title = updatedTitle, question = updatedQuestion))
-                showEditCardDialog = false
-            },
-            onDismiss = { showEditCardDialog = false }
-        )
-    }
-
     if (note == null) {
         Scaffold(
-            modifier = modifier,
             topBar = {
                 TopAppBar(
-                    title = { Text("Fiche") },
+                    title = { Text("Card") },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                         }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = androidx.compose.ui.graphics.Color.Transparent,
-                        titleContentColor = NeumorphicColors.TextPrimary,
-                        navigationIconContentColor = NeumorphicColors.TextPrimary
-                    )
+                    }
                 )
             },
-            containerColor = androidx.compose.ui.graphics.Color.Transparent
+            containerColor = NeumorphicColors.Background
         ) { padding ->
             Box(
                 modifier = Modifier
@@ -90,7 +68,6 @@ fun RevisionNoteDetailScreen(
     }
 
     Scaffold(
-        modifier = modifier,
         topBar = {
             TopAppBar(
                 title = {
@@ -109,13 +86,6 @@ fun RevisionNoteDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showEditCardDialog = true }) {
-                        Icon(
-                            imageVector = Icons.Outlined.Edit,
-                            contentDescription = "Modifier la fiche",
-                            tint = NeumorphicColors.Primary
-                        )
-                    }
                     IconButton(onClick = { showDeleteCardDialog = true }) {
                         Icon(
                             imageVector = Icons.Outlined.Delete,
@@ -125,10 +95,8 @@ fun RevisionNoteDetailScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
-                    titleContentColor = NeumorphicColors.TextPrimary,
-                    navigationIconContentColor = NeumorphicColors.TextPrimary,
-                    actionIconContentColor = NeumorphicColors.TextPrimary
+                    containerColor = NeumorphicColors.Background,
+                    titleContentColor = NeumorphicColors.TextPrimary
                 )
             )
         },
@@ -144,12 +112,25 @@ fun RevisionNoteDetailScreen(
             Card(
                 colors = CardDefaults.cardColors(containerColor = NeumorphicColors.SurfaceLight),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                modifier = Modifier.fillMaxWidth().height(480.dp)
+                modifier = Modifier.fillMaxWidth()
             ) {
-                CardBackView(
-                    note = note,
-                    modifier = Modifier.fillMaxSize()
-                )
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        text = note.title,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = NeumorphicColors.TextPrimary
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    HighlightedMarkdownWithTables(
+                        markdown = note.contentMarkdown,
+                        fontSize = 16.sp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
     }

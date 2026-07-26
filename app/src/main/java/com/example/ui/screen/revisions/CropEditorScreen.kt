@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CropLandscape
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material.icons.filled.Warning
@@ -44,10 +45,6 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.theme.NeumorphicColors
 import java.io.File
 
-import androidx.compose.material.icons.filled.Edit
-import com.example.data.db.entity.RevisionMediaType
-import com.example.ui.components.EditCardDialog
-
 enum class CropMode { RECTANGLE, LASSO }
 enum class HandleType { TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, MOVE }
 
@@ -71,20 +68,18 @@ fun CropEditorScreen(
     var workingBitmap by remember(baseBitmap) { mutableStateOf(baseBitmap) }
 
     var cropMode by remember { mutableStateOf(CropMode.RECTANGLE) }
+    var showModeDialog by remember { mutableStateOf(false) }
+    var selectedExplainMode by remember { mutableStateOf(false) }
+    var pendingCroppedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var errorMessageToShow by remember { mutableStateOf<String?>(null) }
 
-    // Card creation validation & fallback states
-    var pendingValidationCard by remember { mutableStateOf<PendingCardResult.Success?>(null) }
-    var pendingFallbackCard by remember { mutableStateOf<PendingCardResult.Failure?>(null) }
-    var manualEntryCardPath by remember { mutableStateOf<String?>(null) }
-
-    // Rectangle crop state (normalized 0..1 scale)
+    // Rectangle crop state (normalized 0..1 scale relative to bitmap)
     var rectNormLeft by remember { mutableStateOf(0.1f) }
     var rectNormTop by remember { mutableStateOf(0.2f) }
     var rectNormRight by remember { mutableStateOf(0.9f) }
     var rectNormBottom by remember { mutableStateOf(0.8f) }
 
-    // Lasso path points state (normalized 0..1 scale)
+    // Lasso path points state (normalized 0..1 scale relative to bitmap)
     var lassoNormPoints by remember { mutableStateOf<List<Offset>>(emptyList()) }
 
     if (workingBitmap == null) {
@@ -111,9 +106,26 @@ fun CropEditorScreen(
             val containerWidthPx = constraints.maxWidth.toFloat()
             val containerHeightPx = constraints.maxHeight.toFloat()
 
+            val bmp = workingBitmap!!
+            val bmpW = bmp.width.toFloat()
+            val bmpH = bmp.height.toFloat()
+
+            // Calculate exact displayed size and letterbox offsets under ContentScale.Fit
+            val scale = minOf(containerWidthPx / bmpW, containerHeightPx / bmpH)
+            val displayedW = bmpW * scale
+            val displayedH = bmpH * scale
+            val offsetX = (containerWidthPx - displayedW) / 2f
+            val offsetY = (containerHeightPx - displayedH) / 2f
+
+            fun normToScreenX(nx: Float): Float = offsetX + nx * displayedW
+            fun normToScreenY(ny: Float): Float = offsetY + ny * displayedH
+
+            fun screenToNormX(sx: Float): Float = ((sx - offsetX) / displayedW).coerceIn(0f, 1f)
+            fun screenToNormY(sy: Float): Float = ((sy - offsetY) / displayedH).coerceIn(0f, 1f)
+
             // Draw image scaled to fit
             Image(
-                bitmap = workingBitmap!!.asImageBitmap(),
+                bitmap = bmp.asImageBitmap(),
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize()
@@ -134,11 +146,11 @@ fun CropEditorScreen(
                         .pointerInput(Unit) {
                             detectDragGestures(
                                 onDragStart = { offset ->
-                                    val rLeft = currentLeft * containerWidthPx
-                                    val rTop = currentTop * containerHeightPx
-                                    val rRight = currentRight * containerWidthPx
-                                    val rBottom = currentBottom * containerHeightPx
-                                    val threshold = 60f
+                                    val rLeft = normToScreenX(currentLeft)
+                                    val rTop = normToScreenY(currentTop)
+                                    val rRight = normToScreenX(currentRight)
+                                    val rBottom = normToScreenY(currentBottom)
+                                    val threshold = 70f
 
                                     draggedHandle = when {
                                         (offset - Offset(rLeft, rTop)).getDistance() < threshold -> HandleType.TOP_LEFT
@@ -151,25 +163,25 @@ fun CropEditorScreen(
                                 },
                                 onDrag = { change, dragAmount ->
                                     change.consume()
-                                    val dx = dragAmount.x / containerWidthPx
-                                    val dy = dragAmount.y / containerHeightPx
+                                    val dx = dragAmount.x / displayedW
+                                    val dy = dragAmount.y / displayedH
 
                                     when (draggedHandle) {
                                         HandleType.TOP_LEFT -> {
-                                            rectNormLeft = (currentLeft + dx).coerceIn(0f, currentRight - 0.1f)
-                                            rectNormTop = (currentTop + dy).coerceIn(0f, currentBottom - 0.1f)
+                                            rectNormLeft = (currentLeft + dx).coerceIn(0f, currentRight - 0.05f)
+                                            rectNormTop = (currentTop + dy).coerceIn(0f, currentBottom - 0.05f)
                                         }
                                         HandleType.TOP_RIGHT -> {
-                                            rectNormRight = (currentRight + dx).coerceIn(currentLeft + 0.1f, 1f)
-                                            rectNormTop = (currentTop + dy).coerceIn(0f, currentBottom - 0.1f)
+                                            rectNormRight = (currentRight + dx).coerceIn(currentLeft + 0.05f, 1f)
+                                            rectNormTop = (currentTop + dy).coerceIn(0f, currentBottom - 0.05f)
                                         }
                                         HandleType.BOTTOM_LEFT -> {
-                                            rectNormLeft = (currentLeft + dx).coerceIn(0f, currentRight - 0.1f)
-                                            rectNormBottom = (currentBottom + dy).coerceIn(currentTop + 0.1f, 1f)
+                                            rectNormLeft = (currentLeft + dx).coerceIn(0f, currentRight - 0.05f)
+                                            rectNormBottom = (currentBottom + dy).coerceIn(currentTop + 0.05f, 1f)
                                         }
                                         HandleType.BOTTOM_RIGHT -> {
-                                            rectNormRight = (currentRight + dx).coerceIn(currentLeft + 0.1f, 1f)
-                                            rectNormBottom = (currentBottom + dy).coerceIn(currentTop + 0.1f, 1f)
+                                            rectNormRight = (currentRight + dx).coerceIn(currentLeft + 0.05f, 1f)
+                                            rectNormBottom = (currentBottom + dy).coerceIn(currentTop + 0.05f, 1f)
                                         }
                                         HandleType.MOVE -> {
                                             val w = currentRight - currentLeft
@@ -189,10 +201,10 @@ fun CropEditorScreen(
                             )
                         }
                 ) {
-                    val rLeft = rectNormLeft * containerWidthPx
-                    val rTop = rectNormTop * containerHeightPx
-                    val rRight = rectNormRight * containerWidthPx
-                    val rBottom = rectNormBottom * containerHeightPx
+                    val rLeft = normToScreenX(rectNormLeft)
+                    val rTop = normToScreenY(rectNormTop)
+                    val rRight = normToScreenX(rectNormRight)
+                    val rBottom = normToScreenY(rectNormBottom)
 
                     val rect = Rect(rLeft, rTop, rRight, rBottom)
 
@@ -209,10 +221,10 @@ fun CropEditorScreen(
                         style = Stroke(width = 4f)
                     )
 
-                    // Handles
+                    // Corner handles
                     listOf(rect.topLeft, rect.topRight, rect.bottomLeft, rect.bottomRight).forEach { handle ->
-                        drawCircle(color = Color.White, radius = 16f, center = handle)
-                        drawCircle(color = primaryColor, radius = 12f, center = handle)
+                        drawCircle(color = Color.White, radius = 18f, center = handle)
+                        drawCircle(color = primaryColor, radius = 14f, center = handle)
                     }
                 }
             } else {
@@ -222,14 +234,14 @@ fun CropEditorScreen(
                         .pointerInput(Unit) {
                             detectDragGestures(
                                 onDragStart = { offset ->
-                                    val nx = offset.x / containerWidthPx
-                                    val ny = offset.y / containerHeightPx
+                                    val nx = screenToNormX(offset.x)
+                                    val ny = screenToNormY(offset.y)
                                     lassoNormPoints = listOf(Offset(nx, ny))
                                 },
                                 onDrag = { change, _ ->
                                     change.consume()
-                                    val nx = change.position.x / containerWidthPx
-                                    val ny = change.position.y / containerHeightPx
+                                    val nx = screenToNormX(change.position.x)
+                                    val ny = screenToNormY(change.position.y)
                                     lassoNormPoints = lassoNormPoints + Offset(nx, ny)
                                 }
                             )
@@ -238,10 +250,10 @@ fun CropEditorScreen(
                     if (lassoNormPoints.size > 1) {
                         val path = Path().apply {
                             val first = lassoNormPoints.first()
-                            moveTo(first.x * containerWidthPx, first.y * containerHeightPx)
+                            moveTo(normToScreenX(first.x), normToScreenY(first.y))
                             for (i in 1 until lassoNormPoints.size) {
                                 val pt = lassoNormPoints[i]
-                                lineTo(pt.x * containerWidthPx, pt.y * containerHeightPx)
+                                lineTo(normToScreenX(pt.x), normToScreenY(pt.y))
                             }
                         }
                         drawPath(path = path, color = Color(0xFF00E676), style = Stroke(width = 6f))
@@ -308,44 +320,29 @@ fun CropEditorScreen(
 
         // Bottom Action Bar
         Surface(
-            color = Color.Black.copy(alpha = 0.8f),
+            color = Color.Black.copy(alpha = 0.85f),
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(24.dp)
+                .padding(20.dp)
                 .clip(RoundedCornerShape(24.dp))
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedButton(
-                    onClick = {
-                        try {
-                            val bitmapToCrop = workingBitmap ?: return@OutlinedButton
-                            val croppedBitmap = cropBitmap(
-                                originalBitmap = bitmapToCrop,
-                                mode = cropMode,
-                                rectNormLeft = rectNormLeft,
-                                rectNormTop = rectNormTop,
-                                rectNormRight = rectNormRight,
-                                rectNormBottom = rectNormBottom,
-                                lassoNormPoints = lassoNormPoints
-                            )
-                            val savedPath = viewModel.savePhotoToMediaStore(croppedBitmap)
-                            manualEntryCardPath = savedPath
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "Crop error: ${e.message}", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                    onClick = onBack,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
+                    shape = RoundedCornerShape(20.dp)
                 ) {
                     Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Saisie manuelle", fontSize = 12.sp)
+                    Text("Saisie manuelle", fontSize = 13.sp)
                 }
 
                 Button(
@@ -362,7 +359,145 @@ fun CropEditorScreen(
                                 lassoNormPoints = lassoNormPoints
                             )
 
-                            viewModel.processCapturedImageWithResult(croppedBitmap) { result ->
+                            pendingCroppedBitmap = croppedBitmap
+                            selectedExplainMode = false // Default to verbatim text
+                            showModeDialog = true
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Crop error: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C5CE7)),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Générer (Gemini)", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
+        }
+
+        // Extraction Mode & Cropped Image Preview Dialog
+        if (showModeDialog && pendingCroppedBitmap != null) {
+            AlertDialog(
+                onDismissRequest = {
+                    showModeDialog = false
+                    pendingCroppedBitmap = null
+                },
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CropLandscape,
+                            contentDescription = null,
+                            tint = NeumorphicColors.Primary
+                        )
+                        Text(
+                            text = "Aperçu de la sélection",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = NeumorphicColors.TextPrimary
+                        )
+                    }
+                },
+                text = {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        // Display the cropped image
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color.Black.copy(alpha = 0.05f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, NeumorphicColors.Primary.copy(alpha = 0.25f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 140.dp, max = 240.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    bitmap = pendingCroppedBitmap!!.asImageBitmap(),
+                                    contentDescription = "Cropped Image Preview",
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = "Dimensions : ${pendingCroppedBitmap!!.width} × ${pendingCroppedBitmap!!.height} px",
+                            fontSize = 11.sp,
+                            color = NeumorphicColors.TextSecondary,
+                            fontWeight = FontWeight.Medium
+                        )
+
+                        HorizontalDivider(color = NeumorphicColors.TextSecondary.copy(alpha = 0.15f))
+
+                        Text(
+                            text = "Mode d'extraction Gemini :",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp,
+                            color = NeumorphicColors.TextPrimary
+                        )
+
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { selectedExplainMode = false }
+                                    .padding(vertical = 4.dp, horizontal = 4.dp)
+                            ) {
+                                RadioButton(
+                                    selected = !selectedExplainMode,
+                                    onClick = { selectedExplainMode = false },
+                                    colors = RadioButtonDefaults.colors(selectedColor = NeumorphicColors.Primary)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text("Mot à mot (Verbatim)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = NeumorphicColors.TextPrimary)
+                                    Text("Extrait le texte exact présent sur la photo", fontSize = 12.sp, color = NeumorphicColors.TextSecondary)
+                                }
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { selectedExplainMode = true }
+                                    .padding(vertical = 4.dp, horizontal = 4.dp)
+                            ) {
+                                RadioButton(
+                                    selected = selectedExplainMode,
+                                    onClick = { selectedExplainMode = true },
+                                    colors = RadioButtonDefaults.colors(selectedColor = NeumorphicColors.Primary)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text("Mode Explication (IA Q&R)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = NeumorphicColors.TextPrimary)
+                                    Text("Synthétise le contenu sous forme de fiche de révision", fontSize = 12.sp, color = NeumorphicColors.TextSecondary)
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val bitmapToProcess = pendingCroppedBitmap!!
+                            val useExplain = selectedExplainMode
+                            showModeDialog = false
+                            pendingCroppedBitmap = null
+
+                            viewModel.processCapturedImage(bitmapToProcess, explainMode = useExplain) { success ->
                                 try {
                                     if (sourceFile.exists()) {
                                         sourceFile.delete()
@@ -371,135 +506,34 @@ fun CropEditorScreen(
                                     android.util.Log.e("CropEditorScreen", "Failed to delete source capture file", e)
                                 }
 
-                                when (result) {
-                                    is PendingCardResult.Success -> {
-                                        pendingValidationCard = result
-                                    }
-                                    is PendingCardResult.Failure -> {
-                                        pendingFallbackCard = result
-                                    }
+                                if (success) {
+                                    Toast.makeText(context, "Carte créée avec succès ! ✨", Toast.LENGTH_SHORT).show()
+                                    onCropConfirmed()
+                                } else {
+                                    val errorMsg = viewModel.uiState.value.ocrError.takeIf { !it.isNullOrBlank() }
+                                        ?: "Échec de l'extraction. Veuillez vérifier l'image ou la clé API."
+                                    errorMessageToShow = errorMsg
                                 }
                             }
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "Crop error: ${e.message}", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
-                ) {
-                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Générer (Gemini)", fontSize = 12.sp)
-                }
-            }
-        }
-
-        // Preview & Edit Gemini Generated Card Dialog before Validation
-        if (pendingValidationCard != null) {
-            val card = pendingValidationCard!!
-            EditCardDialog(
-                initialTitle = card.title,
-                initialQuestion = card.question,
-                mediaFilePath = card.savedPath,
-                dialogTitle = "Valider la fiche (Gemini)",
-                confirmButtonLabel = "Enregistrer la fiche",
-                onSave = { finalTitle, finalQuestion ->
-                    viewModel.saveNoteDirectly(
-                        title = finalTitle,
-                        question = finalQuestion,
-                        mediaFilePath = card.savedPath,
-                        mediaType = RevisionMediaType.IMAGE
-                    )
-                    pendingValidationCard = null
-                    Toast.makeText(context, "Fiche créée avec succès ! ✨", Toast.LENGTH_SHORT).show()
-                    onCropConfirmed()
-                },
-                onDismiss = { pendingValidationCard = null }
-            )
-        }
-
-        // Fallback Dialog when Gemini API fails or reaches limit
-        if (pendingFallbackCard != null) {
-            val failure = pendingFallbackCard!!
-            AlertDialog(
-                onDismissRequest = { pendingFallbackCard = null },
-                containerColor = NeumorphicColors.DialogBackground,
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Erreur / Limite Gemini",
-                            fontWeight = FontWeight.Bold,
-                            color = NeumorphicColors.TextPrimary,
-                            fontSize = 18.sp
-                        )
-                    }
-                },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = failure.errorMessage,
-                            fontSize = 13.sp,
-                            color = NeumorphicColors.TextPrimary
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Vous pouvez rédiger la question manuellement pour cette image.",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = NeumorphicColors.TextSecondary
-                        )
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            val savedPath = failure.savedPath
-                            pendingFallbackCard = null
-                            if (!savedPath.isNullOrBlank()) {
-                                manualEntryCardPath = savedPath
-                            }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C5CE7))
                     ) {
-                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Écrire manuellement")
+                        Text("Générer (Gemini)")
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { pendingFallbackCard = null }) {
-                        Text("Annuler", color = NeumorphicColors.TextSecondary)
+                    TextButton(
+                        onClick = {
+                            showModeDialog = false
+                            pendingCroppedBitmap = null
+                        }
+                    ) {
+                        Text("Ajuster le rognage", color = NeumorphicColors.TextSecondary)
                     }
-                }
-            )
-        }
-
-        // Manual Entry Card Dialog
-        if (manualEntryCardPath != null) {
-            val path = manualEntryCardPath!!
-            EditCardDialog(
-                initialTitle = "",
-                initialQuestion = "",
-                mediaFilePath = path,
-                dialogTitle = "Rédiger la fiche manuellement",
-                confirmButtonLabel = "Créer la fiche",
-                onSave = { finalTitle, finalQuestion ->
-                    viewModel.saveNoteDirectly(
-                        title = finalTitle,
-                        question = finalQuestion,
-                        mediaFilePath = path,
-                        mediaType = RevisionMediaType.IMAGE
-                    )
-                    manualEntryCardPath = null
-                    Toast.makeText(context, "Fiche créée avec succès ! ✨", Toast.LENGTH_SHORT).show()
-                    onCropConfirmed()
                 },
-                onDismiss = { manualEntryCardPath = null }
+                containerColor = NeumorphicColors.SurfaceLight
             )
         }
 
@@ -545,7 +579,7 @@ fun CropEditorScreen(
                         Text("OK")
                     }
                 },
-                containerColor = NeumorphicColors.DialogBackground
+                containerColor = NeumorphicColors.SurfaceLight
             )
         }
 
