@@ -39,30 +39,46 @@ data class GeminiNoteResult(
 )
 
 // --- Converts Gemini's typed-block result into the single RevisionNoteEntity -----------------
-// The entity still stores one Markdown string (no schema/migration change needed) — tables are
-// rendered as standard GFM pipe tables inside that string, and highlights are only ever applied
-// to "text" blocks so a highlight match can never corrupt a table's pipe syntax.
+// No markdown round-trip: blocks stay structured end-to-end. A "table" block's headers/rows are
+// stored exactly as Gemini returned them and rendered directly — there is no flatten-to-"|
+// a | b |"-text-then-reparse step anymore, which is what caused every row/column bug this file
+// went through. Highlights are attached to the specific TextBlock they belong to instead of
+// being embedded as "==color:x==term==" markup inside a string.
 fun GeminiNoteResult.toSingleNote(deckId: String, easeFactorDefault: Float = 2.5f): RevisionNoteEntity {
     val safeBlocks = blocks.ifEmpty {
         listOf(GeminiBlock(type = "text", content = "No text recognized"))
     }
 
-    val renderedParts = safeBlocks.map { block ->
+    val noteBlocks: List<NoteBlock> = safeBlocks.map { block ->
         when (block.type) {
-            "table" -> renderMarkdownTable(block.headers.orEmpty(), block.rows.orEmpty())
-            else -> applyHighlights(block.content.orEmpty(), highlights)
+            "table" -> NoteBlock.TableBlock(
+                headers = block.headers.orEmpty(),
+                rows = block.rows.orEmpty()
+            )
+            else -> {
+                val content = block.content.orEmpty()
+                // Only attach highlights that actually occur in THIS block's text — a highlight
+                // referencing text from a different block is silently dropped rather than
+                // wrongly attached or string-replaced somewhere it doesn't belong.
+                val relevantHighlights = highlights
+                    .filter { it.text.isNotBlank() && content.contains(it.text) }
+                    .map { NoteHighlight(it.text, it.color.ifBlank { "amber" }) }
+                NoteBlock.TextBlock(content = content, highlights = relevantHighlights)
+            }
         }
     }
 
-    val contentMarkdown = renderedParts.joinToString("\n\n") { it.trim() }.trim()
     val finalTitle = title.ifBlank { "Scanned Card" }
     val nowMs = System.currentTimeMillis()
+    val blocksJson = NoteBlocksSerializer.toJson(noteBlocks)
+    val plainTextPreview = NoteBlocksSerializer.toPlainTextPreview(noteBlocks)
 
     return RevisionNoteEntity(
         id = UUID.randomUUID().toString(),
         deckId = deckId,
         title = finalTitle.take(80),
-        contentMarkdown = contentMarkdown.ifBlank { "No text recognized" },
+        contentBlocksJson = blocksJson,
+        plainTextPreview = plainTextPreview.ifBlank { "No text recognized" },
         createdAt = nowMs,
         updatedAt = nowMs,
         easeFactor = easeFactorDefault,
@@ -70,25 +86,6 @@ fun GeminiNoteResult.toSingleNote(deckId: String, easeFactorDefault: Float = 2.5
         repetitions = 0,
         dueDate = nowMs
     )
-}
-
-private fun applyHighlights(text: String, highlights: List<GeminiHighlightItem>): String {
-    var result = text
-    highlights.forEach { h ->
-        if (h.text.isNotBlank() && result.contains(h.text)) {
-            val colorTag = h.color.ifBlank { "amber" }
-            result = result.replace(h.text, "==color:$colorTag==${h.text}==")
-        }
-    }
-    return result
-}
-
-private fun renderMarkdownTable(headers: List<String>, rows: List<List<String>>): String {
-    if (headers.isEmpty()) return ""
-    val headerLine = "| " + headers.joinToString(" | ") + " |"
-    val sepLine = "| " + headers.joinToString(" | ") { "---" } + " |"
-    val rowLines = rows.joinToString("\n") { row -> "| " + row.joinToString(" | ") + " |" }
-    return listOf(headerLine, sepLine, rowLines).joinToString("\n")
 }
 
 interface OcrEngine {
@@ -122,6 +119,17 @@ Absolute rules — never break these:
 - Preserve bold/italic/headers using Markdown syntax, without changing the wording.
 - If a table is present, reproduce it as a "table" block (see schema) with every cell copied
   verbatim — never flatten a table into a paragraph of prose.
+
+Table-specific discipline — tables are the most common source of dropped or merged rows, so:
+- The header row is always the very FIRST row of the table as it appears in the image — never
+  substitute a data row's content for the header row.
+- Before writing the "table" block, silently count how many rows the table has in the image
+  (including the header row) and how many columns. Your "rows" array must contain exactly
+  (row count − 1) entries, and every row array must have exactly the same number of cells as
+  "headers". Do not skip a row because it's visually complex, small, differently colored, or
+  contains stacked/overlaid numbers — transcribe it anyway.
+- If a cell contains multiple lines or a bullet/dash list, keep it as one cell whose text
+  includes line breaks (\\n) — do not turn one table row into extra rows.
 
 Return ONLY valid JSON matching this schema, nothing else — no markdown code fences, no commentary:
 
@@ -198,6 +206,58 @@ Rules:
                 // will happily "improve"/rephrase wording even when the prompt asks for verbatim
                 // transcription. 0 = as close to deterministic copy-out as the API allows.
                 put("temperature", 0.0)
+                // Critical fix: with no explicit limit, long tables/lists were getting cut off
+                // mid-way (missing rows, missing bullets). This gives enough headroom for a
+                // dense scanned page.
+                put("max_output_tokens", 8192)
+                // Critical fix: the prompt alone wasn't enough to stop the model from hand-
+                // formatting its own markdown table inside a "text" block instead of using the
+                // "table" block type — it would produce a single garbled pipe-table string with
+                // merged/missing cells. A response_schema makes the "table" shape mandatory
+                // rather than a suggestion: the API will only accept a "table" block that
+                // actually has a headers array and a rows array of arrays.
+                put("response_schema", JSONObject().apply {
+                    put("type", "OBJECT")
+                    put("properties", JSONObject().apply {
+                        put("title", JSONObject().apply { put("type", "STRING") })
+                        put("blocks", JSONObject().apply {
+                            put("type", "ARRAY")
+                            put("items", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("type", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("enum", JSONArray().apply { put("text"); put("table") })
+                                    })
+                                    put("content", JSONObject().apply { put("type", "STRING") })
+                                    put("headers", JSONObject().apply {
+                                        put("type", "ARRAY")
+                                        put("items", JSONObject().apply { put("type", "STRING") })
+                                    })
+                                    put("rows", JSONObject().apply {
+                                        put("type", "ARRAY")
+                                        put("items", JSONObject().apply {
+                                            put("type", "ARRAY")
+                                            put("items", JSONObject().apply { put("type", "STRING") })
+                                        })
+                                    })
+                                })
+                                put("required", JSONArray().apply { put("type") })
+                            })
+                        })
+                        put("highlights", JSONObject().apply {
+                            put("type", "ARRAY")
+                            put("items", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("text", JSONObject().apply { put("type", "STRING") })
+                                    put("color", JSONObject().apply { put("type", "STRING") })
+                                })
+                            })
+                        })
+                    })
+                    put("required", JSONArray().apply { put("title"); put("blocks") })
+                })
             })
         }
 

@@ -9,7 +9,9 @@ data class RevisionNoteEntity(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
     val deckId: String,
     val title: String,
-    val contentMarkdown: String, // structured content from Gemini with Markdown & highlight spans
+    val contentBlocksJson: String = "",   // authoritative structured content — rendered directly by NoteBlocksRenderer
+    val plainTextPreview: String = "",    // flattened text for search/export ONLY — never rendered
+    val contentMarkdown: String = "",     // legacy column kept for backwards compatibility
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
 

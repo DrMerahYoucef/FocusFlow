@@ -92,13 +92,18 @@ fun parseMarkdownWithHighlights(
     }
 }
 
-private fun AnnotatedString.Builder.appendFormattedMarkdown(text: String, textColor: Color) {
-    // Process **bold** and *italic* in a single pass. The alternation tries "**...**" first at
-    // each position, so a genuine bold run is never mistaken for two italic runs; a lone
-    // "*...*" only matches the second branch once the first has failed to match at that spot.
-    // (Previous version only handled **bold** — a lone *italic* was left as literal asterisks,
-    // which is the bug seen on scanned bullet-list cards.)
-    val formattingRegex = Regex("\\*\\*(.+?)\\*\\*|\\*(.+?)\\*", RegexOption.DOT_MATCHES_ALL)
+// internal (not private): reused directly by NoteBlocksRenderer so bold/italic parsing has one
+// implementation instead of being duplicated across the old markdown path and the new
+// structured-block path.
+internal fun AnnotatedString.Builder.appendFormattedMarkdown(text: String, textColor: Color) {
+    // Process ***bold+italic***, **bold**, and *italic* in a single pass. Order matters: the
+    // triple-asterisk alternative must be tried first at each position, otherwise "***word***"
+    // gets partially consumed by the "**" branch and leaves a stray "*" behind — which is
+    // exactly the "**INVERSION***" / "***Trait fibulaire***" artifacts seen on scanned cards.
+    val formattingRegex = Regex(
+        "\\*\\*\\*(.+?)\\*\\*\\*|\\*\\*(.+?)\\*\\*|\\*(.+?)\\*",
+        RegexOption.DOT_MATCHES_ALL
+    )
     var currentIndex = 0
 
     val matches = formattingRegex.findAll(text).toList()
@@ -115,17 +120,26 @@ private fun AnnotatedString.Builder.appendFormattedMarkdown(text: String, textCo
             append(text.substring(currentIndex, start))
         }
 
-        val boldContent = match.groupValues[1]
-        val italicContent = match.groupValues[2]
+        val boldItalicContent = match.groupValues[1]
+        val boldContent = match.groupValues[2]
+        val italicContent = match.groupValues[3]
 
-        if (boldContent.isNotEmpty()) {
-            pushStyle(SpanStyle(fontWeight = FontWeight.Bold, color = textColor))
-            append(boldContent)
-            pop()
-        } else {
-            pushStyle(SpanStyle(fontStyle = FontStyle.Italic, color = textColor))
-            append(italicContent)
-            pop()
+        when {
+            boldItalicContent.isNotEmpty() -> {
+                pushStyle(SpanStyle(fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, color = textColor))
+                append(boldItalicContent)
+                pop()
+            }
+            boldContent.isNotEmpty() -> {
+                pushStyle(SpanStyle(fontWeight = FontWeight.Bold, color = textColor))
+                append(boldContent)
+                pop()
+            }
+            else -> {
+                pushStyle(SpanStyle(fontStyle = FontStyle.Italic, color = textColor))
+                append(italicContent)
+                pop()
+            }
         }
 
         currentIndex = end

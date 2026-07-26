@@ -22,7 +22,7 @@ import com.example.data.db.entity.StationEntity
 import com.example.data.db.entity.RevisionDeckEntity
 import com.example.data.db.entity.RevisionNoteEntity
 
-@Database(entities = [SessionEntity::class, ExamEntity::class, BlockedAppEntity::class, FavouriteStationEntity::class, CategoryEntity::class, StationEntity::class, RevisionDeckEntity::class, RevisionNoteEntity::class], version = 5, exportSchema = false)
+@Database(entities = [SessionEntity::class, ExamEntity::class, BlockedAppEntity::class, FavouriteStationEntity::class, CategoryEntity::class, StationEntity::class, RevisionDeckEntity::class, RevisionNoteEntity::class], version = 6, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun sessionDao(): SessionDao
     abstract fun examDao(): ExamDao
@@ -136,6 +136,22 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE revision_notes ADD COLUMN contentBlocksJson TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE revision_notes ADD COLUMN plainTextPreview TEXT NOT NULL DEFAULT ''")
+                // Best-effort backfill for existing notes: wrap their old markdown string as one plain
+                // text block so they still render (via the legacy path — see Section 3) instead of
+                // showing up empty after the upgrade.
+                db.execSQL("""
+                    UPDATE revision_notes
+                    SET contentBlocksJson = '[{"type":"text","content":"' || replace(replace(contentMarkdown, '\', '\\'), '"', '\"') || '","highlights":[]}]',
+                        plainTextPreview = contentMarkdown
+                """)
+            }
+        }
+        val MIGRATION_ADD_BLOCKS = MIGRATION_5_6
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -143,7 +159,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "focusflow_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)

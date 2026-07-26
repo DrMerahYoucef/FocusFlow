@@ -24,9 +24,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.db.entity.RevisionNoteEntity
 import com.example.data.srs.ReviewGrade
-import com.example.ui.components.HighlightedMarkdownText
 import com.example.ui.components.NeumorphicCard
 import com.example.ui.revisions.HighlightedMarkdownWithTables
+import com.example.ui.revisions.NoteBlocksRenderer
 import com.example.ui.theme.NeumorphicColors
 
 @Composable
@@ -71,14 +71,14 @@ fun RevisionSessionScreen(
                 IconButton(onClick = onBack) {
                     Icon(
                         imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Retour",
+                        contentDescription = "Back",
                         tint = NeumorphicColors.TextPrimary
                     )
                 }
 
                 if (totalInSession > 0 && currentNote != null) {
                     Text(
-                        text = "Fiche ${currentIndex + 1} / $totalInSession",
+                        text = "Card ${currentIndex + 1} / $totalInSession",
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
                         color = NeumorphicColors.TextSecondary
@@ -120,14 +120,14 @@ fun RevisionSessionScreen(
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "Session terminée !",
+                                text = "Session complete!",
                                 fontSize = 22.sp,
                                 fontWeight = FontWeight.Black,
                                 color = NeumorphicColors.TextPrimary
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Vous avez révisé toutes vos fiches programmées pour ce paquet.",
+                                text = "You've reviewed every card scheduled for this deck.",
                                 fontSize = 14.sp,
                                 color = NeumorphicColors.TextSecondary,
                                 textAlign = TextAlign.Center
@@ -138,7 +138,7 @@ fun RevisionSessionScreen(
                                 colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary),
                                 shape = RoundedCornerShape(16.dp)
                             ) {
-                                Text("Retour aux paquets", modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                                Text("Back to decks", modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                             }
                         }
                     }
@@ -213,7 +213,7 @@ fun RevisionSessionScreen(
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = "Appuyez pour révéler la réponse",
+                                            text = "Tap to reveal the answer",
                                             fontSize = 12.sp,
                                             color = NeumorphicColors.TextSecondary
                                         )
@@ -228,7 +228,7 @@ fun RevisionSessionScreen(
                                     horizontalAlignment = Alignment.Start
                                 ) {
                                     Text(
-                                        text = "RÉPONSE & EXPLICATION",
+                                        text = "ANSWER",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Black,
                                         letterSpacing = 2.sp,
@@ -245,11 +245,19 @@ fun RevisionSessionScreen(
                                     Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
                                     Spacer(modifier = Modifier.height(16.dp))
 
-                                    HighlightedMarkdownWithTables(
-                                        markdown = currentNote.contentMarkdown,
-                                        fontSize = 16.sp,
-                                        modifier = Modifier.weight(1f)
-                                    )
+                                    if (currentNote.contentBlocksJson.isBlank() || currentNote.contentBlocksJson == "[]") {
+                                        HighlightedMarkdownWithTables(
+                                            markdown = currentNote.plainTextPreview,
+                                            fontSize = 16.sp,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    } else {
+                                        NoteBlocksRenderer(
+                                            blocksJson = currentNote.contentBlocksJson,
+                                            fontSize = 16.sp,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -266,7 +274,7 @@ fun RevisionSessionScreen(
                     ) {
                         // AGAIN
                         RatingButton(
-                            label = "Encore",
+                            label = "Again",
                             color = Color(0xFFE53935),
                             onClick = {
                                 viewModel.submitReviewGrade(currentNote, ReviewGrade.AGAIN)
@@ -278,7 +286,7 @@ fun RevisionSessionScreen(
 
                         // HARD
                         RatingButton(
-                            label = "Difficile",
+                            label = "Hard",
                             color = Color(0xFFFB8C00),
                             onClick = {
                                 viewModel.submitReviewGrade(currentNote, ReviewGrade.HARD)
@@ -290,7 +298,7 @@ fun RevisionSessionScreen(
 
                         // GOOD
                         RatingButton(
-                            label = "Bien",
+                            label = "Good",
                             color = Color(0xFF1E88E5),
                             onClick = {
                                 viewModel.submitReviewGrade(currentNote, ReviewGrade.GOOD)
@@ -302,7 +310,7 @@ fun RevisionSessionScreen(
 
                         // EASY
                         RatingButton(
-                            label = "Facile",
+                            label = "Easy",
                             color = Color(0xFF43A047),
                             onClick = {
                                 viewModel.submitReviewGrade(currentNote, ReviewGrade.EASY)
@@ -321,7 +329,7 @@ fun RevisionSessionScreen(
                             .fillMaxWidth()
                             .height(52.dp)
                     ) {
-                        Text("Afficher la réponse", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("Show answer", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
                 }
             }
