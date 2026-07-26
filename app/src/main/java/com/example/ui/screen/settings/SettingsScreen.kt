@@ -655,6 +655,27 @@ fun SettingsScreen(
 
                 Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
 
+                // Gemini Scan Prompt Editor
+                val defaultPrompt = """
+You are a strict, literal OCR transcription engine. Your ONLY job is to reproduce the text visible in this image character-for-character, exactly as it is written.
+
+Return JSON with "title", "blocks", and "highlights".
+""".trimIndent()
+                val currentPrompt = srsUiState.srsSettings.customPromptOverride ?: defaultPrompt
+
+                PromptSettingsSection(
+                    currentPrompt = currentPrompt,
+                    defaultPrompt = defaultPrompt,
+                    onPromptChange = { newPrompt ->
+                        revisionsViewModel.updateSrsSettings(
+                            srsUiState.srsSettings.copy(customPromptOverride = newPrompt)
+                        )
+                        Toast.makeText(context, if (newPrompt == null) "Prompt reset to default" else "Prompt saved", Toast.LENGTH_SHORT).show()
+                    }
+                )
+
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
+
                 // Daily limits
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1628,5 +1649,77 @@ private fun shareCsvContent(context: Context, csvText: String) {
         context.startActivity(Intent.createChooser(shareIntent, "Save focus statistics report via:"))
     } catch (e: Exception) {
         Toast.makeText(context, "Failed to export data: ${e.message}", Toast.LENGTH_LONG).show()
+    }
+}
+
+@Composable
+fun PromptSettingsSection(
+    currentPrompt: String,
+    defaultPrompt: String,
+    onPromptChange: (String?) -> Unit
+) {
+    var isEditing by remember { mutableStateOf(false) }
+    var draft by remember(currentPrompt) { mutableStateOf(currentPrompt) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Gemini Scan Prompt",
+            fontWeight = FontWeight.Bold,
+            color = NeumorphicColors.TextPrimary,
+            fontSize = 13.sp
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+
+        if (isEditing) {
+            OutlinedTextField(
+                value = draft,
+                onValueChange = { draft = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 140.dp),
+                label = { Text("System Prompt") },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = NeumorphicColors.TextPrimary,
+                    unfocusedTextColor = NeumorphicColors.TextPrimary,
+                    focusedBorderColor = NeumorphicColors.Primary,
+                    unfocusedBorderColor = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f)
+                )
+            )
+            Row(
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = { draft = defaultPrompt; onPromptChange(null); isEditing = false }) {
+                    Text("Reset to default", color = NeumorphicColors.TextSecondary, fontSize = 12.sp)
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                TextButton(onClick = { isEditing = false; draft = currentPrompt }) {
+                    Text("Cancel", color = NeumorphicColors.TextSecondary, fontSize = 12.sp)
+                }
+                Button(
+                    onClick = { onPromptChange(draft); isEditing = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
+                ) {
+                    Text("Save", fontSize = 12.sp)
+                }
+            }
+        } else {
+            Text(
+                text = currentPrompt,
+                style = MaterialTheme.typography.bodySmall,
+                color = NeumorphicColors.TextSecondary,
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis
+            )
+            TextButton(
+                onClick = { isEditing = true },
+                modifier = Modifier.padding(top = 4.dp)
+            ) {
+                Text("Edit prompt", color = NeumorphicColors.Primary, fontSize = 12.sp)
+            }
+        }
     }
 }

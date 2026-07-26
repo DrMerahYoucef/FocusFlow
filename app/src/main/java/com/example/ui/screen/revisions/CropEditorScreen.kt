@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CropLandscape
@@ -72,6 +73,20 @@ fun CropEditorScreen(
     var selectedExplainMode by remember { mutableStateOf(false) }
     var pendingCroppedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var errorMessageToShow by remember { mutableStateOf<String?>(null) }
+
+    var selectedDeckId by remember(state.selectedDeckId) { mutableStateOf(state.selectedDeckId) }
+    var temporaryInstructions by remember { mutableStateOf("") }
+    var isDeckDropdownExpanded by remember { mutableStateOf(false) }
+    var isAddDeckDialogOpen by remember { mutableStateOf(false) }
+    var newDeckNameInput by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        viewModel.ensureAtLeastOneDeck { defaultId ->
+            if (selectedDeckId.isBlank()) {
+                selectedDeckId = defaultId
+            }
+        }
+    }
 
     // Rectangle crop state (normalized 0..1 scale relative to bitmap)
     var rectNormLeft by remember { mutableStateOf(0.1f) }
@@ -439,6 +454,72 @@ fun CropEditorScreen(
 
                         HorizontalDivider(color = NeumorphicColors.TextSecondary.copy(alpha = 0.15f))
 
+                        // Deck Selector
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Paquet cible :",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp,
+                                color = NeumorphicColors.TextPrimary
+                            )
+                            Box {
+                                val selectedDeck = state.decks.find { it.id == selectedDeckId } ?: state.decks.firstOrNull()
+                                val deckLabel = selectedDeck?.name ?: "Général"
+                                OutlinedButton(
+                                    onClick = { isDeckDropdownExpanded = true },
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text(deckLabel, color = NeumorphicColors.Primary, fontSize = 13.sp)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = NeumorphicColors.Primary)
+                                }
+                                DropdownMenu(
+                                    expanded = isDeckDropdownExpanded,
+                                    onDismissRequest = { isDeckDropdownExpanded = false }
+                                ) {
+                                    state.decks.forEach { deck ->
+                                        DropdownMenuItem(
+                                            text = { Text(deck.name) },
+                                            onClick = {
+                                                selectedDeckId = deck.id
+                                                isDeckDropdownExpanded = false
+                                            }
+                                        )
+                                    }
+                                    HorizontalDivider()
+                                    DropdownMenuItem(
+                                        text = { Text("+ Nouveau paquet...", color = NeumorphicColors.Primary, fontWeight = FontWeight.Bold) },
+                                        onClick = {
+                                            isDeckDropdownExpanded = false
+                                            isAddDeckDialogOpen = true
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        // Extra instructions
+                        OutlinedTextField(
+                            value = temporaryInstructions,
+                            onValueChange = { temporaryInstructions = it },
+                            label = { Text("Instructions spécifiques (Optionnel)", fontSize = 12.sp) },
+                            placeholder = { Text("Ex: Transcrire uniquement le tableau du bas...", fontSize = 12.sp) },
+                            maxLines = 2,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = NeumorphicColors.TextPrimary,
+                                unfocusedTextColor = NeumorphicColors.TextPrimary,
+                                focusedBorderColor = NeumorphicColors.Primary,
+                                unfocusedBorderColor = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f)
+                            )
+                        )
+
+                        HorizontalDivider(color = NeumorphicColors.TextSecondary.copy(alpha = 0.15f))
+
                         Text(
                             text = "Mode d'extraction Gemini :",
                             fontWeight = FontWeight.SemiBold,
@@ -494,10 +575,17 @@ fun CropEditorScreen(
                         onClick = {
                             val bitmapToProcess = pendingCroppedBitmap!!
                             val useExplain = selectedExplainMode
+                            val targetDeck = selectedDeckId.ifBlank { state.selectedDeckId }
+                            val promptAddendum = temporaryInstructions.ifBlank { null }
                             showModeDialog = false
                             pendingCroppedBitmap = null
 
-                            viewModel.processCapturedImage(bitmapToProcess, explainMode = useExplain) { success ->
+                            viewModel.processCapturedImage(
+                                croppedBitmap = bitmapToProcess,
+                                targetDeckId = targetDeck,
+                                explainMode = useExplain,
+                                temporaryPromptAddendum = promptAddendum
+                            ) { success ->
                                 try {
                                     if (sourceFile.exists()) {
                                         sourceFile.delete()
@@ -537,7 +625,37 @@ fun CropEditorScreen(
             )
         }
 
-        // Detailed OCR Error Dialog
+        // New Deck Dialog inside Crop Editor
+        if (isAddDeckDialogOpen) {
+            AlertDialog(
+                onDismissRequest = { isAddDeckDialogOpen = false },
+                title = { Text("Nouveau paquet") },
+                text = {
+                    OutlinedTextField(
+                        value = newDeckNameInput,
+                        onValueChange = { newDeckNameInput = it },
+                        label = { Text("Nom du paquet (ex: Biologie)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            if (newDeckNameInput.isNotBlank()) {
+                                viewModel.addDeck(newDeckNameInput)
+                                newDeckNameInput = ""
+                                isAddDeckDialogOpen = false
+                            }
+                        }
+                    ) { Text("Créer") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { isAddDeckDialogOpen = false }) { Text("Annuler") }
+                },
+                containerColor = NeumorphicColors.SurfaceLight
+            )
+        }
         if (errorMessageToShow != null) {
             AlertDialog(
                 onDismissRequest = { errorMessageToShow = null },
