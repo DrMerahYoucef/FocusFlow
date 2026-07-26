@@ -57,8 +57,7 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
                 buildConfigKey.isNotBlank() -> buildConfigKey
                 else -> ""
             }
-        },
-        context = application
+        }
     )
 
     init {

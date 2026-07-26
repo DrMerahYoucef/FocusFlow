@@ -26,6 +26,7 @@ import com.example.data.db.entity.RevisionNoteEntity
 import com.example.data.srs.ReviewGrade
 import com.example.ui.components.HighlightedMarkdownText
 import com.example.ui.components.NeumorphicCard
+import com.example.ui.revisions.HighlightedMarkdownWithTables
 import com.example.ui.theme.NeumorphicColors
 
 @Composable
@@ -244,7 +245,7 @@ fun RevisionSessionScreen(
                                     Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
                                     Spacer(modifier = Modifier.height(16.dp))
 
-                                    HighlightedMarkdownText(
+                                    HighlightedMarkdownWithTables(
                                         markdown = currentNote.contentMarkdown,
                                         fontSize = 16.sp,
                                         modifier = Modifier.weight(1f)

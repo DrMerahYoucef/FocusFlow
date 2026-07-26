@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.ui.components.ConfirmDeleteDialog
 import com.example.ui.components.HighlightedMarkdownText
+import com.example.ui.revisions.HighlightedMarkdownWithTables
 import com.example.ui.theme.NeumorphicColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -124,7 +125,7 @@ fun RevisionNoteDetailScreen(
                     HorizontalDivider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    HighlightedMarkdownText(
+                    HighlightedMarkdownWithTables(
                         markdown = note.contentMarkdown,
                         fontSize = 16.sp,
                         modifier = Modifier.fillMaxWidth()
