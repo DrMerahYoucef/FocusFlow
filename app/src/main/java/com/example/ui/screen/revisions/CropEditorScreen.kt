@@ -44,6 +44,10 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.theme.NeumorphicColors
 import java.io.File
 
+import androidx.compose.material.icons.filled.Edit
+import com.example.data.db.entity.RevisionMediaType
+import com.example.ui.components.EditCardDialog
+
 enum class CropMode { RECTANGLE, LASSO }
 enum class HandleType { TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, MOVE }
 
@@ -68,6 +72,11 @@ fun CropEditorScreen(
 
     var cropMode by remember { mutableStateOf(CropMode.RECTANGLE) }
     var errorMessageToShow by remember { mutableStateOf<String?>(null) }
+
+    // Card creation validation & fallback states
+    var pendingValidationCard by remember { mutableStateOf<PendingCardResult.Success?>(null) }
+    var pendingFallbackCard by remember { mutableStateOf<PendingCardResult.Failure?>(null) }
+    var manualEntryCardPath by remember { mutableStateOf<String?>(null) }
 
     // Rectangle crop state (normalized 0..1 scale)
     var rectNormLeft by remember { mutableStateOf(0.1f) }
@@ -313,11 +322,31 @@ fun CropEditorScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = if (cropMode == CropMode.RECTANGLE) "Adjust crop area" else "Trace text with your finger",
-                    color = Color.White,
-                    fontSize = 13.sp
-                )
+                OutlinedButton(
+                    onClick = {
+                        try {
+                            val bitmapToCrop = workingBitmap ?: return@OutlinedButton
+                            val croppedBitmap = cropBitmap(
+                                originalBitmap = bitmapToCrop,
+                                mode = cropMode,
+                                rectNormLeft = rectNormLeft,
+                                rectNormTop = rectNormTop,
+                                rectNormRight = rectNormRight,
+                                rectNormBottom = rectNormBottom,
+                                lassoNormPoints = lassoNormPoints
+                            )
+                            val savedPath = viewModel.savePhotoToMediaStore(croppedBitmap)
+                            manualEntryCardPath = savedPath
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Crop error: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Saisie manuelle", fontSize = 12.sp)
+                }
 
                 Button(
                     onClick = {
@@ -333,7 +362,7 @@ fun CropEditorScreen(
                                 lassoNormPoints = lassoNormPoints
                             )
 
-                            viewModel.processCapturedImage(croppedBitmap) { success ->
+                            viewModel.processCapturedImageWithResult(croppedBitmap) { result ->
                                 try {
                                     if (sourceFile.exists()) {
                                         sourceFile.delete()
@@ -342,13 +371,13 @@ fun CropEditorScreen(
                                     android.util.Log.e("CropEditorScreen", "Failed to delete source capture file", e)
                                 }
 
-                                if (success) {
-                                    Toast.makeText(context, "Card created successfully! ✨", Toast.LENGTH_SHORT).show()
-                                    onCropConfirmed()
-                                } else {
-                                    val errorMsg = viewModel.uiState.value.ocrError.takeIf { !it.isNullOrBlank() }
-                                        ?: "Failed to extract text from image. Please ensure text is legible."
-                                    errorMessageToShow = errorMsg
+                                when (result) {
+                                    is PendingCardResult.Success -> {
+                                        pendingValidationCard = result
+                                    }
+                                    is PendingCardResult.Failure -> {
+                                        pendingFallbackCard = result
+                                    }
                                 }
                             }
                         } catch (e: Exception) {
@@ -357,11 +386,121 @@ fun CropEditorScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
                 ) {
-                    Icon(Icons.Default.Check, contentDescription = null)
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Confirm")
+                    Text("Générer (Gemini)", fontSize = 12.sp)
                 }
             }
+        }
+
+        // Preview & Edit Gemini Generated Card Dialog before Validation
+        if (pendingValidationCard != null) {
+            val card = pendingValidationCard!!
+            EditCardDialog(
+                initialTitle = card.title,
+                initialQuestion = card.question,
+                mediaFilePath = card.savedPath,
+                dialogTitle = "Valider la fiche (Gemini)",
+                confirmButtonLabel = "Enregistrer la fiche",
+                onSave = { finalTitle, finalQuestion ->
+                    viewModel.saveNoteDirectly(
+                        title = finalTitle,
+                        question = finalQuestion,
+                        mediaFilePath = card.savedPath,
+                        mediaType = RevisionMediaType.IMAGE
+                    )
+                    pendingValidationCard = null
+                    Toast.makeText(context, "Fiche créée avec succès ! ✨", Toast.LENGTH_SHORT).show()
+                    onCropConfirmed()
+                },
+                onDismiss = { pendingValidationCard = null }
+            )
+        }
+
+        // Fallback Dialog when Gemini API fails or reaches limit
+        if (pendingFallbackCard != null) {
+            val failure = pendingFallbackCard!!
+            AlertDialog(
+                onDismissRequest = { pendingFallbackCard = null },
+                containerColor = NeumorphicColors.DialogBackground,
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Erreur / Limite Gemini",
+                            fontWeight = FontWeight.Bold,
+                            color = NeumorphicColors.TextPrimary,
+                            fontSize = 18.sp
+                        )
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = failure.errorMessage,
+                            fontSize = 13.sp,
+                            color = NeumorphicColors.TextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Vous pouvez rédiger la question manuellement pour cette image.",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = NeumorphicColors.TextSecondary
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val savedPath = failure.savedPath
+                            pendingFallbackCard = null
+                            if (!savedPath.isNullOrBlank()) {
+                                manualEntryCardPath = savedPath
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Écrire manuellement")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingFallbackCard = null }) {
+                        Text("Annuler", color = NeumorphicColors.TextSecondary)
+                    }
+                }
+            )
+        }
+
+        // Manual Entry Card Dialog
+        if (manualEntryCardPath != null) {
+            val path = manualEntryCardPath!!
+            EditCardDialog(
+                initialTitle = "",
+                initialQuestion = "",
+                mediaFilePath = path,
+                dialogTitle = "Rédiger la fiche manuellement",
+                confirmButtonLabel = "Créer la fiche",
+                onSave = { finalTitle, finalQuestion ->
+                    viewModel.saveNoteDirectly(
+                        title = finalTitle,
+                        question = finalQuestion,
+                        mediaFilePath = path,
+                        mediaType = RevisionMediaType.IMAGE
+                    )
+                    manualEntryCardPath = null
+                    Toast.makeText(context, "Fiche créée avec succès ! ✨", Toast.LENGTH_SHORT).show()
+                    onCropConfirmed()
+                },
+                onDismiss = { manualEntryCardPath = null }
+            )
         }
 
         // Detailed OCR Error Dialog

@@ -6,6 +6,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -15,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.ui.components.CardBackView
 import com.example.ui.components.ConfirmDeleteDialog
+import com.example.ui.components.EditCardDialog
 import com.example.ui.theme.NeumorphicColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,6 +31,7 @@ fun RevisionNoteDetailScreen(
     val note = state.allNotes.find { it.id == noteId }
 
     var showDeleteCardDialog by remember { mutableStateOf(false) }
+    var showEditCardDialog by remember { mutableStateOf(false) }
 
     if (showDeleteCardDialog && note != null) {
         ConfirmDeleteDialog(
@@ -39,6 +42,21 @@ fun RevisionNoteDetailScreen(
                 onBack()
             },
             onDismiss = { showDeleteCardDialog = false }
+        )
+    }
+
+    if (showEditCardDialog && note != null) {
+        EditCardDialog(
+            initialTitle = note.title,
+            initialQuestion = note.question,
+            mediaFilePath = note.mediaFilePath,
+            dialogTitle = "Modifier la fiche",
+            confirmButtonLabel = "Enregistrer",
+            onSave = { updatedTitle, updatedQuestion ->
+                viewModel.updateNote(note.copy(title = updatedTitle, question = updatedQuestion))
+                showEditCardDialog = false
+            },
+            onDismiss = { showEditCardDialog = false }
         )
     }
 
@@ -91,6 +109,13 @@ fun RevisionNoteDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showEditCardDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Outlined.Edit,
+                            contentDescription = "Modifier la fiche",
+                            tint = NeumorphicColors.Primary
+                        )
+                    }
                     IconButton(onClick = { showDeleteCardDialog = true }) {
                         Icon(
                             imageVector = Icons.Outlined.Delete,

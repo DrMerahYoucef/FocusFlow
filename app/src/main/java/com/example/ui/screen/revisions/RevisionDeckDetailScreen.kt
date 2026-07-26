@@ -7,8 +7,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,6 +24,7 @@ import com.example.R
 import com.example.data.db.entity.RevisionDeckEntity
 import com.example.data.db.entity.RevisionNoteEntity
 import com.example.ui.components.ConfirmDeleteDialog
+import com.example.ui.components.EditCardDialog
 import com.example.ui.theme.NeumorphicColors
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -42,6 +45,8 @@ fun RevisionDeckDetailScreen(
     val deckNotes = state.allNotes.filter { it.deckId == deckId }
 
     var showDeleteDeckDialog by remember { mutableStateOf(false) }
+    var noteToEdit by remember { mutableStateOf<RevisionNoteEntity?>(null) }
+    var showCreateManualCardDialog by remember { mutableStateOf(false) }
 
     if (showDeleteDeckDialog && deck != null) {
         ConfirmDeleteDialog(
@@ -52,6 +57,40 @@ fun RevisionDeckDetailScreen(
                 onBack()
             },
             onDismiss = { showDeleteDeckDialog = false }
+        )
+    }
+
+    if (noteToEdit != null) {
+        val currentNote = noteToEdit!!
+        EditCardDialog(
+            initialTitle = currentNote.title,
+            initialQuestion = currentNote.question,
+            mediaFilePath = currentNote.mediaFilePath,
+            dialogTitle = "Modifier la fiche",
+            confirmButtonLabel = "Enregistrer",
+            onSave = { updatedTitle, updatedQuestion ->
+                viewModel.updateNote(currentNote.copy(title = updatedTitle, question = updatedQuestion))
+                noteToEdit = null
+            },
+            onDismiss = { noteToEdit = null }
+        )
+    }
+
+    if (showCreateManualCardDialog) {
+        EditCardDialog(
+            initialTitle = "",
+            initialQuestion = "",
+            dialogTitle = "Créer une fiche manuelle",
+            confirmButtonLabel = "Créer la fiche",
+            onSave = { title, question ->
+                viewModel.createManualCard(
+                    deckId = deckId,
+                    title = title,
+                    question = question
+                )
+                showCreateManualCardDialog = false
+            },
+            onDismiss = { showCreateManualCardDialog = false }
         )
     }
 
@@ -66,6 +105,13 @@ fun RevisionDeckDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showCreateManualCardDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Créer une fiche manuelle",
+                            tint = NeumorphicColors.Primary
+                        )
+                    }
                     IconButton(onClick = { showDeleteDeckDialog = true }) {
                         Icon(
                             imageVector = Icons.Outlined.Delete,
@@ -117,7 +163,8 @@ fun RevisionDeckDetailScreen(
                 items(deckNotes, key = { it.id }) { note ->
                     DeckNoteListItem(
                         note = note,
-                        onClick = { onNoteClick(note.id) }
+                        onClick = { onNoteClick(note.id) },
+                        onEditClick = { noteToEdit = note }
                     )
                 }
             }
@@ -128,7 +175,8 @@ fun RevisionDeckDetailScreen(
 @Composable
 fun DeckNoteListItem(
     note: RevisionNoteEntity,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onEditClick: (() -> Unit)? = null
 ) {
     val dateFormat = remember { SimpleDateFormat("MMM d, yyyy", Locale.getDefault()) }
     val isDueToday = note.dueDate <= System.currentTimeMillis()
@@ -163,6 +211,15 @@ fun DeckNoteListItem(
                     color = if (isDueToday) NeumorphicColors.Accent else NeumorphicColors.TextSecondary,
                     fontWeight = if (isDueToday) FontWeight.Bold else FontWeight.Normal
                 )
+            }
+            if (onEditClick != null) {
+                IconButton(onClick = onEditClick) {
+                    Icon(
+                        imageVector = Icons.Outlined.Edit,
+                        contentDescription = "Modifier la fiche",
+                        tint = NeumorphicColors.Primary
+                    )
+                }
             }
         }
     }

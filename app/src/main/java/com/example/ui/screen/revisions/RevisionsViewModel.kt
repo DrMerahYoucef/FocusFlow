@@ -21,6 +21,28 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
 
+sealed interface PendingCardResult {
+    data class Success(
+        val savedPath: String,
+        val title: String,
+        val question: String,
+        val mediaType: RevisionMediaType
+    ) : PendingCardResult
+
+    data class Failure(
+        val savedPath: String?,
+        val errorMessage: String,
+        val mediaType: RevisionMediaType
+    ) : PendingCardResult
+}
+
+sealed interface ModelTestStatus {
+    object Untested : ModelTestStatus
+    object Testing : ModelTestStatus
+    object Active : ModelTestStatus
+    data class Error(val message: String) : ModelTestStatus
+}
+
 data class RevisionsUiState(
     val decks: List<RevisionDeckEntity> = emptyList(),
     val dueNotes: List<RevisionNoteEntity> = emptyList(),
@@ -34,7 +56,8 @@ data class RevisionsUiState(
     val lastExportSummary: String? = null,
     val isTestingModel: Boolean = false,
     val modelTestMessage: String? = null,
-    val isModelVerified: Boolean = false
+    val isModelVerified: Boolean = false,
+    val modelStatuses: Map<String, ModelTestStatus> = emptyMap()
 )
 
 class RevisionsViewModel(application: Application) : AndroidViewModel(application) {
@@ -151,6 +174,32 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun updateNote(note: RevisionNoteEntity) {
+        viewModelScope.launch {
+            repository.upsertNote(note.copy(updatedAt = System.currentTimeMillis()))
+        }
+    }
+
+    fun createManualCard(
+        deckId: String = _uiState.value.selectedDeckId,
+        title: String,
+        question: String,
+        mediaFilePath: String = "",
+        mediaType: RevisionMediaType = RevisionMediaType.IMAGE
+    ) {
+        viewModelScope.launch {
+            val note = RevisionNoteEntity(
+                deckId = deckId.ifBlank { _uiState.value.selectedDeckId },
+                question = question.trim(),
+                title = title.trim().ifBlank { question.trim().take(30) },
+                mediaType = mediaType,
+                mediaFilePath = mediaFilePath,
+                easeFactor = _uiState.value.srsSettings.startingEaseFactor
+            )
+            repository.upsertNote(note)
+        }
+    }
+
     fun captureNoteFromPhoto(
         bitmap: Bitmap,
         onComplete: (Boolean) -> Unit
@@ -191,11 +240,91 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun processCapturedImageWithResult(
+        croppedBitmap: Bitmap,
+        onResult: (PendingCardResult) -> Unit
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isProcessingOcr = true, ocrError = null) }
+            var savedPath: String? = null
+            try {
+                savedPath = localMediaStore.savePhoto(croppedBitmap)
+                val fileBytes = File(savedPath).readBytes()
+                val questionResult = geminiQuestionEngine.generateQuestion(fileBytes, CaptureMediaKind.IMAGE_JPEG)
+
+                _uiState.update { it.copy(isProcessingOcr = false) }
+                onResult(
+                    PendingCardResult.Success(
+                        savedPath = savedPath,
+                        title = questionResult.title,
+                        question = questionResult.question,
+                        mediaType = RevisionMediaType.IMAGE
+                    )
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("RevisionsViewModel", "Photo card creation failed", e)
+                val errorMessage = when {
+                    !e.message.isNullOrBlank() -> e.message!!
+                    !e.localizedMessage.isNullOrBlank() -> e.localizedMessage!!
+                    else -> "Gemini API error or rate limit reached. Please check API key."
+                }
+                _uiState.update { it.copy(isProcessingOcr = false, ocrError = errorMessage) }
+                onResult(
+                    PendingCardResult.Failure(
+                        savedPath = savedPath,
+                        errorMessage = errorMessage,
+                        mediaType = RevisionMediaType.IMAGE
+                    )
+                )
+            }
+        }
+    }
+
     fun processCapturedImage(
         croppedBitmap: Bitmap,
         onComplete: (Boolean) -> Unit
     ) {
         captureNoteFromPhoto(croppedBitmap, onComplete)
+    }
+
+    fun processCapturedAudioWithResult(
+        tempRecordingFile: File,
+        onResult: (PendingCardResult) -> Unit
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isProcessingOcr = true, ocrError = null) }
+            var savedPath: String? = null
+            try {
+                savedPath = localMediaStore.saveAudioFrom(tempRecordingFile)
+                val fileBytes = File(savedPath).readBytes()
+                val questionResult = geminiQuestionEngine.generateQuestion(fileBytes, CaptureMediaKind.AUDIO_M4A)
+
+                _uiState.update { it.copy(isProcessingOcr = false) }
+                onResult(
+                    PendingCardResult.Success(
+                        savedPath = savedPath,
+                        title = questionResult.title,
+                        question = questionResult.question,
+                        mediaType = RevisionMediaType.AUDIO
+                    )
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("RevisionsViewModel", "Audio card creation failed", e)
+                val errorMessage = when {
+                    !e.message.isNullOrBlank() -> e.message!!
+                    !e.localizedMessage.isNullOrBlank() -> e.localizedMessage!!
+                    else -> "Gemini API error or rate limit reached. Please check API key."
+                }
+                _uiState.update { it.copy(isProcessingOcr = false, ocrError = errorMessage) }
+                onResult(
+                    PendingCardResult.Failure(
+                        savedPath = savedPath,
+                        errorMessage = errorMessage,
+                        mediaType = RevisionMediaType.AUDIO
+                    )
+                )
+            }
+        }
     }
 
     fun captureNoteFromAudio(
@@ -277,6 +406,9 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             _uiState.update { it.copy(isTestingModel = true, modelTestMessage = null) }
             val activeModel = _uiState.value.srsSettings.geminiModel
+            _uiState.update { st ->
+                st.copy(modelStatuses = st.modelStatuses + (activeModel to ModelTestStatus.Testing))
+            }
             val result = geminiQuestionEngine.testActiveModel(activeModel)
             result.fold(
                 onSuccess = { msg ->
@@ -284,7 +416,8 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
                         it.copy(
                             isTestingModel = false,
                             isModelVerified = true,
-                            modelTestMessage = msg
+                            modelTestMessage = msg,
+                            modelStatuses = it.modelStatuses + (activeModel to ModelTestStatus.Active)
                         )
                     }
                     onResult(true, msg)
@@ -295,12 +428,76 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
                         it.copy(
                             isTestingModel = false,
                             isModelVerified = false,
-                            modelTestMessage = errorMsg
+                            modelTestMessage = errorMsg,
+                            modelStatuses = it.modelStatuses + (activeModel to ModelTestStatus.Error(errorMsg))
                         )
                     }
                     onResult(false, errorMsg)
                 }
             )
+        }
+    }
+
+    fun checkAllModels(allModels: List<String>, onResult: (activeCount: Int, totalCount: Int) -> Unit = { _, _ -> }) {
+        viewModelScope.launch {
+            _uiState.update { state ->
+                val initialStatuses = allModels.associateWith { ModelTestStatus.Testing }
+                state.copy(
+                    isTestingModel = true,
+                    modelStatuses = initialStatuses,
+                    modelTestMessage = "Verification of all Gemini APIs in progress..."
+                )
+            }
+
+            var activeCount = 0
+            var activeModelVerified = false
+
+            for (modelName in allModels) {
+                val result = geminiQuestionEngine.testActiveModel(modelName)
+                result.fold(
+                    onSuccess = {
+                        activeCount++
+                        _uiState.update { st ->
+                            val updatedMap = st.modelStatuses + (modelName to ModelTestStatus.Active)
+                            val isCurrent = modelName == st.srsSettings.geminiModel
+                            if (isCurrent) activeModelVerified = true
+                            st.copy(
+                                modelStatuses = updatedMap,
+                                isModelVerified = if (isCurrent) true else st.isModelVerified
+                            )
+                        }
+                    },
+                    onFailure = { err ->
+                        val errMsg = err.message ?: "Connection failed"
+                        _uiState.update { st ->
+                            val updatedMap = st.modelStatuses + (modelName to ModelTestStatus.Error(errMsg))
+                            val isCurrent = modelName == st.srsSettings.geminiModel
+                            st.copy(
+                                modelStatuses = updatedMap,
+                                isModelVerified = if (isCurrent) false else st.isModelVerified
+                            )
+                        }
+                    }
+                )
+            }
+
+            val activeModel = _uiState.value.srsSettings.geminiModel
+            val currentStatus = _uiState.value.modelStatuses[activeModel]
+            val summaryMsg = when (currentStatus) {
+                is ModelTestStatus.Active -> "Active model '$activeModel' is verified and active ✓ ($activeCount/${allModels.size} active)"
+                is ModelTestStatus.Error -> "Active model '$activeModel' failed (${currentStatus.message}). ($activeCount/${allModels.size} active)"
+                else -> "$activeCount / ${allModels.size} APIs active"
+            }
+
+            _uiState.update {
+                it.copy(
+                    isTestingModel = false,
+                    isModelVerified = activeModelVerified,
+                    modelTestMessage = summaryMsg
+                )
+            }
+
+            onResult(activeCount, allModels.size)
         }
     }
 
@@ -326,6 +523,33 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             repository.applyImport(data, mode)
             onComplete()
+        }
+    }
+
+    fun savePhotoToMediaStore(bitmap: Bitmap): String {
+        return localMediaStore.savePhoto(bitmap)
+    }
+
+    fun saveNoteDirectly(
+        title: String,
+        question: String,
+        mediaFilePath: String,
+        mediaType: RevisionMediaType,
+        deckId: String? = null
+    ) {
+        viewModelScope.launch {
+            val targetDeckId = deckId ?: _uiState.value.selectedDeckId.ifBlank { "default_deck" }
+            val note = RevisionNoteEntity(
+                id = java.util.UUID.randomUUID().toString(),
+                deckId = targetDeckId,
+                title = title.ifBlank { "Sans titre" },
+                question = question.ifBlank { "Pas de question spécifiée." },
+                mediaFilePath = mediaFilePath,
+                mediaType = mediaType,
+                createdAt = System.currentTimeMillis(),
+                dueDate = System.currentTimeMillis()
+            )
+            repository.upsertNote(note)
         }
     }
 

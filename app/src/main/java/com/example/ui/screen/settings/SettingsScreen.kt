@@ -10,8 +10,10 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import com.example.ui.screen.revisions.ModelTestStatus
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -657,11 +659,13 @@ fun SettingsScreen(
 
                 // Gemini Model Selection & Connection Verification
                 var isAddModelDialogOpen by remember { mutableStateOf(false) }
+                var isDropdownExpanded by remember { mutableStateOf(false) }
                 var newModelInput by remember { mutableStateOf("") }
 
                 val defaultModels = listOf("gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-pro", "gemini-1.5-pro")
                 val allModels = (defaultModels + srsUiState.srsSettings.customModels).distinct()
                 val currentModel = srsUiState.srsSettings.geminiModel
+                val currentModelStatus = srsUiState.modelStatuses[currentModel] ?: ModelTestStatus.Untested
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -671,7 +675,7 @@ fun SettingsScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
-                                text = "Gemini Model",
+                                text = "Gemini Model API",
                                 fontWeight = FontWeight.Bold,
                                 color = NeumorphicColors.TextPrimary,
                                 fontSize = 13.sp
@@ -686,18 +690,18 @@ fun SettingsScreen(
                             }
                         }
                         Text(
-                            text = "Selected: $currentModel" + if (srsUiState.isModelVerified) " (Active ✓)" else "",
+                            text = "Select model API from dropdown",
                             fontSize = 11.sp,
-                            color = if (srsUiState.isModelVerified) NeumorphicColors.Success else NeumorphicColors.TextSecondary
+                            color = NeumorphicColors.TextSecondary
                         )
                     }
 
                     NeumorphicButton(
-                        label = if (srsUiState.isTestingModel) "Checking..." else "Check Active",
+                        label = if (srsUiState.isTestingModel) "Testing..." else "Check Active API",
                         icon = if (srsUiState.isModelVerified) Icons.Default.CheckCircle else Icons.Default.CloudSync,
                         onClick = {
-                            revisionsViewModel.checkActiveModel { _, msg ->
-                                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                            revisionsViewModel.checkAllModels(allModels) { activeCount, totalCount ->
+                                Toast.makeText(context, "Tested $totalCount APIs: $activeCount active", Toast.LENGTH_LONG).show()
                             }
                         },
                         accentColor = if (srsUiState.isModelVerified) NeumorphicColors.Success else NeumorphicColors.Primary
@@ -731,53 +735,103 @@ fun SettingsScreen(
                     }
                 }
 
-                // Model options list
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    allModels.forEach { modelName ->
-                        val isSelected = (modelName == currentModel)
+                // Dropdown Box for Selecting API Models
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedCard(
+                        onClick = { isDropdownExpanded = !isDropdownExpanded },
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                        colors = CardDefaults.outlinedCardColors(
+                            containerColor = NeumorphicColors.SurfaceDark.copy(alpha = 0.05f)
+                        ),
+                        border = BorderStroke(1.dp, NeumorphicColors.Primary.copy(alpha = 0.4f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable {
-                                    revisionsViewModel.setGeminiModel(modelName)
-                                }
-                                .background(
-                                    color = if (isSelected) NeumorphicColors.Primary.copy(alpha = 0.12f) else Color.Transparent,
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
-                                )
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                RadioButton(
-                                    selected = isSelected,
-                                    onClick = { revisionsViewModel.setGeminiModel(modelName) },
-                                    colors = RadioButtonDefaults.colors(selectedColor = NeumorphicColors.Primary)
-                                )
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = modelName,
-                                    fontSize = 13.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = NeumorphicColors.TextPrimary
+                                    text = "Active API Model",
+                                    fontSize = 10.sp,
+                                    color = NeumorphicColors.TextSecondary,
+                                    fontWeight = FontWeight.SemiBold
                                 )
-                            }
-                            if (isSelected && srsUiState.isModelVerified) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = "Active",
-                                        tint = NeumorphicColors.Success,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
                                     Text(
-                                        text = "Active",
-                                        fontSize = 11.sp,
+                                        text = currentModel,
+                                        fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = NeumorphicColors.Success
+                                        color = NeumorphicColors.TextPrimary
                                     )
+                                    ModelStatusBadge(status = currentModelStatus)
                                 }
                             }
+
+                            Icon(
+                                imageVector = if (isDropdownExpanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                                contentDescription = "Expand dropdown",
+                                tint = NeumorphicColors.Primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+
+                    DropdownMenu(
+                        expanded = isDropdownExpanded,
+                        onDismissRequest = { isDropdownExpanded = false },
+                        modifier = Modifier
+                            .fillMaxWidth(0.88f)
+                            .background(NeumorphicColors.DialogBackground)
+                    ) {
+                        allModels.forEach { modelName ->
+                            val isSelected = (modelName == currentModel)
+                            val status = srsUiState.modelStatuses[modelName] ?: ModelTestStatus.Untested
+
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            RadioButton(
+                                                selected = isSelected,
+                                                onClick = {
+                                                    revisionsViewModel.setGeminiModel(modelName)
+                                                    isDropdownExpanded = false
+                                                },
+                                                colors = RadioButtonDefaults.colors(selectedColor = NeumorphicColors.Primary)
+                                            )
+                                            Text(
+                                                text = modelName,
+                                                fontSize = 12.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                color = NeumorphicColors.TextPrimary
+                                            )
+                                        }
+
+                                        ModelStatusBadge(status = status)
+                                    }
+                                },
+                                onClick = {
+                                    revisionsViewModel.setGeminiModel(modelName)
+                                    isDropdownExpanded = false
+                                },
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                            )
                         }
                     }
                 }
@@ -1830,5 +1884,98 @@ private fun shareCsvContent(context: Context, csvText: String) {
         context.startActivity(Intent.createChooser(shareIntent, "Save focus statistics report via:"))
     } catch (e: Exception) {
         Toast.makeText(context, "Failed to export data: ${e.message}", Toast.LENGTH_LONG).show()
+    }
+}
+
+@Composable
+fun ModelStatusBadge(status: ModelTestStatus) {
+    when (status) {
+        is ModelTestStatus.Active -> {
+            Surface(
+                color = NeumorphicColors.Success.copy(alpha = 0.15f),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = "Active",
+                        tint = NeumorphicColors.Success,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Text(
+                        text = "Active ✓",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = NeumorphicColors.Success
+                    )
+                }
+            }
+        }
+        is ModelTestStatus.Testing -> {
+            Surface(
+                color = NeumorphicColors.Primary.copy(alpha = 0.15f),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(10.dp),
+                        strokeWidth = 1.5.dp,
+                        color = NeumorphicColors.Primary
+                    )
+                    Text(
+                        text = "Testing...",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = NeumorphicColors.Primary
+                    )
+                }
+            }
+        }
+        is ModelTestStatus.Error -> {
+            Surface(
+                color = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = "Error",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Text(
+                        text = "Error",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        }
+        is ModelTestStatus.Untested -> {
+            Surface(
+                color = NeumorphicColors.SurfaceDark.copy(alpha = 0.08f),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = "Not checked",
+                    fontSize = 11.sp,
+                    color = NeumorphicColors.TextSecondary,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                )
+            }
+        }
     }
 }

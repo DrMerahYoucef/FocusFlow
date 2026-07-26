@@ -43,7 +43,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Warning
+import com.example.data.db.entity.RevisionMediaType
 import com.example.service.AudioCaptureManager
+import com.example.ui.components.EditCardDialog
 import com.example.ui.theme.NeumorphicColors
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -66,6 +70,10 @@ fun CaptureScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     var captureMode by remember { mutableStateOf(CaptureMode.PHOTO) }
+
+    var pendingValidationAudioCard by remember { mutableStateOf<PendingCardResult.Success?>(null) }
+    var pendingFallbackAudioCard by remember { mutableStateOf<PendingCardResult.Failure?>(null) }
+    var manualEntryAudioCardPath by remember { mutableStateOf<String?>(null) }
 
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
     val audioPermissionState = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
@@ -341,10 +349,14 @@ fun CaptureScreen(
                                 try {
                                     val tempFile = audioCaptureManager.stopRecording()
                                     isRecordingAudio = false
-                                    viewModel.captureNoteFromAudio(tempFile) { success ->
-                                        if (success) {
-                                            Toast.makeText(context, "Fiche créée avec succès ! ✨", Toast.LENGTH_SHORT).show()
-                                            onAudioCaptured()
+                                    viewModel.processCapturedAudioWithResult(tempFile) { result ->
+                                        when (result) {
+                                            is PendingCardResult.Success -> {
+                                                pendingValidationAudioCard = result
+                                            }
+                                            is PendingCardResult.Failure -> {
+                                                pendingFallbackAudioCard = result
+                                            }
                                         }
                                     }
                                 } catch (e: Exception) {
@@ -362,6 +374,116 @@ fun CaptureScreen(
                     }
                 }
             }
+        }
+
+        // Preview & Edit Gemini Generated Audio Card Dialog
+        if (pendingValidationAudioCard != null) {
+            val card = pendingValidationAudioCard!!
+            EditCardDialog(
+                initialTitle = card.title,
+                initialQuestion = card.question,
+                mediaFilePath = card.savedPath,
+                dialogTitle = "Valider la fiche vocale (Gemini)",
+                confirmButtonLabel = "Enregistrer la fiche",
+                onSave = { finalTitle, finalQuestion ->
+                    viewModel.saveNoteDirectly(
+                        title = finalTitle,
+                        question = finalQuestion,
+                        mediaFilePath = card.savedPath,
+                        mediaType = RevisionMediaType.AUDIO
+                    )
+                    pendingValidationAudioCard = null
+                    Toast.makeText(context, "Fiche créée avec succès ! ✨", Toast.LENGTH_SHORT).show()
+                    onAudioCaptured()
+                },
+                onDismiss = { pendingValidationAudioCard = null }
+            )
+        }
+
+        // Fallback Dialog when Gemini API fails for Audio
+        if (pendingFallbackAudioCard != null) {
+            val failure = pendingFallbackAudioCard!!
+            AlertDialog(
+                onDismissRequest = { pendingFallbackAudioCard = null },
+                containerColor = NeumorphicColors.DialogBackground,
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Erreur / Limite Gemini",
+                            fontWeight = FontWeight.Bold,
+                            color = NeumorphicColors.TextPrimary,
+                            fontSize = 18.sp
+                        )
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = failure.errorMessage,
+                            fontSize = 13.sp,
+                            color = NeumorphicColors.TextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Vous pouvez rédiger la question manuellement pour cet enregistrement.",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = NeumorphicColors.TextSecondary
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val savedPath = failure.savedPath
+                            pendingFallbackAudioCard = null
+                            if (!savedPath.isNullOrBlank()) {
+                                manualEntryAudioCardPath = savedPath
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Écrire manuellement")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingFallbackAudioCard = null }) {
+                        Text("Annuler", color = NeumorphicColors.TextSecondary)
+                    }
+                }
+            )
+        }
+
+        // Manual Entry Audio Card Dialog
+        if (manualEntryAudioCardPath != null) {
+            val path = manualEntryAudioCardPath!!
+            EditCardDialog(
+                initialTitle = "",
+                initialQuestion = "",
+                mediaFilePath = path,
+                dialogTitle = "Rédiger la fiche manuellement",
+                confirmButtonLabel = "Créer la fiche",
+                onSave = { finalTitle, finalQuestion ->
+                    viewModel.saveNoteDirectly(
+                        title = finalTitle,
+                        question = finalQuestion,
+                        mediaFilePath = path,
+                        mediaType = RevisionMediaType.AUDIO
+                    )
+                    manualEntryAudioCardPath = null
+                    Toast.makeText(context, "Fiche créée avec succès ! ✨", Toast.LENGTH_SHORT).show()
+                    onAudioCaptured()
+                },
+                onDismiss = { manualEntryAudioCardPath = null }
+            )
         }
 
         // Loading Overlay while processing audio / question

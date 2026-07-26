@@ -27,6 +27,7 @@ import com.example.data.db.entity.RevisionDeckEntity
 import com.example.data.db.entity.RevisionMediaType
 import com.example.data.db.entity.RevisionNoteEntity
 import com.example.ui.components.ConfirmDeleteDialog
+import com.example.ui.components.EditCardDialog
 import com.example.ui.components.NeumorphicButton
 import com.example.ui.components.NeumorphicCard
 import com.example.ui.theme.NeumorphicColors
@@ -45,6 +46,8 @@ fun RevisionsHomeScreen(
     var isAddDeckDialogOpen by remember { mutableStateOf(false) }
     var newDeckName by remember { mutableStateOf("") }
     var noteToDelete by remember { mutableStateOf<RevisionNoteEntity?>(null) }
+    var noteToEdit by remember { mutableStateOf<RevisionNoteEntity?>(null) }
+    var showCreateManualCardDialog by remember { mutableStateOf(false) }
 
     val activeDeck = state.decks.find { it.id == state.selectedDeckId } ?: state.decks.firstOrNull()
     val activeDeckNotes = state.allNotes.filter { it.deckId == (activeDeck?.id ?: "default_deck") }
@@ -63,6 +66,40 @@ fun RevisionsHomeScreen(
                 noteToDelete = null
             },
             onDismiss = { noteToDelete = null }
+        )
+    }
+
+    if (noteToEdit != null) {
+        val currentNote = noteToEdit!!
+        EditCardDialog(
+            initialTitle = currentNote.title,
+            initialQuestion = currentNote.question,
+            mediaFilePath = currentNote.mediaFilePath,
+            dialogTitle = "Modifier la fiche",
+            confirmButtonLabel = "Enregistrer",
+            onSave = { updatedTitle, updatedQuestion ->
+                viewModel.updateNote(currentNote.copy(title = updatedTitle, question = updatedQuestion))
+                noteToEdit = null
+            },
+            onDismiss = { noteToEdit = null }
+        )
+    }
+
+    if (showCreateManualCardDialog) {
+        EditCardDialog(
+            initialTitle = "",
+            initialQuestion = "",
+            dialogTitle = "Créer une fiche manuelle",
+            confirmButtonLabel = "Créer la fiche",
+            onSave = { title, question ->
+                viewModel.createManualCard(
+                    deckId = activeDeck?.id ?: "default_deck",
+                    title = title,
+                    question = question
+                )
+                showCreateManualCardDialog = false
+            },
+            onDismiss = { showCreateManualCardDialog = false }
         )
     }
 
@@ -246,6 +283,24 @@ fun RevisionsHomeScreen(
                     letterSpacing = 1.sp,
                     color = NeumorphicColors.TextSecondary
                 )
+                TextButton(
+                    onClick = { showCreateManualCardDialog = true },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = null,
+                        tint = NeumorphicColors.Primary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "+ Fiche Manuelle",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = NeumorphicColors.Primary
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -294,6 +349,7 @@ fun RevisionsHomeScreen(
                         NoteListItem(
                             note = note,
                             onClick = { onNoteClick(note.id) },
+                            onEdit = { noteToEdit = note },
                             onDelete = { noteToDelete = note }
                         )
                     }
@@ -365,6 +421,7 @@ fun RevisionsHomeScreen(
 fun NoteListItem(
     note: RevisionNoteEntity,
     onClick: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     NeumorphicCard(
@@ -411,13 +468,24 @@ fun NoteListItem(
                 }
             }
 
-            IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
-                Icon(
-                    imageVector = Icons.Default.DeleteOutline,
-                    contentDescription = stringResource(R.string.delete),
-                    tint = NeumorphicColors.TextSecondary,
-                    modifier = Modifier.size(18.dp)
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Modifier la fiche",
+                        tint = NeumorphicColors.Primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+                IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteOutline,
+                        contentDescription = stringResource(R.string.delete),
+                        tint = NeumorphicColors.TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
     }
