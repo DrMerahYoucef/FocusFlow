@@ -9,11 +9,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.PhotoCamera
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -46,14 +43,11 @@ fun RevisionsHomeScreen(
 
     var isAddDeckDialogOpen by remember { mutableStateOf(false) }
     var newDeckName by remember { mutableStateOf("") }
-    var searchQuery by remember { mutableStateOf("") }
+    var noteToDelete by remember { mutableStateOf<RevisionNoteEntity?>(null) }
 
     val activeDeck = state.decks.find { it.id == state.selectedDeckId } ?: state.decks.firstOrNull()
     val activeDeckNotes = state.allNotes.filter { it.deckId == (activeDeck?.id ?: "default_deck") }
     val activeDeckDueNotes = state.dueNotes.filter { it.deckId == (activeDeck?.id ?: "default_deck") }
-    val filteredActiveDeckNotes = remember(activeDeckNotes, searchQuery) {
-        filterNotes(activeDeckNotes, searchQuery)
-    }
 
     val primaryColor = NeumorphicColors.Primary
     val surfaceColor = NeumorphicColors.SurfaceLight

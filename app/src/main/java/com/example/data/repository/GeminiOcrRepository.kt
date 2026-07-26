@@ -89,12 +89,7 @@ fun GeminiNoteResult.toSingleNote(deckId: String, easeFactorDefault: Float = 2.5
 }
 
 interface OcrEngine {
-    suspend fun extractStructuredContent(
-        bitmap: Bitmap,
-        mode: ExtractionMode = ExtractionMode.VERBATIM,
-        promptOverride: String? = null,
-        temporaryPromptAddendum: String? = null
-    ): GeminiNoteResult
+    suspend fun extractStructuredContent(bitmap: Bitmap, mode: ExtractionMode = ExtractionMode.VERBATIM): GeminiNoteResult
 }
 
 class GeminiOcrEngine(
@@ -139,7 +134,7 @@ Table-specific discipline — tables are the most common source of dropped or me
 Return ONLY valid JSON matching this schema, nothing else — no markdown code fences, no commentary:
 
 {
-  "title": "a short label (3-8 words) describing what this content IS ABOUT — its subject, classification, or concept name — not necessarily copied verbatim from the first line. Example: for a table comparing three fracture types by mechanism, a good title is 'Classification des fractures ligamentaires' or the specific classification name if the source names one, NOT the first cell's text.",
+  "title": "the exact first heading or first few words from the source, verbatim — never invent one",
   "blocks": [
     { "type": "text", "content": "verbatim markdown text..." },
     { "type": "table", "headers": ["col1", "col2"], "rows": [["a", "b"], ["c", "d"]] }
@@ -180,22 +175,14 @@ Rules:
 - Keep the result as a SINGLE card — one title, one set of blocks.
 """.trimIndent()
 
-    override suspend fun extractStructuredContent(
-        bitmap: Bitmap,
-        mode: ExtractionMode,
-        promptOverride: String?,
-        temporaryPromptAddendum: String?
-    ): GeminiNoteResult = withContext(Dispatchers.IO) {
+    override suspend fun extractStructuredContent(bitmap: Bitmap, mode: ExtractionMode): GeminiNoteResult = withContext(Dispatchers.IO) {
         val apiKey = apiKeyProvider().trim()
         if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
             throw IllegalArgumentException("A Gemini API key is required to scan text. Add one in Settings.")
         }
 
         val base64Jpeg = bitmapToBase64(bitmap)
-        val basePrompt = promptOverride?.ifBlank { null } ?: if (mode == ExtractionMode.EXPLAIN) EXPLAIN_PROMPT else VERBATIM_PROMPT
-        val prompt = if (!temporaryPromptAddendum.isNullOrBlank()) {
-            "$basePrompt\n\nAdditional instructions for this capture only: $temporaryPromptAddendum"
-        } else basePrompt
+        val prompt = if (mode == ExtractionMode.EXPLAIN) EXPLAIN_PROMPT else VERBATIM_PROMPT
 
         val jsonRequest = JSONObject().apply {
             put("contents", JSONArray().apply {
@@ -431,12 +418,10 @@ class GeminiOcrRepository(
     suspend fun extractNotesFromImage(
         bitmap: Bitmap,
         deckId: String,
-        explainMode: Boolean = false,
-        promptOverride: String? = null,
-        temporaryPromptAddendum: String? = null
+        explainMode: Boolean = false
     ): List<RevisionNoteEntity> {
         val mode = if (explainMode) ExtractionMode.EXPLAIN else ExtractionMode.VERBATIM
-        val result = engine.extractStructuredContent(bitmap, mode, promptOverride, temporaryPromptAddendum)
+        val result = engine.extractStructuredContent(bitmap, mode)
         return listOf(result.toSingleNote(deckId))
     }
 }

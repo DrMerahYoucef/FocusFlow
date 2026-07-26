@@ -74,8 +74,7 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
             reminderMinute = sharedPrefs.getInt("srs_reminder_minute", 0),
             notificationsEnabled = sharedPrefs.getBoolean("srs_notifications_enabled", true),
             geminiApiKey = sharedPrefs.getString("gemini_api_key", "") ?: "",
-            explainModeEnabled = sharedPrefs.getBoolean("srs_explain_mode_enabled", false),
-            customPromptOverride = sharedPrefs.getString("srs_custom_prompt_override", null)
+            explainModeEnabled = sharedPrefs.getBoolean("srs_explain_mode_enabled", false)
         )
         val lastSummary = sharedPrefs.getString("srs_last_export_summary", null)
         _uiState.update { it.copy(srsSettings = settings, lastExportSummary = lastSummary) }
@@ -139,74 +138,19 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun ensureAtLeastOneDeck(onDeckReady: (String) -> Unit = {}) {
-        viewModelScope.launch {
-            val decks = repository.allDecks.first()
-            if (decks.isEmpty()) {
-                val general = RevisionDeckEntity(id = "default_deck", name = "General", colorHex = "#4CAF50")
-                repository.upsertDeck(general)
-                onDeckReady(general.id)
-            } else {
-                onDeckReady(decks.first().id)
-            }
-        }
-    }
-
-    fun moveNoteToDeck(noteId: String, newDeckId: String) {
-        viewModelScope.launch {
-            val note = repository.allNotes.first().find { it.id == noteId }
-            if (note != null) {
-                repository.upsertNote(note.copy(deckId = newDeckId, updatedAt = System.currentTimeMillis()))
-            }
-        }
-    }
-
-    fun updateNoteTitleAndContent(noteId: String, newTitle: String, newTextContent: String) {
-        viewModelScope.launch {
-            val note = repository.allNotes.first().find { it.id == noteId } ?: return@launch
-            val currentBlocks = com.example.data.repository.NoteBlocksSerializer.fromJson(note.contentBlocksJson)
-            val updatedBlocks = if (currentBlocks.isNotEmpty()) {
-                currentBlocks.mapIndexed { idx, block ->
-                    if (idx == 0 && block is com.example.data.repository.NoteBlock.TextBlock) {
-                        block.copy(content = newTextContent)
-                    } else block
-                }
-            } else {
-                listOf(com.example.data.repository.NoteBlock.TextBlock(content = newTextContent))
-            }
-            val newBlocksJson = com.example.data.repository.NoteBlocksSerializer.toJson(updatedBlocks)
-            val newPreview = com.example.data.repository.NoteBlocksSerializer.toPlainTextPreview(updatedBlocks)
-            val updatedNote = note.copy(
-                title = newTitle,
-                contentBlocksJson = newBlocksJson,
-                plainTextPreview = newPreview,
-                updatedAt = System.currentTimeMillis()
-            )
-            repository.upsertNote(updatedNote)
-        }
-    }
-
     fun processCapturedImage(
         croppedBitmap: Bitmap,
-        targetDeckId: String? = null,
         explainMode: Boolean = false,
-        temporaryPromptAddendum: String? = null,
         onComplete: (Boolean) -> Unit
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isProcessingOcr = true, ocrError = null) }
             try {
-                val deckId = targetDeckId ?: _uiState.value.selectedDeckId
+                val deckId = _uiState.value.selectedDeckId
                 val mode = if (explainMode) com.example.data.repository.ExtractionMode.EXPLAIN else com.example.data.repository.ExtractionMode.VERBATIM
 
                 val engine = ocrEngineProvider.get()
-                val promptOverride = _uiState.value.srsSettings.customPromptOverride
-                val result = engine.extractStructuredContent(
-                    bitmap = croppedBitmap,
-                    mode = mode,
-                    promptOverride = promptOverride,
-                    temporaryPromptAddendum = temporaryPromptAddendum
-                )
+                val result = engine.extractStructuredContent(croppedBitmap, mode)
                 val singleNote = result.toSingleNote(deckId, _uiState.value.srsSettings.startingEaseFactor)
 
                 repository.upsertNote(singleNote)
@@ -237,7 +181,6 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
             .putBoolean("srs_notifications_enabled", settings.notificationsEnabled)
             .putString("gemini_api_key", settings.geminiApiKey)
             .putBoolean("srs_explain_mode_enabled", settings.explainModeEnabled)
-            .putString("srs_custom_prompt_override", settings.customPromptOverride)
             .apply()
 
         _uiState.update { it.copy(srsSettings = settings) }
