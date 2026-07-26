@@ -31,7 +31,10 @@ data class RevisionsUiState(
     val isProcessingOcr: Boolean = false,
     val ocrError: String? = null,
     val srsSettings: SrsSettings = SrsSettings(),
-    val lastExportSummary: String? = null
+    val lastExportSummary: String? = null,
+    val isTestingModel: Boolean = false,
+    val modelTestMessage: String? = null,
+    val isModelVerified: Boolean = false
 )
 
 class RevisionsViewModel(application: Application) : AndroidViewModel(application) {
@@ -58,6 +61,10 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
                 buildConfigKey.isNotBlank() -> buildConfigKey
                 else -> ""
             }
+        },
+        modelProvider = {
+            val model = _uiState.value.srsSettings.geminiModel.trim()
+            if (model.isNotBlank()) model else "gemini-3.5-flash"
         }
     )
 
@@ -67,6 +74,11 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun loadSettings() {
+        val customModelsStr = sharedPrefs.getString("gemini_custom_models", "") ?: ""
+        val customList = if (customModelsStr.isNotBlank()) {
+            customModelsStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        } else emptyList()
+
         val settings = SrsSettings(
             newCardsPerDay = sharedPrefs.getInt("srs_new_cards_per_day", 20),
             maxReviewsPerDay = sharedPrefs.getInt("srs_max_reviews_per_day", 200),
@@ -75,7 +87,8 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
             reminderMinute = sharedPrefs.getInt("srs_reminder_minute", 0),
             notificationsEnabled = sharedPrefs.getBoolean("srs_notifications_enabled", true),
             geminiApiKey = sharedPrefs.getString("gemini_api_key", "") ?: "",
-            explainModeEnabled = sharedPrefs.getBoolean("srs_explain_mode_enabled", false)
+            geminiModel = sharedPrefs.getString("gemini_model", "gemini-3.5-flash") ?: "gemini-3.5-flash",
+            customModels = customList
         )
         val lastSummary = sharedPrefs.getString("srs_last_export_summary", null)
         _uiState.update { it.copy(srsSettings = settings, lastExportSummary = lastSummary) }
@@ -180,7 +193,6 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun processCapturedImage(
         croppedBitmap: Bitmap,
-        explainMode: Boolean = false,
         onComplete: (Boolean) -> Unit
     ) {
         captureNoteFromPhoto(croppedBitmap, onComplete)
@@ -235,16 +247,61 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
             .putInt("srs_reminder_minute", settings.reminderMinute)
             .putBoolean("srs_notifications_enabled", settings.notificationsEnabled)
             .putString("gemini_api_key", settings.geminiApiKey)
-            .putBoolean("srs_explain_mode_enabled", settings.explainModeEnabled)
+            .putString("gemini_model", settings.geminiModel)
+            .putString("gemini_custom_models", settings.customModels.joinToString(","))
             .apply()
 
-        _uiState.update { it.copy(srsSettings = settings) }
+        _uiState.update { it.copy(srsSettings = settings, isModelVerified = false, modelTestMessage = null) }
         RevisionReminderWorker.scheduleRevisionReminder(getApplication(), settings)
     }
 
     fun setGeminiApiKey(apiKey: String) {
         val current = _uiState.value.srsSettings
         updateSrsSettings(current.copy(geminiApiKey = apiKey))
+    }
+
+    fun setGeminiModel(model: String) {
+        val current = _uiState.value.srsSettings
+        updateSrsSettings(current.copy(geminiModel = model))
+    }
+
+    fun addCustomModel(modelName: String) {
+        val cleanName = modelName.trim()
+        if (cleanName.isBlank()) return
+        val current = _uiState.value.srsSettings
+        val updatedList = (current.customModels + cleanName).distinct()
+        updateSrsSettings(current.copy(customModels = updatedList, geminiModel = cleanName))
+    }
+
+    fun checkActiveModel(onResult: (Boolean, String) -> Unit = { _, _ -> }) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isTestingModel = true, modelTestMessage = null) }
+            val activeModel = _uiState.value.srsSettings.geminiModel
+            val result = geminiQuestionEngine.testActiveModel(activeModel)
+            result.fold(
+                onSuccess = { msg ->
+                    _uiState.update {
+                        it.copy(
+                            isTestingModel = false,
+                            isModelVerified = true,
+                            modelTestMessage = msg
+                        )
+                    }
+                    onResult(true, msg)
+                },
+                onFailure = { err ->
+                    val errorMsg = err.message ?: "Failed to connect to Gemini API."
+                    _uiState.update {
+                        it.copy(
+                            isTestingModel = false,
+                            isModelVerified = false,
+                            modelTestMessage = errorMsg
+                        )
+                    }
+                    onResult(false, errorMsg)
+                }
+            )
+        }
     }
 
     // Export / Import

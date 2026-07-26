@@ -67,9 +67,6 @@ fun CropEditorScreen(
     var workingBitmap by remember(baseBitmap) { mutableStateOf(baseBitmap) }
 
     var cropMode by remember { mutableStateOf(CropMode.RECTANGLE) }
-    var showModeDialog by remember { mutableStateOf(false) }
-    var selectedExplainMode by remember { mutableStateOf(false) }
-    var pendingCroppedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var errorMessageToShow by remember { mutableStateOf<String?>(null) }
 
     // Rectangle crop state (normalized 0..1 scale)
@@ -336,87 +333,7 @@ fun CropEditorScreen(
                                 lassoNormPoints = lassoNormPoints
                             )
 
-                            pendingCroppedBitmap = croppedBitmap
-                            selectedExplainMode = false // Default to verbatim text
-                            showModeDialog = true
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "Crop error: ${e.message}", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
-                ) {
-                    Icon(Icons.Default.Check, contentDescription = null)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Confirm")
-                }
-            }
-        }
-
-        // Extraction Mode Dialog
-        if (showModeDialog && pendingCroppedBitmap != null) {
-            AlertDialog(
-                onDismissRequest = {
-                    showModeDialog = false
-                    pendingCroppedBitmap = null
-                },
-                containerColor = NeumorphicColors.DialogBackground,
-                title = { Text("Card Extraction Mode", fontWeight = FontWeight.Bold, color = NeumorphicColors.TextPrimary) },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            text = "Choose how to extract text for this card:",
-                            fontSize = 13.sp,
-                            color = NeumorphicColors.TextSecondary
-                        )
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { selectedExplainMode = false }
-                                .padding(vertical = 4.dp)
-                        ) {
-                            RadioButton(
-                                selected = !selectedExplainMode,
-                                onClick = { selectedExplainMode = false },
-                                colors = RadioButtonDefaults.colors(selectedColor = NeumorphicColors.Primary)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
-                                Text("Verbatim (As it is)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = NeumorphicColors.TextPrimary)
-                                Text("Extract exact text as it appears in photo", fontSize = 12.sp, color = NeumorphicColors.TextSecondary)
-                            }
-                        }
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { selectedExplainMode = true }
-                                .padding(vertical = 4.dp)
-                        ) {
-                            RadioButton(
-                                selected = selectedExplainMode,
-                                onClick = { selectedExplainMode = true },
-                                colors = RadioButtonDefaults.colors(selectedColor = NeumorphicColors.Primary)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
-                                Text("Explain Mode (AI Q&A)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = NeumorphicColors.TextPrimary)
-                                Text("Synthesize text into a structured study Q&A", fontSize = 12.sp, color = NeumorphicColors.TextSecondary)
-                            }
-                        }
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            val bitmapToProcess = pendingCroppedBitmap!!
-                            val useExplain = selectedExplainMode
-                            showModeDialog = false
-                            pendingCroppedBitmap = null
-
-                            viewModel.processCapturedImage(bitmapToProcess, explainMode = useExplain) { success ->
+                            viewModel.processCapturedImage(croppedBitmap) { success ->
                                 try {
                                     if (sourceFile.exists()) {
                                         sourceFile.delete()
@@ -434,23 +351,17 @@ fun CropEditorScreen(
                                     errorMessageToShow = errorMsg
                                 }
                             }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
-                    ) {
-                        Text("Create Card")
-                    }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = {
-                            showModeDialog = false
-                            pendingCroppedBitmap = null
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Crop error: ${e.message}", Toast.LENGTH_SHORT).show()
                         }
-                    ) {
-                        Text("Cancel", color = NeumorphicColors.TextSecondary)
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = null)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Confirm")
                 }
-            )
+            }
         }
 
         // Detailed OCR Error Dialog

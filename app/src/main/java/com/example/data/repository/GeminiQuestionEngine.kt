@@ -19,7 +19,8 @@ enum class CaptureMediaKind(val mimeType: String) {
 }
 
 class GeminiQuestionEngine(
-    private val apiKeyProvider: () -> String
+    private val apiKeyProvider: () -> String,
+    private val modelProvider: () -> String = { "gemini-3.5-flash" }
 ) {
     private val client = OkHttpClient.Builder()
         .connectTimeout(60, TimeUnit.SECONDS)
@@ -85,7 +86,14 @@ Return ONLY valid JSON, nothing else:
                 })
             }
 
-            val models = listOf("gemini-1.5-flash", "gemini-1.5-flash-8b", "gemini-2.0-flash-exp")
+            val selectedModel = modelProvider().trim().ifBlank { "gemini-3.5-flash" }
+            val models = listOf(
+                selectedModel,
+                "gemini-3.5-flash",
+                "gemini-2.5-flash",
+                "gemini-1.5-flash",
+                "gemini-2.0-flash"
+            ).distinct()
             var lastException: Exception? = null
 
             for (model in models) {
@@ -125,4 +133,50 @@ Return ONLY valid JSON, nothing else:
             }
             throw lastException ?: IllegalStateException("Failed to generate a question.")
         }
+
+    suspend fun testActiveModel(modelOverride: String? = null): Result<String> = withContext(Dispatchers.IO) {
+        val apiKey = apiKeyProvider().trim()
+        if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
+            return@withContext Result.failure(IllegalStateException("No API key provided. Please save a key in Settings."))
+        }
+
+        val targetModel = (modelOverride ?: modelProvider()).trim().ifBlank { "gemini-3.5-flash" }
+
+        val testPayload = JSONObject().apply {
+            put("contents", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("parts", JSONArray().apply {
+                        put(JSONObject().apply { put("text", "Hi, reply with status ok.") })
+                    })
+                })
+            })
+            put("generationConfig", JSONObject().apply {
+                put("max_output_tokens", 10)
+            })
+        }
+
+        val url = "https://generativelanguage.googleapis.com/v1beta/models/$targetModel:generateContent?key=$apiKey"
+        try {
+            val requestBody = testPayload.toString().toRequestBody("application/json".toMediaType())
+            val request = Request.Builder().url(url).post(requestBody).build()
+            val response = client.newCall(request).execute()
+            val bodyStr = response.body?.string().orEmpty()
+
+            if (response.isSuccessful) {
+                Result.success("Model '$targetModel' is active and verified!")
+            } else {
+                val errorMsg = try {
+                    val errorObj = JSONObject(bodyStr).optJSONObject("error")
+                    val msg = errorObj?.optString("message", "") ?: bodyStr
+                    val code = response.code
+                    "Error ($code): $msg"
+                } catch (e: Exception) {
+                    "HTTP ${response.code}: $bodyStr"
+                }
+                Result.failure(IllegalStateException(errorMsg))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

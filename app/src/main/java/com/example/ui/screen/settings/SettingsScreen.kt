@@ -655,6 +655,208 @@ fun SettingsScreen(
 
                 Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
 
+                // Gemini Model Selection & Connection Verification
+                var isAddModelDialogOpen by remember { mutableStateOf(false) }
+                var newModelInput by remember { mutableStateOf("") }
+
+                val defaultModels = listOf("gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-pro", "gemini-1.5-pro")
+                val allModels = (defaultModels + srsUiState.srsSettings.customModels).distinct()
+                val currentModel = srsUiState.srsSettings.geminiModel
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "Gemini Model",
+                                fontWeight = FontWeight.Bold,
+                                color = NeumorphicColors.TextPrimary,
+                                fontSize = 13.sp
+                            )
+                            if (srsUiState.isModelVerified) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Active & Verified",
+                                    tint = NeumorphicColors.Success,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Selected: $currentModel" + if (srsUiState.isModelVerified) " (Active ✓)" else "",
+                            fontSize = 11.sp,
+                            color = if (srsUiState.isModelVerified) NeumorphicColors.Success else NeumorphicColors.TextSecondary
+                        )
+                    }
+
+                    NeumorphicButton(
+                        label = if (srsUiState.isTestingModel) "Checking..." else "Check Active",
+                        icon = if (srsUiState.isModelVerified) Icons.Default.CheckCircle else Icons.Default.CloudSync,
+                        onClick = {
+                            revisionsViewModel.checkActiveModel { _, msg ->
+                                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        accentColor = if (srsUiState.isModelVerified) NeumorphicColors.Success else NeumorphicColors.Primary
+                    )
+                }
+
+                if (srsUiState.modelTestMessage != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = if (srsUiState.isModelVerified) NeumorphicColors.Success.copy(alpha = 0.12f) else NeumorphicColors.Accent.copy(alpha = 0.12f),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                            )
+                            .padding(10.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(
+                                imageVector = if (srsUiState.isModelVerified) Icons.Default.CheckCircle else Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = if (srsUiState.isModelVerified) NeumorphicColors.Success else NeumorphicColors.Accent,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = srsUiState.modelTestMessage!!,
+                                fontSize = 11.sp,
+                                color = NeumorphicColors.TextPrimary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+
+                // Model options list
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    allModels.forEach { modelName ->
+                        val isSelected = (modelName == currentModel)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    revisionsViewModel.setGeminiModel(modelName)
+                                }
+                                .background(
+                                    color = if (isSelected) NeumorphicColors.Primary.copy(alpha = 0.12f) else Color.Transparent,
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+                                )
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = { revisionsViewModel.setGeminiModel(modelName) },
+                                    colors = RadioButtonDefaults.colors(selectedColor = NeumorphicColors.Primary)
+                                )
+                                Text(
+                                    text = modelName,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = NeumorphicColors.TextPrimary
+                                )
+                            }
+                            if (isSelected && srsUiState.isModelVerified) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = "Active",
+                                        tint = NeumorphicColors.Success,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text(
+                                        text = "Active",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = NeumorphicColors.Success
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    TextButton(
+                        onClick = { isAddModelDialogOpen = true }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add Model",
+                            tint = NeumorphicColors.Primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "+ Add Custom Model",
+                            color = NeumorphicColors.Primary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+
+                if (isAddModelDialogOpen) {
+                    AlertDialog(
+                        onDismissRequest = { isAddModelDialogOpen = false },
+                        title = { Text("Add Gemini Model", color = NeumorphicColors.TextPrimary, fontWeight = FontWeight.Bold) },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = "Enter a model identifier (e.g. gemini-3.5-flash, gemini-2.5-flash-lite):",
+                                    fontSize = 12.sp,
+                                    color = NeumorphicColors.TextSecondary
+                                )
+                                OutlinedTextField(
+                                    value = newModelInput,
+                                    onValueChange = { newModelInput = it },
+                                    label = { Text("Model Name") },
+                                    placeholder = { Text("gemini-2.5-flash") },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = NeumorphicColors.TextPrimary,
+                                        unfocusedTextColor = NeumorphicColors.TextPrimary,
+                                        focusedBorderColor = NeumorphicColors.Primary,
+                                        unfocusedBorderColor = NeumorphicColors.TextSecondary
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    if (newModelInput.isNotBlank()) {
+                                        revisionsViewModel.addCustomModel(newModelInput.trim())
+                                        Toast.makeText(context, "Added model '${newModelInput.trim()}'", Toast.LENGTH_SHORT).show()
+                                        newModelInput = ""
+                                        isAddModelDialogOpen = false
+                                    }
+                                }
+                            ) {
+                                Text("Add & Select")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { isAddModelDialogOpen = false }) {
+                                Text("Cancel", color = NeumorphicColors.TextSecondary)
+                            }
+                        },
+                        containerColor = NeumorphicColors.DialogBackground
+                    )
+                }
+
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
+
                 // Daily limits
                 Row(
                     modifier = Modifier.fillMaxWidth(),
