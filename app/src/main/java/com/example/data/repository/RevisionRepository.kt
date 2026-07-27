@@ -53,6 +53,8 @@ class RevisionRepository(
 
     suspend fun getDueCount(): Int = noteDao.getDueCount()
     suspend fun getTotalCount(): Int = noteDao.getTotalCount()
+    suspend fun getAllDecksOnce(): List<RevisionDeckEntity> = deckDao.getAllDecksOnce()
+    suspend fun getAllNotesOnce(): List<RevisionNoteEntity> = noteDao.getAllNotesOnce()
 
     suspend fun upsertDeck(deck: RevisionDeckEntity) = deckDao.upsert(deck)
     suspend fun deleteDeck(deck: RevisionDeckEntity) = deckDao.delete(deck)

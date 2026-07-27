@@ -33,7 +33,7 @@ object NeumorphicColors {
     // Dynamic properties responding to custom LocalIsDarkTheme composition local
     val Background: Color
         @Composable
-        get() = Color.Transparent
+        get() = if (LocalIsDarkTheme.current) BackgroundDark else BackgroundLight
 
     val DialogBackground: Color
         @Composable

@@ -655,6 +655,50 @@ fun SettingsScreen(
 
                 Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
 
+                // Custom Prompt Override Field
+                var localCustomPrompt by remember(srsUiState.srsSettings.customPromptOverride) {
+                    mutableStateOf(srsUiState.srsSettings.customPromptOverride.orEmpty())
+                }
+
+                Text(
+                    text = "Custom OCR Prompt Override (Optional)",
+                    fontWeight = FontWeight.Bold,
+                    color = NeumorphicColors.TextPrimary,
+                    fontSize = 13.sp
+                )
+                OutlinedTextField(
+                    value = localCustomPrompt,
+                    onValueChange = { localCustomPrompt = it },
+                    label = { Text("Prompt Override") },
+                    placeholder = { Text("Leave blank for default verbatim transcription prompt") },
+                    minLines = 3,
+                    maxLines = 6,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = NeumorphicColors.TextPrimary,
+                        unfocusedTextColor = NeumorphicColors.TextPrimary,
+                        focusedBorderColor = NeumorphicColors.Primary,
+                        unfocusedBorderColor = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    NeumorphicButton(
+                        label = "Save Custom Prompt",
+                        icon = Icons.Default.Save,
+                        onClick = {
+                            val overrideVal = localCustomPrompt.trim().ifBlank { null }
+                            revisionsViewModel.updateSrsSettings(srsUiState.srsSettings.copy(customPromptOverride = overrideVal))
+                            Toast.makeText(context, "Custom OCR prompt updated!", Toast.LENGTH_SHORT).show()
+                        },
+                        accentColor = NeumorphicColors.Primary
+                    )
+                }
+
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
+
                 // Daily limits
                 Row(
                     modifier = Modifier.fillMaxWidth(),

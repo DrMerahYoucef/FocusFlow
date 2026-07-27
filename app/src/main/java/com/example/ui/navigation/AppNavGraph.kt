@@ -392,10 +392,16 @@ fun AppNavGraph(
             }
             composable("revisions/capture") {
                 CaptureScreen(
+                    viewModel = revisionsViewModel,
                     onImageCaptured = { path ->
                         val encoded = java.net.URLEncoder.encode(path, "UTF-8")
                         navController.navigate("revisions/crop?path=$encoded") {
                             popUpTo("revisions/capture") { inclusive = true }
+                        }
+                    },
+                    onCardCreated = {
+                        navController.navigate(Screen.Revisions.route) {
+                            popUpTo(Screen.Revisions.route) { inclusive = true }
                         }
                     },
                     onBack = { navController.popBackStack() }

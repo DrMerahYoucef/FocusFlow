@@ -7,6 +7,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.*
@@ -126,7 +128,7 @@ fun DeckNoteListItem(
     note: RevisionNoteEntity,
     onClick: () -> Unit
 ) {
-    val dateFormat = remember { SimpleDateFormat("MMM d, yyyy", Locale.getDefault()) }
+    val dueText = formatDueIn(note.dueDate)
     val isDueToday = note.dueDate <= System.currentTimeMillis()
 
     Card(
@@ -153,12 +155,24 @@ fun DeckNoteListItem(
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = if (isDueToday) stringResource(R.string.due_today) else stringResource(R.string.due_date, dateFormat.format(Date(note.dueDate))),
-                    fontSize = 12.sp,
-                    color = if (isDueToday) NeumorphicColors.Accent else NeumorphicColors.TextSecondary,
-                    fontWeight = if (isDueToday) FontWeight.Bold else FontWeight.Normal
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (note.mediaType != null) {
+                        Icon(
+                            imageVector = if (note.mediaType == "AUDIO") Icons.Default.Mic else Icons.Default.Image,
+                            contentDescription = note.mediaType,
+                            tint = NeumorphicColors.Primary,
+                            modifier = Modifier
+                                .size(14.dp)
+                                .padding(end = 4.dp)
+                        )
+                    }
+                    Text(
+                        text = dueText,
+                        fontSize = 12.sp,
+                        color = if (isDueToday) NeumorphicColors.Accent else NeumorphicColors.TextSecondary,
+                        fontWeight = if (isDueToday) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
             }
         }
     }

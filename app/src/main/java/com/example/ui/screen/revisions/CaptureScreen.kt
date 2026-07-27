@@ -35,16 +35,35 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import java.io.File
 
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Stop
+import android.media.MediaRecorder
+import java.io.IOException
+
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun CaptureScreen(
+    viewModel: RevisionsViewModel,
     onImageCaptured: (String) -> Unit,
+    onCardCreated: () -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
+    val audioPermissionState = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
+
+    var showManualCardDialog by remember { mutableStateOf(false) }
+    var manualTitle by remember { mutableStateOf("") }
+    var manualAnswer by remember { mutableStateOf("") }
+
+    var showAudioDialog by remember { mutableStateOf(false) }
+    var isRecording by remember { mutableStateOf(false) }
+    var mediaRecorder by remember { mutableStateOf<MediaRecorder?>(null) }
+    var currentAudioFile by remember { mutableStateOf<File?>(null) }
+    var audioCardTitle by remember { mutableStateOf("") }
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -126,15 +145,37 @@ fun CaptureScreen(
                 Icon(Icons.Default.ArrowBack, contentDescription = "Retour", tint = Color.White)
             }
 
-            IconButton(
-                onClick = {
-                    galleryLauncher.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                    )
-                },
-                colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Black.copy(alpha = 0.5f))
-            ) {
-                Icon(Icons.Default.PhotoLibrary, contentDescription = "Galerie", tint = Color.White)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                IconButton(
+                    onClick = { showManualCardDialog = true },
+                    colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Black.copy(alpha = 0.5f))
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = "Saisie manuelle", tint = Color.White)
+                }
+
+                IconButton(
+                    onClick = {
+                        if (!audioPermissionState.status.isGranted) {
+                            audioPermissionState.launchPermissionRequest()
+                        } else {
+                            showAudioDialog = true
+                        }
+                    },
+                    colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Black.copy(alpha = 0.5f))
+                ) {
+                    Icon(Icons.Default.Mic, contentDescription = "Voice Note Card", tint = Color.White)
+                }
+
+                IconButton(
+                    onClick = {
+                        galleryLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                    colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Black.copy(alpha = 0.5f))
+                ) {
+                    Icon(Icons.Default.PhotoLibrary, contentDescription = "Galerie", tint = Color.White)
+                }
             }
         }
 
@@ -169,6 +210,161 @@ fun CaptureScreen(
             ) {
                 Icon(Icons.Default.Camera, contentDescription = "Capturer", modifier = Modifier.size(36.dp))
             }
+        }
+
+        // Manual Card Dialog (Section 10)
+        if (showManualCardDialog) {
+            AlertDialog(
+                onDismissRequest = { showManualCardDialog = false },
+                title = { Text("Manual Card Creation") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(
+                            value = manualTitle,
+                            onValueChange = { manualTitle = it },
+                            label = { Text("Card Title / Question") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = manualAnswer,
+                            onValueChange = { manualAnswer = it },
+                            label = { Text("Answer / Notes / Markdown") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (manualTitle.isNotBlank() && manualAnswer.isNotBlank()) {
+                                viewModel.createManualNote(
+                                    title = manualTitle.trim(),
+                                    answerText = manualAnswer.trim(),
+                                    deckId = viewModel.uiState.value.selectedDeckId
+                                ) {
+                                    showManualCardDialog = false
+                                    Toast.makeText(context, "Manual Card Created!", Toast.LENGTH_SHORT).show()
+                                    onCardCreated()
+                                }
+                            }
+                        }
+                    ) { Text("Save Card") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showManualCardDialog = false }) { Text("Cancel") }
+                }
+            )
+        }
+
+        // Voice Note Recording Dialog (Section 9)
+        if (showAudioDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    if (isRecording) {
+                        try { mediaRecorder?.stop(); mediaRecorder?.release() } catch (e: Exception) {}
+                        isRecording = false
+                    }
+                    showAudioDialog = false
+                },
+                title = { Text("Voice Note Card") },
+                text = {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedTextField(
+                            value = audioCardTitle,
+                            onValueChange = { audioCardTitle = it },
+                            label = { Text("Audio Title (Optional)") },
+                            placeholder = { Text("Leave blank for AI title") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        if (isRecording) {
+                            Text("Recording audio...", color = Color.Red, style = MaterialTheme.typography.titleMedium)
+                            IconButton(
+                                onClick = {
+                                    try {
+                                        mediaRecorder?.stop()
+                                        mediaRecorder?.release()
+                                        mediaRecorder = null
+                                        isRecording = false
+                                    } catch (e: Exception) {
+                                        isRecording = false
+                                    }
+                                },
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .background(Color.Red, CircleShape)
+                            ) {
+                                Icon(Icons.Default.Stop, contentDescription = "Stop", tint = Color.White)
+                            }
+                        } else {
+                            Text(
+                                if (currentAudioFile != null) "Recording complete!" else "Tap to record audio",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            IconButton(
+                                onClick = {
+                                    val file = File(context.cacheDir, "voice_${System.currentTimeMillis()}.3gp")
+                                    val recorder = MediaRecorder().apply {
+                                        setAudioSource(MediaRecorder.AudioSource.MIC)
+                                        setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
+                                        setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
+                                        setOutputFile(file.absolutePath)
+                                        try {
+                                            prepare()
+                                            start()
+                                            isRecording = true
+                                            currentAudioFile = file
+                                        } catch (e: IOException) {
+                                            Toast.makeText(context, "Recorder failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                    mediaRecorder = recorder
+                                },
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .background(MaterialTheme.colorScheme.primary, CircleShape)
+                            ) {
+                                Icon(Icons.Default.Mic, contentDescription = "Record", tint = Color.White)
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            currentAudioFile?.let { audioFile ->
+                                viewModel.createLocalAudioCard(
+                                    recordingFile = audioFile,
+                                    userTitle = audioCardTitle.trim().ifBlank { null },
+                                    deckId = viewModel.uiState.value.selectedDeckId
+                                ) { success, err ->
+                                    if (success) {
+                                        showAudioDialog = false
+                                        Toast.makeText(context, "Voice Note Card Created! 🎙️", Toast.LENGTH_SHORT).show()
+                                        onCardCreated()
+                                    } else {
+                                        Toast.makeText(context, err ?: "Failed to save voice note", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        },
+                        enabled = currentAudioFile != null && !isRecording
+                    ) { Text("Save Audio Card") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showAudioDialog = false }) { Text("Cancel") }
+                }
+            )
         }
     }
 }

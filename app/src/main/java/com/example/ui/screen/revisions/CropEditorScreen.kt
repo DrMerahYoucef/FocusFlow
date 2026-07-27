@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.NeumorphicColors
+import com.example.data.repository.toSingleNote
 import java.io.File
 
 enum class CropMode { RECTANGLE, LASSO }
@@ -378,6 +379,11 @@ fun CropEditorScreen(
 
         // Extraction Mode & Cropped Image Preview Dialog
         if (showModeDialog && pendingCroppedBitmap != null) {
+            var selectedDeckId by remember { mutableStateOf(state.selectedDeckId) }
+            var temporaryPromptAddendum by remember { mutableStateOf("") }
+            var cardCreationType by remember { mutableStateOf("OCR") } // "OCR" or "LOCAL_IMAGE"
+            var isDeckDropdownExpanded by remember { mutableStateOf(false) }
+
             AlertDialog(
                 onDismissRequest = {
                     showModeDialog = false
@@ -394,7 +400,7 @@ fun CropEditorScreen(
                             tint = NeumorphicColors.Primary
                         )
                         Text(
-                            text = "Aperçu de la sélection",
+                            text = "Card Creation & Options",
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
                             color = NeumorphicColors.TextPrimary
@@ -403,7 +409,7 @@ fun CropEditorScreen(
                 },
                 text = {
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         // Display the cropped image
@@ -413,7 +419,7 @@ fun CropEditorScreen(
                             border = androidx.compose.foundation.BorderStroke(1.dp, NeumorphicColors.Primary.copy(alpha = 0.25f)),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(min = 140.dp, max = 240.dp)
+                                .heightIn(min = 120.dp, max = 180.dp)
                         ) {
                             Box(
                                 modifier = Modifier
@@ -430,62 +436,83 @@ fun CropEditorScreen(
                             }
                         }
 
-                        Text(
-                            text = "Dimensions : ${pendingCroppedBitmap!!.width} × ${pendingCroppedBitmap!!.height} px",
-                            fontSize = 11.sp,
-                            color = NeumorphicColors.TextSecondary,
-                            fontWeight = FontWeight.Medium
-                        )
+                        // Target Deck Selector (Section 8)
+                        Text("Target Deck:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            val activeDeckName = state.decks.find { it.id == selectedDeckId }?.name ?: "Select Deck"
+                            OutlinedButton(
+                                onClick = { isDeckDropdownExpanded = true },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(activeDeckName, color = NeumorphicColors.TextPrimary, modifier = Modifier.weight(1f))
+                                Icon(Icons.Default.Edit, contentDescription = null, tint = NeumorphicColors.Primary)
+                            }
+                            DropdownMenu(
+                                expanded = isDeckDropdownExpanded,
+                                onDismissRequest = { isDeckDropdownExpanded = false }
+                            ) {
+                                state.decks.forEach { deck ->
+                                    DropdownMenuItem(
+                                        text = { Text(deck.name) },
+                                        onClick = {
+                                            selectedDeckId = deck.id
+                                            isDeckDropdownExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
 
-                        HorizontalDivider(color = NeumorphicColors.TextSecondary.copy(alpha = 0.15f))
+                        // Card Creation Type Options (Section 9)
+                        Text("Card Type:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = cardCreationType == "OCR",
+                                onClick = { cardCreationType = "OCR" },
+                                label = { Text("OCR (AI Text)") }
+                            )
+                            FilterChip(
+                                selected = cardCreationType == "LOCAL_IMAGE",
+                                onClick = { cardCreationType = "LOCAL_IMAGE" },
+                                label = { Text("Local Photo Card") }
+                            )
+                        }
 
-                        Text(
-                            text = "Mode d'extraction Gemini :",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 13.sp,
-                            color = NeumorphicColors.TextPrimary
-                        )
+                        if (cardCreationType == "OCR") {
+                            // Temporary Prompt Addendum (Section 3)
+                            OutlinedTextField(
+                                value = temporaryPromptAddendum,
+                                onValueChange = { temporaryPromptAddendum = it },
+                                label = { Text("Temporary Prompt Note (Optional)") },
+                                placeholder = { Text("e.g., Focus on equations or vocabulary only") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
 
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            // Extraction mode
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable { selectedExplainMode = false }
-                                    .padding(vertical = 4.dp, horizontal = 4.dp)
+                                    .clickable { selectedExplainMode = !selectedExplainMode }
                             ) {
-                                RadioButton(
-                                    selected = !selectedExplainMode,
-                                    onClick = { selectedExplainMode = false },
-                                    colors = RadioButtonDefaults.colors(selectedColor = NeumorphicColors.Primary)
+                                Checkbox(
+                                    checked = selectedExplainMode,
+                                    onCheckedChange = { selectedExplainMode = it },
+                                    colors = CheckboxDefaults.colors(checkedColor = NeumorphicColors.Primary)
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    Text("Mot à mot (Verbatim)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = NeumorphicColors.TextPrimary)
-                                    Text("Extrait le texte exact présent sur la photo", fontSize = 12.sp, color = NeumorphicColors.TextSecondary)
-                                }
+                                Text("Mode Explication (IA Q&R Synthesis)", fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
                             }
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable { selectedExplainMode = true }
-                                    .padding(vertical = 4.dp, horizontal = 4.dp)
-                            ) {
-                                RadioButton(
-                                    selected = selectedExplainMode,
-                                    onClick = { selectedExplainMode = true },
-                                    colors = RadioButtonDefaults.colors(selectedColor = NeumorphicColors.Primary)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    Text("Mode Explication (IA Q&R)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = NeumorphicColors.TextPrimary)
-                                    Text("Synthétise le contenu sous forme de fiche de révision", fontSize = 12.sp, color = NeumorphicColors.TextSecondary)
-                                }
-                            }
+                        } else {
+                            // Title override for local photo card
+                            OutlinedTextField(
+                                value = temporaryPromptAddendum,
+                                onValueChange = { temporaryPromptAddendum = it },
+                                label = { Text("Card Title (Optional)") },
+                                placeholder = { Text("Leave blank for AI auto-generated title") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     }
                 },
@@ -493,26 +520,50 @@ fun CropEditorScreen(
                     Button(
                         onClick = {
                             val bitmapToProcess = pendingCroppedBitmap!!
-                            val useExplain = selectedExplainMode
+                            val targetDeck = selectedDeckId
+                            val promptAddendumVal = temporaryPromptAddendum.trim().ifBlank { null }
                             showModeDialog = false
                             pendingCroppedBitmap = null
 
-                            viewModel.processCapturedImage(bitmapToProcess, explainMode = useExplain) { success ->
-                                try {
-                                    if (sourceFile.exists()) {
-                                        sourceFile.delete()
+                            if (cardCreationType == "OCR") {
+                                viewModel.processCapturedImageWithCustomPrompt(
+                                    croppedBitmap = bitmapToProcess,
+                                    temporaryPromptAddendum = promptAddendumVal,
+                                    explainMode = selectedExplainMode,
+                                    targetDeckId = targetDeck
+                                ) { result, err ->
+                                    try {
+                                        if (sourceFile.exists()) sourceFile.delete()
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("CropEditorScreen", "Failed to delete source capture file", e)
                                     }
-                                } catch (e: Exception) {
-                                    android.util.Log.e("CropEditorScreen", "Failed to delete source capture file", e)
-                                }
 
-                                if (success) {
-                                    Toast.makeText(context, "Carte créée avec succès ! ✨", Toast.LENGTH_SHORT).show()
-                                    onCropConfirmed()
-                                } else {
-                                    val errorMsg = viewModel.uiState.value.ocrError.takeIf { !it.isNullOrBlank() }
-                                        ?: "Échec de l'extraction. Veuillez vérifier l'image ou la clé API."
-                                    errorMessageToShow = errorMsg
+                                    if (result != null) {
+                                        val note = result.toSingleNote(targetDeck, viewModel.uiState.value.srsSettings.startingEaseFactor)
+                                        viewModel.updateNote(note)
+                                        Toast.makeText(context, "Carte créée avec succès ! ✨", Toast.LENGTH_SHORT).show()
+                                        onCropConfirmed()
+                                    } else {
+                                        errorMessageToShow = err ?: "Échec de l'extraction. Veuillez vérifier l'image ou la clé API."
+                                    }
+                                }
+                            } else {
+                                // Create local photo card
+                                viewModel.createLocalImageCard(
+                                    bitmap = bitmapToProcess,
+                                    userTitle = promptAddendumVal,
+                                    deckId = targetDeck
+                                ) { success, err ->
+                                    try {
+                                        if (sourceFile.exists()) sourceFile.delete()
+                                    } catch (e: Exception) {}
+
+                                    if (success) {
+                                        Toast.makeText(context, "Photo Card créée avec succès ! 📷", Toast.LENGTH_SHORT).show()
+                                        onCropConfirmed()
+                                    } else {
+                                        errorMessageToShow = err ?: "Failed to save photo card."
+                                    }
                                 }
                             }
                         },
@@ -520,7 +571,7 @@ fun CropEditorScreen(
                     ) {
                         Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Générer (Gemini)")
+                        Text("Create Card")
                     }
                 },
                 dismissButton = {
@@ -530,7 +581,7 @@ fun CropEditorScreen(
                             pendingCroppedBitmap = null
                         }
                     ) {
-                        Text("Ajuster le rognage", color = NeumorphicColors.TextSecondary)
+                        Text("Cancel", color = NeumorphicColors.TextSecondary)
                     }
                 },
                 containerColor = NeumorphicColors.SurfaceLight

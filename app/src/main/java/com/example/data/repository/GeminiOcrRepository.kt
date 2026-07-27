@@ -89,7 +89,12 @@ fun GeminiNoteResult.toSingleNote(deckId: String, easeFactorDefault: Float = 2.5
 }
 
 interface OcrEngine {
-    suspend fun extractStructuredContent(bitmap: Bitmap, mode: ExtractionMode = ExtractionMode.VERBATIM): GeminiNoteResult
+    suspend fun extractStructuredContent(
+        bitmap: Bitmap,
+        mode: ExtractionMode = ExtractionMode.VERBATIM,
+        promptOverride: String? = null,
+        temporaryPromptAddendum: String? = null
+    ): GeminiNoteResult
 }
 
 class GeminiOcrEngine(
@@ -101,8 +106,6 @@ class GeminiOcrEngine(
         .writeTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    // Strengthened vs. the previous prompt: explicit anti-rephrase / anti-correction rules, plus
-    // a "table" block type so tables come back as real rows instead of being squashed into prose.
     private val VERBATIM_PROMPT = """
 You are a strict, literal OCR transcription engine. Your ONLY job is to reproduce the text visible
 in this image character-for-character, exactly as it is written. You are not a writer, teacher, or
@@ -134,7 +137,7 @@ Table-specific discipline — tables are the most common source of dropped or me
 Return ONLY valid JSON matching this schema, nothing else — no markdown code fences, no commentary:
 
 {
-  "title": "the exact first heading or first few words from the source, verbatim — never invent one",
+  "title": "a short label (3-8 words) describing what this content IS ABOUT — its subject, classification, or concept name — not necessarily copied verbatim from the first line. Example: for a table comparing three fracture types by mechanism, a good title is 'Classification des fractures ligamentaires' or the specific classification name if the source names one, NOT the first cell's text.",
   "blocks": [
     { "type": "text", "content": "verbatim markdown text..." },
     { "type": "table", "headers": ["col1", "col2"], "rows": [["a", "b"], ["c", "d"]] }
@@ -175,14 +178,22 @@ Rules:
 - Keep the result as a SINGLE card — one title, one set of blocks.
 """.trimIndent()
 
-    override suspend fun extractStructuredContent(bitmap: Bitmap, mode: ExtractionMode): GeminiNoteResult = withContext(Dispatchers.IO) {
+    override suspend fun extractStructuredContent(
+        bitmap: Bitmap,
+        mode: ExtractionMode,
+        promptOverride: String?,
+        temporaryPromptAddendum: String?
+    ): GeminiNoteResult = withContext(Dispatchers.IO) {
         val apiKey = apiKeyProvider().trim()
         if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
             throw IllegalArgumentException("A Gemini API key is required to scan text. Add one in Settings.")
         }
 
         val base64Jpeg = bitmapToBase64(bitmap)
-        val prompt = if (mode == ExtractionMode.EXPLAIN) EXPLAIN_PROMPT else VERBATIM_PROMPT
+        val basePrompt = promptOverride ?: if (mode == ExtractionMode.EXPLAIN) EXPLAIN_PROMPT else VERBATIM_PROMPT
+        val finalPrompt = if (!temporaryPromptAddendum.isNullOrBlank()) {
+            "$basePrompt\n\nAdditional instructions for this capture only: $temporaryPromptAddendum"
+        } else basePrompt
 
         val jsonRequest = JSONObject().apply {
             put("contents", JSONArray().apply {
@@ -195,7 +206,7 @@ Rules:
                             })
                         })
                         put(JSONObject().apply {
-                            put("text", prompt)
+                            put("text", finalPrompt)
                         })
                     })
                 })
@@ -425,3 +436,97 @@ class GeminiOcrRepository(
         return listOf(result.toSingleNote(deckId))
     }
 }
+
+data class GeminiTitleResult(val title: String)
+
+class GeminiTitleEngine(
+    private val apiKeyProvider: () -> String
+) {
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(60, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .writeTimeout(60, TimeUnit.SECONDS)
+        .build()
+
+    private val TITLE_PROMPT = """
+Look at (or listen to) this material and write a short title (3-8 words) describing what it is
+about — its subject or topic. Do not transcribe or summarize the content itself, just name it.
+Return ONLY valid JSON: {"title": "..."}
+""".trimIndent()
+
+    suspend fun generateTitle(mediaBytes: ByteArray, mimeType: String): GeminiTitleResult = withContext(Dispatchers.IO) {
+        val apiKey = apiKeyProvider().trim()
+        if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
+            throw IllegalArgumentException("A Gemini API key is required. Add one in Settings.")
+        }
+        val base64Data = Base64.encodeToString(mediaBytes, Base64.NO_WRAP)
+        val jsonRequest = JSONObject().apply {
+            put("contents", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("parts", JSONArray().apply {
+                        put(JSONObject().apply {
+                            put("inline_data", JSONObject().apply {
+                                put("mime_type", mimeType)
+                                put("data", base64Data)
+                            })
+                        })
+                        put(JSONObject().apply {
+                            put("text", TITLE_PROMPT)
+                        })
+                    })
+                })
+            })
+            put("generationConfig", JSONObject().apply {
+                put("response_mime_type", "application/json")
+                put("temperature", 0.2)
+                put("response_schema", JSONObject().apply {
+                    put("type", "OBJECT")
+                    put("properties", JSONObject().apply {
+                        put("title", JSONObject().apply { put("type", "STRING") })
+                    })
+                    put("required", JSONArray().apply { put("title") })
+                })
+            })
+        }
+
+        val models = listOf("gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite")
+        var lastException: Exception? = null
+
+        for (model in models) {
+            try {
+                val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
+                val requestBody = jsonRequest.toString().toRequestBody("application/json".toMediaType())
+                val request = Request.Builder().url(url).post(requestBody).build()
+                val response = client.newCall(request).execute()
+                val responseBodyStr = response.body?.string() ?: ""
+
+                if (!response.isSuccessful) {
+                    val code = response.code
+                    if (code == 404 && model != models.last()) continue
+                    val friendlyError = try {
+                        JSONObject(responseBodyStr).optJSONObject("error")?.optString("message") ?: responseBodyStr
+                    } catch (e: Exception) { responseBodyStr }
+                    val msg = when (code) {
+                        401, 403 -> "Invalid Gemini API Key. Please verify your key in Settings."
+                        429 -> "Gemini API rate limit reached. Please try again shortly."
+                        else -> "Gemini API Error ($code): $friendlyError"
+                    }
+                    throw IllegalStateException(msg)
+                }
+
+                val responseJson = JSONObject(responseBodyStr)
+                val candidates = responseJson.optJSONArray("candidates") ?: throw IllegalStateException("No candidates in response")
+                if (candidates.length() == 0) throw IllegalStateException("Empty candidates array")
+                val textResult = candidates.getJSONObject(0).optJSONObject("content")?.optJSONArray("parts")?.getJSONObject(0)?.optString("text", "") ?: ""
+                val cleanJson = textResult.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+                val title = JSONObject(cleanJson).optString("title", "Local Media Card")
+                return@withContext GeminiTitleResult(title = title)
+            } catch (e: Exception) {
+                lastException = e
+                if (e is IllegalStateException && e.message?.contains("Invalid Gemini API Key") == true) throw e
+            }
+        }
+        throw lastException ?: IllegalStateException("Failed to generate title with Gemini API.")
+    }
+}
+

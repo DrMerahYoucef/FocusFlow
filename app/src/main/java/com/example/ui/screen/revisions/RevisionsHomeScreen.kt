@@ -30,6 +30,25 @@ import com.example.ui.components.NeumorphicButton
 import com.example.ui.components.NeumorphicCard
 import com.example.ui.theme.NeumorphicColors
 
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+
+fun formatDueIn(dueDateMillis: Long): String {
+    val diffMs = dueDateMillis - System.currentTimeMillis()
+    if (diffMs <= 0) return "Due now"
+    val diffSec = diffMs / 1000
+    val diffMin = diffSec / 60
+    val diffHours = diffMin / 60
+    val diffDays = diffHours / 24
+    val diffMonths = diffDays / 30
+
+    return when {
+        diffMonths >= 1 -> "Due in $diffMonths month${if (diffMonths > 1) "s" else ""}"
+        diffDays >= 1 -> "Due in $diffDays day${if (diffDays > 1) "s" else ""}"
+        diffHours >= 1 -> "Due in $diffHours hour${if (diffHours > 1) "s" else ""}"
+        else -> "Due in $diffMin minute${if (diffMin > 1) "s" else ""}"
+    }
+}
+
 @Composable
 fun RevisionsHomeScreen(
     viewModel: RevisionsViewModel,
@@ -43,27 +62,22 @@ fun RevisionsHomeScreen(
 
     var isAddDeckDialogOpen by remember { mutableStateOf(false) }
     var newDeckName by remember { mutableStateOf("") }
-    var noteToDelete by remember { mutableStateOf<RevisionNoteEntity?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
 
     val activeDeck = state.decks.find { it.id == state.selectedDeckId } ?: state.decks.firstOrNull()
-    val activeDeckNotes = state.allNotes.filter { it.deckId == (activeDeck?.id ?: "default_deck") }
+    val activeDeckNotesAll = state.allNotes.filter { it.deckId == (activeDeck?.id ?: "default_deck") }
+    val activeDeckNotes = remember(activeDeckNotesAll, searchQuery) {
+        if (searchQuery.isBlank()) activeDeckNotesAll
+        else activeDeckNotesAll.filter {
+            it.title.contains(searchQuery, ignoreCase = true) ||
+            it.plainTextPreview.contains(searchQuery, ignoreCase = true)
+        }
+    }
     val activeDeckDueNotes = state.dueNotes.filter { it.deckId == (activeDeck?.id ?: "default_deck") }
 
     val primaryColor = NeumorphicColors.Primary
     val surfaceColor = NeumorphicColors.SurfaceLight
     val surfaceDarkColor = NeumorphicColors.SurfaceDark
-
-    if (noteToDelete != null) {
-        ConfirmDeleteDialog(
-            title = stringResource(R.string.delete_card_title),
-            body = stringResource(R.string.delete_card_body),
-            onConfirm = {
-                viewModel.deleteNote(noteToDelete!!)
-                noteToDelete = null
-            },
-            onDismiss = { noteToDelete = null }
-        )
-    }
 
     Box(
         modifier = modifier
@@ -107,6 +121,33 @@ fun RevisionsHomeScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Search Bar (Section 7)
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Search cards by title or text...") },
+                leadingIcon = {
+                    Icon(imageVector = Icons.Default.Search, contentDescription = "Search", tint = NeumorphicColors.TextSecondary)
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(imageVector = Icons.Default.Clear, contentDescription = "Clear", tint = NeumorphicColors.TextSecondary)
+                        }
+                    }
+                },
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = NeumorphicColors.TextPrimary,
+                    unfocusedTextColor = NeumorphicColors.TextPrimary,
+                    focusedBorderColor = NeumorphicColors.Primary,
+                    unfocusedBorderColor = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f)
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Summary Card (Due cards count)
             NeumorphicCard(
                 modifier = Modifier.fillMaxWidth(),
@@ -133,7 +174,7 @@ fun RevisionsHomeScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "${activeDeckNotes.size} total cards in ${activeDeck?.name ?: "Deck"}",
+                            text = "${activeDeckNotesAll.size} total cards in ${activeDeck?.name ?: "Deck"}",
                             fontSize = 12.sp,
                             color = NeumorphicColors.TextSecondary
                         )
@@ -269,14 +310,14 @@ fun RevisionsHomeScreen(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "No cards in this deck",
+                            text = if (searchQuery.isNotBlank()) "No cards found" else "No cards in this deck",
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
                             color = NeumorphicColors.TextPrimary
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Tap '+' to scan a page or photo into a new card",
+                            text = if (searchQuery.isNotBlank()) "Try another search term" else "Tap '+' to scan or add a card",
                             fontSize = 12.sp,
                             color = NeumorphicColors.TextSecondary,
                             modifier = Modifier.padding(horizontal = 16.dp),
@@ -292,8 +333,7 @@ fun RevisionsHomeScreen(
                     items(activeDeckNotes, key = { it.id }) { note ->
                         NoteListItem(
                             note = note,
-                            onClick = { onNoteClick(note.id) },
-                            onDelete = { noteToDelete = note }
+                            onClick = { onNoteClick(note.id) }
                         )
                     }
                 }
@@ -313,7 +353,7 @@ fun RevisionsHomeScreen(
         ) {
             Icon(
                 imageVector = Icons.Default.Add,
-                contentDescription = "Scan a card",
+                contentDescription = "Scan or add a card",
                 modifier = Modifier.size(28.dp)
             )
         }
@@ -354,9 +394,11 @@ fun RevisionsHomeScreen(
 @Composable
 fun NoteListItem(
     note: RevisionNoteEntity,
-    onClick: () -> Unit,
-    onDelete: () -> Unit
+    onClick: () -> Unit
 ) {
+    val dueText = formatDueIn(note.dueDate)
+    val isDue = note.dueDate <= System.currentTimeMillis()
+
     NeumorphicCard(
         modifier = Modifier.fillMaxWidth(),
         cornerRadius = 16.dp,
@@ -370,24 +412,42 @@ fun NoteListItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = note.title,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                color = NeumorphicColors.TextPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-
-            IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
-                Icon(
-                    imageVector = Icons.Default.DeleteOutline,
-                    contentDescription = stringResource(R.string.delete),
-                    tint = NeumorphicColors.TextSecondary,
-                    modifier = Modifier.size(18.dp)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = note.title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = NeumorphicColors.TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (note.mediaType != null) {
+                        Icon(
+                            imageVector = if (note.mediaType == "AUDIO") Icons.Default.Mic else Icons.Default.Image,
+                            contentDescription = note.mediaType,
+                            tint = NeumorphicColors.Primary,
+                            modifier = Modifier
+                                .size(14.dp)
+                                .padding(end = 4.dp)
+                        )
+                    }
+                    Text(
+                        text = dueText,
+                        fontSize = 12.sp,
+                        fontWeight = if (isDue) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isDue) NeumorphicColors.Accent else NeumorphicColors.TextSecondary
+                    )
+                }
             }
+
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "View card",
+                tint = NeumorphicColors.TextSecondary,
+                modifier = Modifier.size(22.dp)
+            )
         }
     }
 }
