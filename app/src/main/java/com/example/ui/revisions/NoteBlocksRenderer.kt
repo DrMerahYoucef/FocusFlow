@@ -43,6 +43,7 @@ fun NoteBlocksRenderer(
                         Text(
                             text = remember(block) { buildHighlightedAnnotatedText(block.content, block.highlights) },
                             fontSize = fontSize,
+                            color = com.example.ui.theme.NeumorphicColors.TextPrimary,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }

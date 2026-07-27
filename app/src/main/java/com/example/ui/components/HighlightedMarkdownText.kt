@@ -25,6 +25,7 @@ fun HighlightedMarkdownText(
     Text(
         text = annotatedString,
         modifier = modifier,
+        color = color,
         fontSize = fontSize,
         lineHeight = (fontSize.value * 1.4).sp
     )
@@ -96,10 +97,6 @@ fun parseMarkdownWithHighlights(
 // implementation instead of being duplicated across the old markdown path and the new
 // structured-block path.
 internal fun AnnotatedString.Builder.appendFormattedMarkdown(text: String, textColor: Color) {
-    // Process ***bold+italic***, **bold**, and *italic* in a single pass. Order matters: the
-    // triple-asterisk alternative must be tried first at each position, otherwise "***word***"
-    // gets partially consumed by the "**" branch and leaves a stray "*" behind — which is
-    // exactly the "**INVERSION***" / "***Trait fibulaire***" artifacts seen on scanned cards.
     val formattingRegex = Regex(
         "\\*\\*\\*(.+?)\\*\\*\\*|\\*\\*(.+?)\\*\\*|\\*(.+?)\\*",
         RegexOption.DOT_MATCHES_ALL
@@ -126,17 +123,26 @@ internal fun AnnotatedString.Builder.appendFormattedMarkdown(text: String, textC
 
         when {
             boldItalicContent.isNotEmpty() -> {
-                pushStyle(SpanStyle(fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, color = textColor))
+                pushStyle(
+                    if (textColor != Color.Unspecified) SpanStyle(fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, color = textColor)
+                    else SpanStyle(fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic)
+                )
                 append(boldItalicContent)
                 pop()
             }
             boldContent.isNotEmpty() -> {
-                pushStyle(SpanStyle(fontWeight = FontWeight.Bold, color = textColor))
+                pushStyle(
+                    if (textColor != Color.Unspecified) SpanStyle(fontWeight = FontWeight.Bold, color = textColor)
+                    else SpanStyle(fontWeight = FontWeight.Bold)
+                )
                 append(boldContent)
                 pop()
             }
             else -> {
-                pushStyle(SpanStyle(fontStyle = FontStyle.Italic, color = textColor))
+                pushStyle(
+                    if (textColor != Color.Unspecified) SpanStyle(fontStyle = FontStyle.Italic, color = textColor)
+                    else SpanStyle(fontStyle = FontStyle.Italic)
+                )
                 append(italicContent)
                 pop()
             }

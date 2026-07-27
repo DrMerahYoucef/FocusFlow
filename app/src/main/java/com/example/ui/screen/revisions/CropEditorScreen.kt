@@ -17,13 +17,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.CropLandscape
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Gesture
-import androidx.compose.material.icons.filled.RotateRight
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,10 +25,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -46,7 +40,7 @@ import com.example.ui.theme.NeumorphicColors
 import com.example.data.repository.toSingleNote
 import java.io.File
 
-enum class CropMode { RECTANGLE, LASSO }
+enum class CropMode { RECTANGLE, LASSO, QUADRILATERAL }
 enum class HandleType { TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, MOVE }
 
 @Composable
@@ -80,8 +74,14 @@ fun CropEditorScreen(
     var rectNormRight by remember { mutableStateOf(0.9f) }
     var rectNormBottom by remember { mutableStateOf(0.8f) }
 
-    // Lasso path points state (normalized 0..1 scale relative to bitmap)
+    // Lasso path points state
     var lassoNormPoints by remember { mutableStateOf<List<Offset>>(emptyList()) }
+
+    // Quadrilateral 4 corners state
+    var quadNormTL by remember { mutableStateOf(Offset(0.15f, 0.2f)) }
+    var quadNormTR by remember { mutableStateOf(Offset(0.85f, 0.2f)) }
+    var quadNormBR by remember { mutableStateOf(Offset(0.85f, 0.8f)) }
+    var quadNormBL by remember { mutableStateOf(Offset(0.15f, 0.8f)) }
 
     if (workingBitmap == null) {
         Box(
@@ -209,12 +209,10 @@ fun CropEditorScreen(
 
                     val rect = Rect(rLeft, rTop, rRight, rBottom)
 
-                    // Dim outer area
                     clipRect(rect.left, rect.top, rect.right, rect.bottom, clipOp = ClipOp.Difference) {
                         drawRect(Color.Black.copy(alpha = 0.6f))
                     }
 
-                    // Draw bounding rectangle
                     drawRect(
                         color = Color.White,
                         topLeft = rect.topLeft,
@@ -222,13 +220,12 @@ fun CropEditorScreen(
                         style = Stroke(width = 4f)
                     )
 
-                    // Corner handles
                     listOf(rect.topLeft, rect.topRight, rect.bottomLeft, rect.bottomRight).forEach { handle ->
                         drawCircle(color = Color.White, radius = 18f, center = handle)
                         drawCircle(color = primaryColor, radius = 14f, center = handle)
                     }
                 }
-            } else {
+            } else if (cropMode == CropMode.LASSO) {
                 Canvas(
                     modifier = Modifier
                         .fillMaxSize()
@@ -248,103 +245,169 @@ fun CropEditorScreen(
                             )
                         }
                 ) {
-                    if (lassoNormPoints.size > 1) {
+                    if (lassoNormPoints.size >= 2) {
                         val path = Path().apply {
-                            val first = lassoNormPoints.first()
-                            moveTo(normToScreenX(first.x), normToScreenY(first.y))
+                            val p0 = lassoNormPoints.first()
+                            moveTo(normToScreenX(p0.x), normToScreenY(p0.y))
                             for (i in 1 until lassoNormPoints.size) {
                                 val pt = lassoNormPoints[i]
                                 lineTo(normToScreenX(pt.x), normToScreenY(pt.y))
                             }
+                            close()
                         }
-                        drawPath(path = path, color = Color(0xFF00E676), style = Stroke(width = 6f))
+
+                        clipPath(path, clipOp = ClipOp.Difference) {
+                            drawRect(Color.Black.copy(alpha = 0.6f))
+                        }
+
+                        drawPath(path = path, color = Color.White, style = Stroke(width = 4f))
+                    } else {
+                        drawRect(Color.Black.copy(alpha = 0.4f))
+                    }
+                }
+            } else {
+                // QUADRILATERAL 4-Corner Free Drag Mode
+                var activeCornerIndex by remember { mutableStateOf(-1) }
+
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            detectDragGestures(
+                                onDragStart = { offset ->
+                                    val pTL = Offset(normToScreenX(quadNormTL.x), normToScreenY(quadNormTL.y))
+                                    val pTR = Offset(normToScreenX(quadNormTR.x), normToScreenY(quadNormTR.y))
+                                    val pBR = Offset(normToScreenX(quadNormBR.x), normToScreenY(quadNormBR.y))
+                                    val pBL = Offset(normToScreenX(quadNormBL.x), normToScreenY(quadNormBL.y))
+
+                                    val threshold = 70f
+                                    activeCornerIndex = when {
+                                        (offset - pTL).getDistance() < threshold -> 0
+                                        (offset - pTR).getDistance() < threshold -> 1
+                                        (offset - pBR).getDistance() < threshold -> 2
+                                        (offset - pBL).getDistance() < threshold -> 3
+                                        else -> -1
+                                    }
+                                },
+                                onDrag = { change, _ ->
+                                    change.consume()
+                                    val nx = screenToNormX(change.position.x)
+                                    val ny = screenToNormY(change.position.y)
+                                    val newOffset = Offset(nx, ny)
+
+                                    when (activeCornerIndex) {
+                                        0 -> quadNormTL = newOffset
+                                        1 -> quadNormTR = newOffset
+                                        2 -> quadNormBR = newOffset
+                                        3 -> quadNormBL = newOffset
+                                    }
+                                },
+                                onDragEnd = { activeCornerIndex = -1 },
+                                onDragCancel = { activeCornerIndex = -1 }
+                            )
+                        }
+                ) {
+                    val pTL = Offset(normToScreenX(quadNormTL.x), normToScreenY(quadNormTL.y))
+                    val pTR = Offset(normToScreenX(quadNormTR.x), normToScreenY(quadNormTR.y))
+                    val pBR = Offset(normToScreenX(quadNormBR.x), normToScreenY(quadNormBR.y))
+                    val pBL = Offset(normToScreenX(quadNormBL.x), normToScreenY(quadNormBL.y))
+
+                    val quadPath = Path().apply {
+                        moveTo(pTL.x, pTL.y)
+                        lineTo(pTR.x, pTR.y)
+                        lineTo(pBR.x, pBR.y)
+                        lineTo(pBL.x, pBL.y)
+                        close()
+                    }
+
+                    clipPath(quadPath, clipOp = ClipOp.Difference) {
+                        drawRect(Color.Black.copy(alpha = 0.6f))
+                    }
+
+                    drawPath(path = quadPath, color = Color.White, style = Stroke(width = 4f))
+
+                    listOf(pTL, pTR, pBR, pBL).forEach { handle ->
+                        drawCircle(color = Color.White, radius = 20f, center = handle)
+                        drawCircle(color = primaryColor, radius = 15f, center = handle)
                     }
                 }
             }
         }
 
-        // Mode Selector Bar (Top)
-        Surface(
-            color = Color.Black.copy(alpha = 0.7f),
+        // Top Toolbar
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 40.dp, start = 16.dp, end = 16.dp)
-                .clip(RoundedCornerShape(24.dp))
+                .align(Alignment.TopCenter),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            IconButton(
+                onClick = onBack,
+                colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Black.copy(alpha = 0.5f))
             ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.Default.Close, contentDescription = "Cancel", tint = Color.White)
-                }
+                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+            }
 
+            Text("Crop Image", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+
+            IconButton(
+                onClick = {
+                    workingBitmap?.let {
+                        val matrix = android.graphics.Matrix().apply { postRotate(90f) }
+                        workingBitmap = Bitmap.createBitmap(it, 0, 0, it.width, it.height, matrix, true)
+                    }
+                },
+                colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Black.copy(alpha = 0.5f))
+            ) {
+                Icon(Icons.Default.RotateRight, contentDescription = "Rotate 90°", tint = Color.White)
+            }
+        }
+
+        // Bottom Control Bar
+        Surface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth(),
+            color = Color.Black.copy(alpha = 0.85f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .navigationBarsPadding()
+            ) {
+                // Mode Selector Bar (3 Cropping Modes)
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     FilterChip(
                         selected = cropMode == CropMode.RECTANGLE,
                         onClick = { cropMode = CropMode.RECTANGLE },
                         label = { Text("Rectangle") },
-                        leadingIcon = { Icon(Icons.Default.CropLandscape, contentDescription = null) }
+                        leadingIcon = { Icon(Icons.Default.CropLandscape, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = primaryColor, selectedLabelColor = Color.White)
                     )
+
                     FilterChip(
                         selected = cropMode == CropMode.LASSO,
                         onClick = { cropMode = CropMode.LASSO },
                         label = { Text("Lasso") },
-                        leadingIcon = { Icon(Icons.Default.Gesture, contentDescription = null) }
+                        leadingIcon = { Icon(Icons.Default.Gesture, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = primaryColor, selectedLabelColor = Color.White)
                     )
-                    IconButton(
-                        onClick = {
-                            workingBitmap?.let { current ->
-                                val matrix = android.graphics.Matrix().apply { postRotate(90f) }
-                                val rotated = Bitmap.createBitmap(current, 0, 0, current.width, current.height, matrix, true)
-                                workingBitmap = rotated
-                                rectNormLeft = 0.1f
-                                rectNormTop = 0.2f
-                                rectNormRight = 0.9f
-                                rectNormBottom = 0.8f
-                                lassoNormPoints = emptyList()
-                            }
-                        },
-                        modifier = Modifier.background(Color.White.copy(alpha = 0.15f), CircleShape)
-                    ) {
-                        Icon(Icons.Default.RotateRight, contentDescription = "Rotate 90°", tint = Color.White)
-                    }
-                }
-            }
-        }
 
-        // Bottom Action Bar
-        Surface(
-            color = Color.Black.copy(alpha = 0.85f),
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .padding(20.dp)
-                .clip(RoundedCornerShape(24.dp))
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedButton(
-                    onClick = onBack,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Saisie manuelle", fontSize = 13.sp)
+                    FilterChip(
+                        selected = cropMode == CropMode.QUADRILATERAL,
+                        onClick = { cropMode = CropMode.QUADRILATERAL },
+                        label = { Text("4-Corner Quad") },
+                        leadingIcon = { Icon(Icons.Default.Crop, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = primaryColor, selectedLabelColor = Color.White)
+                    )
                 }
+
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Button(
                     onClick = {
@@ -357,32 +420,40 @@ fun CropEditorScreen(
                                 rectNormTop = rectNormTop,
                                 rectNormRight = rectNormRight,
                                 rectNormBottom = rectNormBottom,
-                                lassoNormPoints = lassoNormPoints
+                                lassoNormPoints = lassoNormPoints,
+                                quadNormTL = quadNormTL,
+                                quadNormTR = quadNormTR,
+                                quadNormBR = quadNormBR,
+                                quadNormBL = quadNormBL
                             )
 
                             pendingCroppedBitmap = croppedBitmap
-                            selectedExplainMode = false // Default to verbatim text
+                            selectedExplainMode = false
                             showModeDialog = true
                         } catch (e: Exception) {
                             Toast.makeText(context, "Crop error: ${e.message}", Toast.LENGTH_SHORT).show()
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C5CE7)),
-                    shape = RoundedCornerShape(20.dp)
+                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Générer (Gemini)", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text("Confirm Crop & Continue", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
             }
         }
 
-        // Extraction Mode & Cropped Image Preview Dialog
+        // Extraction Mode & Cropped Image Preview Dialog (Card Creation & Options)
         if (showModeDialog && pendingCroppedBitmap != null) {
             var selectedDeckId by remember { mutableStateOf(state.selectedDeckId) }
             var temporaryPromptAddendum by remember { mutableStateOf("") }
-            var cardCreationType by remember { mutableStateOf("OCR") } // "OCR" or "LOCAL_IMAGE"
+            var cardCreationType by remember { mutableStateOf("OCR") }
             var isDeckDropdownExpanded by remember { mutableStateOf(false) }
+
+            var showCreateDeckInlineDialog by remember { mutableStateOf(false) }
+            var inlineDeckName by remember { mutableStateOf("") }
 
             AlertDialog(
                 onDismissRequest = {
@@ -412,7 +483,6 @@ fun CropEditorScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        // Display the cropped image
                         Surface(
                             shape = RoundedCornerShape(16.dp),
                             color = Color.Black.copy(alpha = 0.05f),
@@ -436,17 +506,23 @@ fun CropEditorScreen(
                             }
                         }
 
-                        // Target Deck Selector (Section 8)
-                        Text("Target Deck:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
-                        Box(modifier = Modifier.fillMaxWidth()) {
-                            val activeDeckName = state.decks.find { it.id == selectedDeckId }?.name ?: "Select Deck"
+                        // Target Deck Selector with Inline Deck Creation
+                        Text("Target Deck (Mandatory):", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+                        
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            val activeDeckName = state.decks.find { it.id == selectedDeckId }?.name ?: "Select Deck (Required)"
+                            
                             OutlinedButton(
                                 onClick = { isDeckDropdownExpanded = true },
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = if (selectedDeckId.isBlank()) MaterialTheme.colorScheme.error else NeumorphicColors.TextPrimary
+                                )
                             ) {
-                                Text(activeDeckName, color = NeumorphicColors.TextPrimary, modifier = Modifier.weight(1f))
-                                Icon(Icons.Default.Edit, contentDescription = null, tint = NeumorphicColors.Primary)
+                                Text(activeDeckName, modifier = Modifier.weight(1f))
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = NeumorphicColors.Primary)
                             }
+
                             DropdownMenu(
                                 expanded = isDeckDropdownExpanded,
                                 onDismissRequest = { isDeckDropdownExpanded = false }
@@ -461,9 +537,21 @@ fun CropEditorScreen(
                                     )
                                 }
                             }
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            // Inline "+ Add New Deck" Button
+                            TextButton(
+                                onClick = { showCreateDeckInlineDialog = true },
+                                modifier = Modifier.align(Alignment.End)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Add New Deck", fontSize = 12.sp, color = NeumorphicColors.Primary)
+                            }
                         }
 
-                        // Card Creation Type Options (Section 9)
+                        // Card Creation Type Options
                         Text("Card Type:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(
@@ -479,7 +567,6 @@ fun CropEditorScreen(
                         }
 
                         if (cardCreationType == "OCR") {
-                            // Temporary Prompt Addendum (Section 3)
                             OutlinedTextField(
                                 value = temporaryPromptAddendum,
                                 onValueChange = { temporaryPromptAddendum = it },
@@ -489,7 +576,6 @@ fun CropEditorScreen(
                                 modifier = Modifier.fillMaxWidth()
                             )
 
-                            // Extraction mode
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
@@ -504,7 +590,6 @@ fun CropEditorScreen(
                                 Text("Mode Explication (IA Q&R Synthesis)", fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
                             }
                         } else {
-                            // Title override for local photo card
                             OutlinedTextField(
                                 value = temporaryPromptAddendum,
                                 onValueChange = { temporaryPromptAddendum = it },
@@ -519,6 +604,11 @@ fun CropEditorScreen(
                 confirmButton = {
                     Button(
                         onClick = {
+                            if (selectedDeckId.isBlank()) {
+                                Toast.makeText(context, "Please select a Target Deck first!", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+
                             val bitmapToProcess = pendingCroppedBitmap!!
                             val targetDeck = selectedDeckId
                             val promptAddendumVal = temporaryPromptAddendum.trim().ifBlank { null }
@@ -534,9 +624,7 @@ fun CropEditorScreen(
                                 ) { result, err ->
                                     try {
                                         if (sourceFile.exists()) sourceFile.delete()
-                                    } catch (e: Exception) {
-                                        android.util.Log.e("CropEditorScreen", "Failed to delete source capture file", e)
-                                    }
+                                    } catch (e: Exception) {}
 
                                     if (result != null) {
                                         val note = result.toSingleNote(targetDeck, viewModel.uiState.value.srsSettings.startingEaseFactor)
@@ -548,7 +636,6 @@ fun CropEditorScreen(
                                     }
                                 }
                             } else {
-                                // Create local photo card
                                 viewModel.createLocalImageCard(
                                     bitmap = bitmapToProcess,
                                     userTitle = promptAddendumVal,
@@ -567,7 +654,8 @@ fun CropEditorScreen(
                                 }
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C5CE7))
+                        enabled = selectedDeckId.isNotBlank(),
+                        colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
                     ) {
                         Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
@@ -586,6 +674,40 @@ fun CropEditorScreen(
                 },
                 containerColor = NeumorphicColors.SurfaceLight
             )
+
+            // Inline Deck Creation Dialog
+            if (showCreateDeckInlineDialog) {
+                AlertDialog(
+                    onDismissRequest = { showCreateDeckInlineDialog = false },
+                    title = { Text("Add New Deck") },
+                    text = {
+                        OutlinedTextField(
+                            value = inlineDeckName,
+                            onValueChange = { inlineDeckName = it },
+                            label = { Text("Deck Name") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                if (inlineDeckName.isNotBlank()) {
+                                    viewModel.addDeckAndSelect(inlineDeckName.trim()) { newId ->
+                                        selectedDeckId = newId
+                                        inlineDeckName = ""
+                                        showCreateDeckInlineDialog = false
+                                        Toast.makeText(context, "Deck created & selected!", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        ) { Text("Create") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showCreateDeckInlineDialog = false }) { Text("Cancel") }
+                    }
+                )
+            }
         }
 
         // Detailed OCR Error Dialog
@@ -613,12 +735,6 @@ fun CropEditorScreen(
                             text = errorMessageToShow!!,
                             fontSize = 14.sp,
                             color = NeumorphicColors.TextPrimary
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Tip: Make sure the cropped selection is clear, oriented right-side up, or enter a Gemini API Key in Settings.",
-                            fontSize = 12.sp,
-                            color = NeumorphicColors.TextSecondary
                         )
                     }
                 },
@@ -658,12 +774,6 @@ fun CropEditorScreen(
                             fontWeight = FontWeight.Bold,
                             color = NeumorphicColors.TextPrimary
                         )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Extracting text and generating card...",
-                            fontSize = 12.sp,
-                            color = NeumorphicColors.TextSecondary
-                        )
                     }
                 }
             }
@@ -678,54 +788,82 @@ private fun cropBitmap(
     rectNormTop: Float,
     rectNormRight: Float,
     rectNormBottom: Float,
-    lassoNormPoints: List<Offset>
+    lassoNormPoints: List<Offset>,
+    quadNormTL: Offset = Offset(0.15f, 0.2f),
+    quadNormTR: Offset = Offset(0.85f, 0.2f),
+    quadNormBR: Offset = Offset(0.85f, 0.8f),
+    quadNormBL: Offset = Offset(0.15f, 0.8f)
 ): Bitmap {
     val w = originalBitmap.width
     val h = originalBitmap.height
 
-    return if (mode == CropMode.RECTANGLE) {
-        val x = (rectNormLeft * w).toInt().coerceIn(0, w - 1)
-        val y = (rectNormTop * h).toInt().coerceIn(0, h - 1)
-        val cropW = ((rectNormRight - rectNormLeft) * w).toInt().coerceIn(1, w - x)
-        val cropH = ((rectNormBottom - rectNormTop) * h).toInt().coerceIn(1, h - y)
+    return when (mode) {
+        CropMode.RECTANGLE -> {
+            val x = (rectNormLeft * w).toInt().coerceIn(0, w - 1)
+            val y = (rectNormTop * h).toInt().coerceIn(0, h - 1)
+            val cropW = ((rectNormRight - rectNormLeft) * w).toInt().coerceIn(1, w - x)
+            val cropH = ((rectNormBottom - rectNormTop) * h).toInt().coerceIn(1, h - y)
 
-        Bitmap.createBitmap(originalBitmap, x, y, cropW, cropH)
-    } else {
-        if (lassoNormPoints.size < 3) {
-            return originalBitmap
+            Bitmap.createBitmap(originalBitmap, x, y, cropW, cropH)
         }
+        CropMode.LASSO -> {
+            if (lassoNormPoints.size < 3) return originalBitmap
 
-        val resultBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(resultBitmap)
+            val resultBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(resultBitmap)
 
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.BLACK
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.BLACK }
+            val path = android.graphics.Path()
+
+            val p0 = lassoNormPoints.first()
+            path.moveTo(p0.x * w, p0.y * h)
+            for (i in 1 until lassoNormPoints.size) {
+                val pt = lassoNormPoints[i]
+                path.lineTo(pt.x * w, pt.y * h)
+            }
+            path.close()
+
+            canvas.drawPath(path, paint)
+            paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
+            canvas.drawBitmap(originalBitmap, 0f, 0f, paint)
+
+            val bounds = android.graphics.RectF()
+            path.computeBounds(bounds, true)
+
+            val bx = bounds.left.toInt().coerceIn(0, w - 1)
+            val by = bounds.top.toInt().coerceIn(0, h - 1)
+            val bw = bounds.width().toInt().coerceIn(1, w - bx)
+            val bh = bounds.height().toInt().coerceIn(1, h - by)
+
+            Bitmap.createBitmap(resultBitmap, bx, by, bw, bh)
         }
+        CropMode.QUADRILATERAL -> {
+            val resultBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(resultBitmap)
 
-        val path = android.graphics.Path()
-        val p0 = lassoNormPoints.first()
-        path.moveTo(p0.x * w, p0.y * h)
-        for (i in 1 until lassoNormPoints.size) {
-            val pt = lassoNormPoints[i]
-            path.lineTo(pt.x * w, pt.y * h)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.BLACK }
+            val path = android.graphics.Path()
+
+            path.moveTo(quadNormTL.x * w, quadNormTL.y * h)
+            path.lineTo(quadNormTR.x * w, quadNormTR.y * h)
+            path.lineTo(quadNormBR.x * w, quadNormBR.y * h)
+            path.lineTo(quadNormBL.x * w, quadNormBL.y * h)
+            path.close()
+
+            canvas.drawPath(path, paint)
+            paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
+            canvas.drawBitmap(originalBitmap, 0f, 0f, paint)
+
+            val bounds = android.graphics.RectF()
+            path.computeBounds(bounds, true)
+
+            val bx = bounds.left.toInt().coerceIn(0, w - 1)
+            val by = bounds.top.toInt().coerceIn(0, h - 1)
+            val bw = bounds.width().toInt().coerceIn(1, w - bx)
+            val bh = bounds.height().toInt().coerceIn(1, h - by)
+
+            Bitmap.createBitmap(resultBitmap, bx, by, bw, bh)
         }
-        path.close()
-
-        canvas.drawPath(path, paint)
-
-        paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
-        canvas.drawBitmap(originalBitmap, 0f, 0f, paint)
-
-        // Find bounding box of lasso path
-        val bounds = android.graphics.RectF()
-        path.computeBounds(bounds, true)
-
-        val bx = bounds.left.toInt().coerceIn(0, w - 1)
-        val by = bounds.top.toInt().coerceIn(0, h - 1)
-        val bw = bounds.width().toInt().coerceIn(1, w - bx)
-        val bh = bounds.height().toInt().coerceIn(1, h - by)
-
-        Bitmap.createBitmap(resultBitmap, bx, by, bw, bh)
     }
 }
 

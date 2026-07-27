@@ -715,59 +715,35 @@ fun StationRowItem(
     onToggleFav: () -> Unit
 ) {
     val view = androidx.compose.ui.platform.LocalView.current
-    val shape = RoundedCornerShape(10.dp)
     
-    Box(
+    com.example.ui.components.NeumorphicCard(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(
-                elevation = if (isCurrent) 0.dp else 2.dp,
-                shape = shape,
-                clip = false,
-                ambientColor = Color.Black,
-                spotColor = Color.Black
-            )
-            .drawBehind {
-                if (!isCurrent) {
-                    drawRoundRect(
-                        color = Color(0x0EFFFFFF),
-                        topLeft = Offset(-1.dp.toPx(), -1.dp.toPx()),
-                        size = androidx.compose.ui.geometry.Size(size.width + 0.5.dp.toPx(), size.height + 0.5.dp.toPx()),
-                        cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx())
-                    )
-                    drawRoundRect(
-                        color = Color(0x30000000),
-                        topLeft = Offset(1.dp.toPx(), 1.dp.toPx()),
-                        size = size,
-                        cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx())
-                    )
-                }
-            }
-            .background(if (isCurrent) Color(0xFF0F0F0F) else Color(0xFF1B1B1B), shape)
-            .border(1.dp, if (isCurrent) Color(0x25FFFFFF) else Color(0x08FFFFFF), shape)
             .clickable {
                 onSelect()
                 try {
                     view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
                 } catch (e: Exception) {}
-            }
-            .padding(12.dp)
+            },
+        cornerRadius = 14.dp,
+        elevation = if (isCurrent) 1.dp else 3.dp
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
         ) {
             Box(
                 modifier = Modifier
                     .size(32.dp)
-                    .background(Color(0xFF0F0F0F), CircleShape)
-                    .border(0.5.dp, Color(0x10FFFFFF), CircleShape),
+                    .background(NeumorphicColors.SurfaceDark.copy(alpha = 0.1f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Radio,
                     contentDescription = null,
-                    tint = if (isCurrent) Color.White else Color(0x60FFFFFF),
+                    tint = if (isCurrent) NeumorphicColors.Primary else NeumorphicColors.TextSecondary,
                     modifier = Modifier.size(16.dp)
                 )
             }
@@ -777,16 +753,16 @@ fun StationRowItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = station.name,
-                    color = if (isCurrent) Color.White else Color(0xDFFFFFFF),
-                    fontSize = 12.sp,
+                    color = if (isCurrent) NeumorphicColors.Primary else NeumorphicColors.TextPrimary,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = station.country.ifEmpty { "🌍 Global" },
-                    color = Color(0x50FFFFFF),
-                    fontSize = 9.sp,
+                    color = NeumorphicColors.TextSecondary,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -803,8 +779,8 @@ fun StationRowItem(
                 Icon(
                     imageVector = if (isFav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                     contentDescription = "Favorite",
-                    tint = if (isFav) Color.White else Color(0x40FFFFFF),
-                    modifier = Modifier.size(18.dp)
+                    tint = if (isFav) NeumorphicColors.Accent else NeumorphicColors.TextSecondary,
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }

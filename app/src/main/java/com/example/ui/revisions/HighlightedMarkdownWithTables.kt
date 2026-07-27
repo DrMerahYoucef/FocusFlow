@@ -120,6 +120,7 @@ fun NativeTableRenderer(
 ) {
     val columnWidth = 140.dp
     val scrollState = rememberScrollState()
+    val textColor = com.example.ui.theme.NeumorphicColors.TextPrimary
 
     Column(
         modifier = modifier
@@ -133,12 +134,10 @@ fun NativeTableRenderer(
         Row {
             headers.forEach { header ->
                 Text(
-                    // Cells can still carry **bold**/highlight markup from the source note —
-                    // route through the same parser instead of a plain string so it renders
-                    // properly instead of showing raw "**"/"==" markers.
-                    text = remember(header) { parseMarkdownWithHighlights(header) },
+                    text = remember(header, textColor) { parseMarkdownWithHighlights(header, defaultTextColor = textColor) },
                     fontWeight = FontWeight.Bold,
                     fontSize = fontSize,
+                    color = textColor,
                     modifier = Modifier.width(columnWidth).padding(8.dp)
                 )
             }
@@ -156,8 +155,9 @@ fun NativeTableRenderer(
                 headers.indices.forEach { colIndex ->
                     val cellText = row.getOrNull(colIndex).orEmpty()
                     Text(
-                        text = remember(cellText) { parseMarkdownWithHighlights(cellText) },
+                        text = remember(cellText, textColor) { parseMarkdownWithHighlights(cellText, defaultTextColor = textColor) },
                         fontSize = fontSize,
+                        color = textColor,
                         modifier = Modifier.width(columnWidth).padding(8.dp)
                     )
                 }

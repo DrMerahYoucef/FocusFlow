@@ -29,6 +29,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.ui.components.NeumorphicButton
 import com.example.ui.components.NeumorphicCard
 import com.example.ui.components.neumorphicShadow
@@ -149,7 +151,7 @@ fun SettingsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(NeumorphicColors.Background)
+            .background(androidx.compose.ui.graphics.Color.Transparent)
             .verticalScroll(scrollState)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -655,46 +657,146 @@ fun SettingsScreen(
 
                 Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
 
-                // Custom Prompt Override Field
-                var localCustomPrompt by remember(srsUiState.srsSettings.customPromptOverride) {
-                    mutableStateOf(srsUiState.srsSettings.customPromptOverride.orEmpty())
-                }
+                // Custom Prompt Override Section
+                var showAdjustPromptDialog by remember { mutableStateOf(false) }
 
-                Text(
-                    text = "Custom OCR Prompt Override (Optional)",
-                    fontWeight = FontWeight.Bold,
-                    color = NeumorphicColors.TextPrimary,
-                    fontSize = 13.sp
-                )
-                OutlinedTextField(
-                    value = localCustomPrompt,
-                    onValueChange = { localCustomPrompt = it },
-                    label = { Text("Prompt Override") },
-                    placeholder = { Text("Leave blank for default verbatim transcription prompt") },
-                    minLines = 3,
-                    maxLines = 6,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = NeumorphicColors.TextPrimary,
-                        unfocusedTextColor = NeumorphicColors.TextPrimary,
-                        focusedBorderColor = NeumorphicColors.Primary,
-                        unfocusedBorderColor = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "OCR System Prompt",
+                            fontWeight = FontWeight.Bold,
+                            color = NeumorphicColors.TextPrimary,
+                            fontSize = 13.sp
+                        )
+                        Text(
+                            text = if (srsUiState.srsSettings.customPromptOverride != null) "Custom prompt active" else "Default prompt active",
+                            fontSize = 11.sp,
+                            color = if (srsUiState.srsSettings.customPromptOverride != null) NeumorphicColors.Primary else NeumorphicColors.TextSecondary
+                        )
+                    }
+
                     NeumorphicButton(
-                        label = "Save Custom Prompt",
-                        icon = Icons.Default.Save,
-                        onClick = {
-                            val overrideVal = localCustomPrompt.trim().ifBlank { null }
-                            revisionsViewModel.updateSrsSettings(srsUiState.srsSettings.copy(customPromptOverride = overrideVal))
-                            Toast.makeText(context, "Custom OCR prompt updated!", Toast.LENGTH_SHORT).show()
-                        },
+                        label = "Adjust Prompt",
+                        icon = Icons.Default.Edit,
+                        onClick = { showAdjustPromptDialog = true },
                         accentColor = NeumorphicColors.Primary
                     )
+                }
+
+                if (showAdjustPromptDialog) {
+                    val defaultPrompt = com.example.data.repository.GeminiOcrEngine.VERBATIM_PROMPT
+                    var editingPrompt by remember {
+                        mutableStateOf(srsUiState.srsSettings.customPromptOverride ?: defaultPrompt)
+                    }
+
+                    Dialog(
+                        onDismissRequest = { showAdjustPromptDialog = false },
+                        properties = DialogProperties(usePlatformDefaultWidth = false)
+                    ) {
+                        Surface(
+                            modifier = Modifier.fillMaxSize(),
+                            color = NeumorphicColors.Background
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .systemBarsPadding()
+                                    .padding(20.dp)
+                            ) {
+                                // Header
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(onClick = { showAdjustPromptDialog = false }) {
+                                            Icon(Icons.Default.Close, contentDescription = "Close", tint = NeumorphicColors.TextPrimary)
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Adjust System Prompt",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 18.sp,
+                                            color = NeumorphicColors.TextPrimary
+                                        )
+                                    }
+
+                                    TextButton(
+                                        onClick = {
+                                            editingPrompt = defaultPrompt
+                                            revisionsViewModel.updateSrsSettings(srsUiState.srsSettings.copy(customPromptOverride = null))
+                                            Toast.makeText(context, "Original prompt restored!", Toast.LENGTH_SHORT).show()
+                                        }
+                                    ) {
+                                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Restore Original", color = NeumorphicColors.TextSecondary)
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Text(
+                                    text = "Edit the instruction prompt used by Gemini when reading your cards and notes:",
+                                    fontSize = 13.sp,
+                                    color = NeumorphicColors.TextSecondary
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                OutlinedTextField(
+                                    value = editingPrompt,
+                                    onValueChange = { editingPrompt = it },
+                                    label = { Text("System Prompt") },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = NeumorphicColors.TextPrimary,
+                                        unfocusedTextColor = NeumorphicColors.TextPrimary,
+                                        focusedBorderColor = NeumorphicColors.Primary,
+                                        unfocusedBorderColor = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f),
+                                        focusedContainerColor = NeumorphicColors.SurfaceLight,
+                                        unfocusedContainerColor = NeumorphicColors.SurfaceLight
+                                    ),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f)
+                                )
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = { showAdjustPromptDialog = false },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("Cancel")
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            val finalPrompt = if (editingPrompt.trim() == defaultPrompt.trim()) null else editingPrompt.trim().ifBlank { null }
+                                            revisionsViewModel.updateSrsSettings(srsUiState.srsSettings.copy(customPromptOverride = finalPrompt))
+                                            Toast.makeText(context, "New prompt saved!", Toast.LENGTH_SHORT).show()
+                                            showAdjustPromptDialog = false
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(Icons.Default.Save, contentDescription = null)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Save New Prompt")
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
@@ -827,26 +929,26 @@ fun SettingsScreen(
             val importData = pendingImportFile!!
             AlertDialog(
                 onDismissRequest = { isImportDialogOpen = false },
-                title = { Text("Importer des fiches de révision") },
+                title = { Text("Import Flashcards") },
                 text = {
                     Column {
-                        Text("Le fichier contient ${importData.notes.size} fiches et ${importData.decks.size} paquets.")
+                        Text("The file contains ${importData.notes.size} cards and ${importData.decks.size} decks.")
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text("Choisissez le mode d'importation :", fontWeight = FontWeight.Bold)
+                        Text("Choose import mode:", fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             RadioButton(
                                 selected = selectedImportMode == com.example.data.repository.ImportMode.MERGE,
                                 onClick = { selectedImportMode = com.example.data.repository.ImportMode.MERGE }
                             )
-                            Text("Fusionner (conserver l'historique le plus récent)", fontSize = 13.sp)
+                            Text("Merge (keep most recent history)", fontSize = 13.sp)
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             RadioButton(
                                 selected = selectedImportMode == com.example.data.repository.ImportMode.REPLACE_ALL,
                                 onClick = { selectedImportMode = com.example.data.repository.ImportMode.REPLACE_ALL }
                             )
-                            Text("Remplacer tout (effacer les anciennes fiches)", fontSize = 13.sp)
+                            Text("Replace all (clear existing cards)", fontSize = 13.sp)
                         }
                     }
                 },
@@ -854,14 +956,14 @@ fun SettingsScreen(
                     Button(
                         onClick = {
                             revisionsViewModel.applyImport(importData, selectedImportMode) {
-                                Toast.makeText(context, "${importData.notes.size} fiches importées avec succès !", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "${importData.notes.size} cards imported successfully!", Toast.LENGTH_SHORT).show()
                                 isImportDialogOpen = false
                             }
                         }
-                    ) { Text("Importer") }
+                    ) { Text("Import") }
                 },
                 dismissButton = {
-                    TextButton(onClick = { isImportDialogOpen = false }) { Text("Annuler") }
+                    TextButton(onClick = { isImportDialogOpen = false }) { Text("Cancel") }
                 }
             )
         }

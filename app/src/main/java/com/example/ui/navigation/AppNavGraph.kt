@@ -59,7 +59,7 @@ import com.example.ui.screen.revisions.RevisionsViewModel
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Timer : Screen("timer", "Timer", Icons.Default.Timer)
-    object Revisions : Screen("revisions", "Révisions", Icons.Default.AutoAwesome)
+    object Revisions : Screen("revisions", "Revisions", Icons.Default.AutoAwesome)
     object Analytics : Screen("analytics", "Stats", Icons.Default.Analytics)
     object Radio : Screen("radio", "Radio", Icons.Default.Radio)
     object Community : Screen("community", "Islands", Icons.Default.Public)
@@ -113,6 +113,10 @@ fun MainPagerScreen(
                     RevisionsHomeScreen(
                         viewModel = revisionsViewModel,
                         onAddClick = { navController.navigate("revisions/capture") },
+                        onImageCaptured = { imagePath ->
+                            val encoded = java.net.URLEncoder.encode(imagePath, "UTF-8")
+                            navController.navigate("revisions/crop?path=$encoded")
+                        },
                         onDeckClick = { deckId -> navController.navigate("revisions/deck/$deckId") },
                         onNoteClick = { noteId -> navController.navigate("revisions/note/$noteId") },
                         onStartSessionClick = { deckId -> navController.navigate("revisions/session?deckId=$deckId") },
@@ -436,12 +440,14 @@ fun AppNavGraph(
                 )
             ) { backStackEntry ->
                 val deckIdArg = backStackEntry.arguments?.getString("deckId") ?: "default_deck"
-                RevisionSessionScreen(
-                    deckId = deckIdArg,
-                    viewModel = revisionsViewModel,
-                    onFinishSession = { navController.popBackStack() },
-                    onBack = { navController.popBackStack() }
-                )
+                com.example.ui.components.ForestScaffold {
+                    RevisionSessionScreen(
+                        deckId = deckIdArg,
+                        viewModel = revisionsViewModel,
+                        onFinishSession = { navController.popBackStack() },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
             }
             composable(
                 route = "revisions/deck/{deckId}",
@@ -450,13 +456,15 @@ fun AppNavGraph(
                 )
             ) { backStackEntry ->
                 val deckIdArg = backStackEntry.arguments?.getString("deckId") ?: "default_deck"
-                RevisionDeckDetailScreen(
-                    deckId = deckIdArg,
-                    viewModel = revisionsViewModel,
-                    onNoteClick = { noteId -> navController.navigate("revisions/note/$noteId") },
-                    onStartReview = { deckId -> navController.navigate("revisions/session?deckId=$deckId") },
-                    onBack = { navController.popBackStack() }
-                )
+                com.example.ui.components.ForestScaffold {
+                    RevisionDeckDetailScreen(
+                        deckId = deckIdArg,
+                        viewModel = revisionsViewModel,
+                        onNoteClick = { noteId -> navController.navigate("revisions/note/$noteId") },
+                        onStartReview = { deckId -> navController.navigate("revisions/session?deckId=$deckId") },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
             }
             composable(
                 route = "revisions/note/{noteId}",
@@ -465,11 +473,13 @@ fun AppNavGraph(
                 )
             ) { backStackEntry ->
                 val noteIdArg = backStackEntry.arguments?.getString("noteId") ?: ""
-                RevisionNoteDetailScreen(
-                    noteId = noteIdArg,
-                    viewModel = revisionsViewModel,
-                    onBack = { navController.popBackStack() }
-                )
+                com.example.ui.components.ForestScaffold {
+                    RevisionNoteDetailScreen(
+                        noteId = noteIdArg,
+                        viewModel = revisionsViewModel,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
             }
             composable("exams") {
                 com.example.ui.components.ForestScaffold(

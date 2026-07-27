@@ -106,7 +106,8 @@ class GeminiOcrEngine(
         .writeTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    private val VERBATIM_PROMPT = """
+    companion object {
+        val VERBATIM_PROMPT = """
 You are a strict, literal OCR transcription engine. Your ONLY job is to reproduce the text visible
 in this image character-for-character, exactly as it is written. You are not a writer, teacher, or
 assistant here — you never generate your own sentences.
@@ -157,7 +158,7 @@ Rules for blocks:
   that literally appears inside one of the "text" blocks (never inside a table).
 """.trimIndent()
 
-    private val EXPLAIN_PROMPT = """
+        val EXPLAIN_PROMPT = """
 You are a flashcard generator. Analyze this image and create a Q&A study card.
 Return ONLY valid JSON matching this schema, nothing else:
 
@@ -177,6 +178,7 @@ Rules:
 - Use a "table" block for any tabular data instead of describing it in prose.
 - Keep the result as a SINGLE card — one title, one set of blocks.
 """.trimIndent()
+    }
 
     override suspend fun extractStructuredContent(
         bitmap: Bitmap,

@@ -6,9 +6,9 @@ import androidx.compose.ui.graphics.Color
 
 object NeumorphicColors {
     // Light palette
-    val BackgroundLight     = Color(0xFFE0E5EC)   // soft grey-white
+    val BackgroundLight     = Color(0xFFFAFAFD)   // clean white/off-white background
     val SurfaceLightLight   = Color(0xFFFFFFFF)   // highlight shadow
-    val SurfaceDarkLight    = Color(0xFFA3B1C6)   // dark shadow
+    val SurfaceDarkLight    = Color(0xFFE2E7EE)   // soft subtle shadow
     val PrimaryLightVal     = Color(0xFF6C63FF)   // violet accent
     val PrimaryLightLight   = Color(0xFF9B94FF)
     val AccentLight         = Color(0xFFFF6584)   // coral

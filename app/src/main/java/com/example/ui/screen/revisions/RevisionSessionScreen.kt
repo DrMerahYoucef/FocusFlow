@@ -55,7 +55,7 @@ fun RevisionSessionScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(NeumorphicColors.Background)
+            .background(Color.Transparent)
     ) {
         Column(
             modifier = Modifier
@@ -202,7 +202,7 @@ fun RevisionSessionScreen(
                                         horizontalArrangement = Arrangement.Center,
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(20.dp))
-                                            .background(NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
+                                            .background(NeumorphicColors.SurfaceLight.copy(alpha = 0.3f))
                                             .padding(horizontal = 16.dp, vertical = 8.dp)
                                     ) {
                                         Icon(
@@ -242,7 +242,7 @@ fun RevisionSessionScreen(
                                         color = NeumorphicColors.TextSecondary
                                     )
                                     Spacer(modifier = Modifier.height(12.dp))
-                                    Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
+                                    HorizontalDivider(color = NeumorphicColors.TextSecondary.copy(alpha = 0.2f))
                                     Spacer(modifier = Modifier.height(16.dp))
 
                                     if (currentNote.contentBlocksJson.isBlank() || currentNote.contentBlocksJson == "[]") {

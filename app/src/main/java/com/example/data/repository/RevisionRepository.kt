@@ -134,7 +134,7 @@ class RevisionRepository(
             decksList.add(
                 ExportedDeck(
                     id = d.optString("id"),
-                    name = d.optString("name", "Paquet"),
+                    name = d.optString("name", "Deck"),
                     colorHex = d.optString("colorHex", "#4CAF50")
                 )
             )

@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Secure access to cache directory -->
+    <!-- Secure access to all app file locations -->
+    <files-path name="files" path="." />
+    <cache-path name="cache" path="." />
     <cache-path name="update_apks" path="update_apks" />
     <cache-path name="revision_exports" path="." />
+    <external-path name="external" path="." />
+    <external-files-path name="external_files" path="." />
+    <external-cache-path name="external_cache" path="." />
+    <root-path name="root" path="." />
 </paths>

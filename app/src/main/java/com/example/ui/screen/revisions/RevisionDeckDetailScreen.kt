@@ -75,8 +75,9 @@ fun RevisionDeckDetailScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = NeumorphicColors.Background,
-                    titleContentColor = NeumorphicColors.TextPrimary
+                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
+                    titleContentColor = NeumorphicColors.TextPrimary,
+                    navigationIconContentColor = NeumorphicColors.TextPrimary
                 )
             )
         },
@@ -89,7 +90,7 @@ fun RevisionDeckDetailScreen(
                 contentColor = androidx.compose.ui.graphics.Color.White
             )
         },
-        containerColor = NeumorphicColors.Background
+        containerColor = androidx.compose.ui.graphics.Color.Transparent
     ) { padding ->
         if (deckNotes.isEmpty()) {
             Box(
@@ -131,9 +132,8 @@ fun DeckNoteListItem(
     val dueText = formatDueIn(note.dueDate)
     val isDueToday = note.dueDate <= System.currentTimeMillis()
 
-    Card(
-        colors = CardDefaults.cardColors(containerColor = NeumorphicColors.SurfaceLight),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    com.example.ui.components.NeumorphicCard(
+        cornerRadius = 16.dp,
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)

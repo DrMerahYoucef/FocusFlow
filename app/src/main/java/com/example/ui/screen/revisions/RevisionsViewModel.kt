@@ -114,11 +114,40 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun addDeck(name: String, colorHex: String = "#4CAF50") {
+        addDeckAndSelect(name, colorHex)
+    }
+
+    fun addDeckAndSelect(name: String, colorHex: String = "#4CAF50", onCreated: (String) -> Unit = {}) {
         if (name.isBlank()) return
         viewModelScope.launch {
             val deck = RevisionDeckEntity(name = name, colorHex = colorHex)
             repository.upsertDeck(deck)
             setSelectedDeck(deck.id)
+            onCreated(deck.id)
+        }
+    }
+
+    fun synthesizeAiCardFromPrompt(
+        prompt: String,
+        onResult: (String, String) -> Unit
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isProcessingOcr = true) }
+            try {
+                val apiKey = getEffectiveApiKey()
+                if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
+                    _uiState.update { it.copy(isProcessingOcr = false) }
+                    onResult(prompt, "Answer/Explanation for: $prompt")
+                    return@launch
+                }
+                val titleEngine = com.example.data.repository.GeminiTitleEngine { apiKey }
+                val titleRes = titleEngine.generateTitle(prompt.toByteArray(), "text/plain")
+                _uiState.update { it.copy(isProcessingOcr = false) }
+                onResult(titleRes.title, "AI Synthesis for: $prompt")
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isProcessingOcr = false) }
+                onResult(prompt, "AI Synthesis for: $prompt")
+            }
         }
     }
 
@@ -372,7 +401,7 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
     // Export / Import
     suspend fun getExportJson(): String {
         val json = repository.buildExportJson()
-        val summary = "${_uiState.value.totalCount} fiches, ${_uiState.value.decks.size} paquets"
+        val summary = "${_uiState.value.totalCount} cards, ${_uiState.value.decks.size} decks"
         sharedPrefs.edit().putString("srs_last_export_summary", summary).apply()
         _uiState.update { it.copy(lastExportSummary = summary) }
         return json

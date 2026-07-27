@@ -49,8 +49,8 @@ class RevisionReminderWorker(
 
                 val notification = NotificationCompat.Builder(applicationContext, REVISION_CHANNEL_ID)
                     .setSmallIcon(android.R.drawable.ic_dialog_info)
-                    .setContentTitle("Révisions à faire 📚")
-                    .setContentText("Vous avez $dueCount fiche(s) à réviser aujourd'hui.")
+                    .setContentTitle("Flashcards Review Due 📚")
+                    .setContentText("You have $dueCount flashcard(s) to review today.")
                     .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                     .setAutoCancel(true)
                     .setContentIntent(pendingIntent)
@@ -68,8 +68,8 @@ class RevisionReminderWorker(
     companion object {
         fun createNotificationChannel(context: Context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val name = "Rappels de révision"
-                val descriptionText = "Notifications pour les fiches de révision dues"
+                val name = "Revision Reminders"
+                val descriptionText = "Notifications for due flashcards"
                 val importance = NotificationManager.IMPORTANCE_DEFAULT
                 val channel = NotificationChannel(REVISION_CHANNEL_ID, name, importance).apply {
                     description = descriptionText

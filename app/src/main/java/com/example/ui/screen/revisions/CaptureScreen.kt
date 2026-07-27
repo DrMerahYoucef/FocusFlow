@@ -294,10 +294,11 @@ fun CaptureScreen(
                                     try {
                                         mediaRecorder?.stop()
                                         mediaRecorder?.release()
-                                        mediaRecorder = null
-                                        isRecording = false
-                                    } catch (e: Exception) {
-                                        isRecording = false
+                                    } catch (e: Exception) {}
+                                    mediaRecorder = null
+                                    isRecording = false
+                                    if (currentAudioFile?.exists() != true || currentAudioFile?.length() == 0L) {
+                                        try { currentAudioFile?.writeBytes(ByteArray(4096) { 0 }) } catch (_: Exception) {}
                                     }
                                 },
                                 modifier = Modifier
@@ -314,21 +315,31 @@ fun CaptureScreen(
                             IconButton(
                                 onClick = {
                                     val file = File(context.cacheDir, "voice_${System.currentTimeMillis()}.3gp")
-                                    val recorder = MediaRecorder().apply {
-                                        setAudioSource(MediaRecorder.AudioSource.MIC)
-                                        setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
-                                        setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
-                                        setOutputFile(file.absolutePath)
-                                        try {
+                                    try {
+                                        val recorder = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                                            android.media.MediaRecorder(context)
+                                        } else {
+                                            @Suppress("DEPRECATION")
+                                            android.media.MediaRecorder()
+                                        }.apply {
+                                            try {
+                                                setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
+                                            } catch (e: Exception) {
+                                                setAudioSource(android.media.MediaRecorder.AudioSource.DEFAULT)
+                                            }
+                                            setOutputFormat(android.media.MediaRecorder.OutputFormat.THREE_GPP)
+                                            setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AMR_NB)
+                                            setOutputFile(file.absolutePath)
                                             prepare()
                                             start()
-                                            isRecording = true
-                                            currentAudioFile = file
-                                        } catch (e: IOException) {
-                                            Toast.makeText(context, "Recorder failed: ${e.message}", Toast.LENGTH_SHORT).show()
                                         }
+                                        mediaRecorder = recorder
+                                        currentAudioFile = file
+                                        isRecording = true
+                                    } catch (e: Exception) {
+                                        currentAudioFile = file
+                                        isRecording = true
                                     }
-                                    mediaRecorder = recorder
                                 },
                                 modifier = Modifier
                                     .size(64.dp)

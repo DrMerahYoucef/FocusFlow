@@ -73,16 +73,21 @@ fun RadioScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = { navController.popBackStack() },
+                    NeumorphicCard(
+                        cornerRadius = 12.dp,
+                        elevation = 2.dp,
                         modifier = Modifier
-                            .neumorphicShadow(cornerRadius = 12.dp, elevation = 4.dp)
+                            .size(40.dp)
+                            .clickable { navController.popBackStack() }
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Go Back",
-                            tint = NeumorphicColors.TextPrimary
-                        )
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Go Back",
+                                tint = NeumorphicColors.TextPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Text(
@@ -94,13 +99,12 @@ fun RadioScreen(
                 }
 
                 // Top right favorites mini indicator badge
-                Box(
-                    modifier = Modifier
-                        .neumorphicShadow(cornerRadius = 12.dp, elevation = 4.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                NeumorphicCard(
+                    cornerRadius = 12.dp,
+                    elevation = 2.dp
                 ) {
                     Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
@@ -134,29 +138,28 @@ fun RadioScreen(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 val favSelected = !showDiscover
-                Box(
+                NeumorphicCard(
                     modifier = Modifier
                         .weight(1f)
-                        .neumorphicShadow(
-                            cornerRadius = 16.dp,
-                            elevation = if (favSelected) 1.dp else 4.dp,
-                            isPressed = favSelected
-                        )
-                        .clip(RoundedCornerShape(16.dp))
-                        .clickable { showDiscover = false }
-                        .padding(vertical = 14.dp),
-                    contentAlignment = Alignment.Center
+                        .clickable { showDiscover = false },
+                    cornerRadius = 16.dp,
+                    elevation = if (favSelected) 1.dp else 4.dp,
+                    isPressed = favSelected
                 ) {
                     Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 14.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Favorite,
                             contentDescription = null,
-                            tint = if (favSelected) NeumorphicColors.Primary else NeumorphicColors.TextSecondary,
+                            tint = if (favSelected) NeumorphicColors.Accent else NeumorphicColors.TextSecondary,
                             modifier = Modifier.size(16.dp)
                         )
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Favorites",
                             fontSize = 14.sp,
@@ -167,22 +170,20 @@ fun RadioScreen(
                 }
 
                 val discoverSelected = showDiscover
-                Box(
+                NeumorphicCard(
                     modifier = Modifier
                         .weight(1f)
-                        .neumorphicShadow(
-                            cornerRadius = 16.dp,
-                            elevation = if (discoverSelected) 1.dp else 4.dp,
-                            isPressed = discoverSelected
-                        )
-                        .clip(RoundedCornerShape(16.dp))
-                        .clickable { showDiscover = true }
-                        .padding(vertical = 14.dp),
-                    contentAlignment = Alignment.Center
+                        .clickable { showDiscover = true },
+                    cornerRadius = 16.dp,
+                    elevation = if (discoverSelected) 1.dp else 4.dp,
+                    isPressed = discoverSelected
                 ) {
                     Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 14.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Search,
@@ -190,6 +191,7 @@ fun RadioScreen(
                             tint = if (discoverSelected) NeumorphicColors.Primary else NeumorphicColors.TextSecondary,
                             modifier = Modifier.size(16.dp)
                         )
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Discover",
                             fontSize = 14.sp,
@@ -291,16 +293,21 @@ fun RadioScreen(
                                                     modifier = Modifier.weight(1f, fill = false)
                                                 )
                                                 Spacer(Modifier.width(8.dp))
-                                                IconButton(
-                                                    onClick = { viewModel.toggleFavourite(station) },
-                                                    modifier = Modifier.size(24.dp)
-                                                 ) {
-                                                    Icon(
-                                                        imageVector = if (isFav) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
-                                                        contentDescription = "Favorite",
-                                                        tint = if (isFav) NeumorphicColors.Accent else NeumorphicColors.TextSecondary,
-                                                        modifier = Modifier.size(20.dp)
-                                                    )
+                                                NeumorphicCard(
+                                                    cornerRadius = 14.dp,
+                                                    elevation = 2.dp,
+                                                    modifier = Modifier
+                                                        .size(44.dp)
+                                                        .clickable { viewModel.toggleFavourite(station) }
+                                                ) {
+                                                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                                        Icon(
+                                                            imageVector = if (isFav) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
+                                                            contentDescription = "Favorite",
+                                                            tint = if (isFav) NeumorphicColors.Accent else NeumorphicColors.TextPrimary,
+                                                            modifier = Modifier.size(24.dp)
+                                                        )
+                                                    }
                                                 }
                                             }
                                             Text(
@@ -354,50 +361,71 @@ fun RadioScreen(
                                             horizontalArrangement = Arrangement.spacedBy(24.dp)
                                         ) {
                                             // Previous Station
-                                            IconButton(
-                                                onClick = {
-                                                    val currIndex = activeStations.indexOfFirst { it.id == station.id }
-                                                    if (currIndex > 0) {
-                                                        viewModel.selectStation(activeStations[currIndex - 1], context)
-                                                    } else if (activeStations.isNotEmpty()) {
-                                                        viewModel.selectStation(activeStations.last(), context)
-                                                    }
-                                                },
+                                            NeumorphicCard(
+                                                cornerRadius = 16.dp,
+                                                elevation = 3.dp,
                                                 modifier = Modifier
-                                                    .neumorphicShadow(cornerRadius = 16.dp, elevation = 3.dp)
+                                                    .size(44.dp)
+                                                    .clickable {
+                                                        val currIndex = activeStations.indexOfFirst { it.id == station.id }
+                                                        if (currIndex > 0) {
+                                                            viewModel.selectStation(activeStations[currIndex - 1], context)
+                                                        } else if (activeStations.isNotEmpty()) {
+                                                            viewModel.selectStation(activeStations.last(), context)
+                                                        }
+                                                    }
                                             ) {
-                                                Text("⏮", fontSize = 20.sp, color = NeumorphicColors.TextPrimary)
+                                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.SkipPrevious,
+                                                        contentDescription = "Previous",
+                                                        tint = NeumorphicColors.TextPrimary,
+                                                        modifier = Modifier.size(22.dp)
+                                                    )
+                                                }
                                             }
 
                                             // Play / Pause Toggle
-                                            IconButton(
-                                                onClick = { viewModel.togglePlayback(context) },
+                                            NeumorphicCard(
+                                                cornerRadius = 28.dp,
+                                                elevation = 4.dp,
                                                 modifier = Modifier
                                                     .size(56.dp)
-                                                    .neumorphicShadow(cornerRadius = 28.dp, elevation = 4.dp)
+                                                    .clickable { viewModel.togglePlayback(context) }
                                             ) {
-                                                Icon(
-                                                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                                    contentDescription = if (isPlaying) "Pause" else "Play",
-                                                    tint = NeumorphicColors.Primary,
-                                                    modifier = Modifier.size(28.dp)
-                                                )
+                                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                                        contentDescription = if (isPlaying) "Pause" else "Play",
+                                                        tint = NeumorphicColors.Primary,
+                                                        modifier = Modifier.size(28.dp)
+                                                    )
+                                                }
                                             }
 
                                             // Next Station
-                                            IconButton(
-                                                onClick = {
-                                                    val currIndex = activeStations.indexOfFirst { it.id == station.id }
-                                                    if (currIndex != -1 && currIndex < activeStations.size - 1) {
-                                                        viewModel.selectStation(activeStations[currIndex + 1], context)
-                                                    } else if (activeStations.isNotEmpty()) {
-                                                        viewModel.selectStation(activeStations.first(), context)
-                                                    }
-                                                },
+                                            NeumorphicCard(
+                                                cornerRadius = 16.dp,
+                                                elevation = 3.dp,
                                                 modifier = Modifier
-                                                    .neumorphicShadow(cornerRadius = 16.dp, elevation = 3.dp)
+                                                    .size(44.dp)
+                                                    .clickable {
+                                                        val currIndex = activeStations.indexOfFirst { it.id == station.id }
+                                                        if (currIndex != -1 && currIndex < activeStations.size - 1) {
+                                                            viewModel.selectStation(activeStations[currIndex + 1], context)
+                                                        } else if (activeStations.isNotEmpty()) {
+                                                            viewModel.selectStation(activeStations.first(), context)
+                                                        }
+                                                    }
                                             ) {
-                                                Text("⏭", fontSize = 20.sp, color = NeumorphicColors.TextPrimary)
+                                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.SkipNext,
+                                                        contentDescription = "Next",
+                                                        tint = NeumorphicColors.TextPrimary,
+                                                        modifier = Modifier.size(22.dp)
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -478,27 +506,29 @@ fun StationCard(
     onFavourite: () -> Unit
 ) {
     val borderColor = if (isPlaying) NeumorphicColors.Primary else Color.Transparent
-    val isDark = com.example.ui.theme.LocalIsDarkTheme.current
 
-    Box(
+    NeumorphicCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp, vertical = 8.dp)
-            .neumorphicShadow(cornerRadius = 16.dp, isPressed = isPlaying)
-            .clip(RoundedCornerShape(16.dp))
-            .border(1.5.dp, borderColor, RoundedCornerShape(16.dp))
-            .clickable { onPlay() }
-            .padding(16.dp)
+            .then(
+                if (isPlaying) Modifier.border(1.5.dp, borderColor, RoundedCornerShape(16.dp)) else Modifier
+            )
+            .clickable { onPlay() },
+        cornerRadius = 16.dp,
+        elevation = if (isPlaying) 1.dp else 4.dp
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
         ) {
             Box(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (isDark) Color(0x26FFFFFF) else Color(0x11000000)),
+                    .background(NeumorphicColors.SurfaceDark.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 SubcomposeAsyncImage(
@@ -541,13 +571,21 @@ fun StationCard(
                 PlayingWaveIndicator(color = NeumorphicColors.Primary)
                 Spacer(Modifier.width(8.dp))
             }
-            IconButton(onClick = onFavourite) {
-                Icon(
-                    imageVector = if (isFavourite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = "Favourite",
-                    tint = if (isFavourite) NeumorphicColors.Accent else NeumorphicColors.TextSecondary,
-                    modifier = Modifier.size(20.dp)
-                )
+            NeumorphicCard(
+                cornerRadius = 14.dp,
+                elevation = 2.dp,
+                modifier = Modifier
+                    .size(44.dp)
+                    .clickable { onFavourite() }
+            ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = if (isFavourite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = "Favourite",
+                        tint = if (isFavourite) NeumorphicColors.Accent else NeumorphicColors.TextPrimary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
     }
@@ -561,19 +599,20 @@ fun NowPlayingBar(
     onExpand: () -> Unit
 ) {
     if (station == null) return
-    Box(
+    NeumorphicCard(
         modifier = Modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars)
             .padding(horizontal = 24.dp, vertical = 12.dp)
-            .neumorphicShadow(cornerRadius = 20.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .clickable { onExpand() }
-            .padding(horizontal = 20.dp, vertical = 14.dp)
+            .clickable { onExpand() },
+        cornerRadius = 20.dp,
+        elevation = 6.dp
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 14.dp)
         ) {
             LiveDot(color = NeumorphicColors.Accent)
             Spacer(Modifier.width(12.dp))
@@ -597,18 +636,21 @@ fun NowPlayingBar(
 
             Spacer(Modifier.width(8.dp))
 
-            IconButton(
-                onClick = onToggle,
+            NeumorphicCard(
+                cornerRadius = 20.dp,
+                elevation = 2.dp,
                 modifier = Modifier
                     .size(40.dp)
-                    .neumorphicShadow(cornerRadius = 20.dp, elevation = 2.dp)
+                    .clickable { onToggle() }
             ) {
-                Icon(
-                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    tint = NeumorphicColors.Primary,
-                    modifier = Modifier.size(20.dp)
-                )
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        tint = NeumorphicColors.Primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }
@@ -699,18 +741,18 @@ fun DiscoverPanel(
             modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
         )
 
-        Box(
+        NeumorphicCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 20.dp)
-                .neumorphicShadow(cornerRadius = 16.dp, elevation = 4.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            contentAlignment = Alignment.CenterStart
+                .padding(bottom = 20.dp),
+            cornerRadius = 16.dp,
+            elevation = 4.dp
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Search,
@@ -941,27 +983,29 @@ fun DiscoverStationItem(
     onFavourite: () -> Unit
 ) {
     val borderColor = if (isPlaying) NeumorphicColors.Primary else Color.Transparent
-    val isDark = com.example.ui.theme.LocalIsDarkTheme.current
 
-    Box(
+    NeumorphicCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
-            .neumorphicShadow(cornerRadius = 16.dp, isPressed = isPlaying)
-            .clip(RoundedCornerShape(16.dp))
-            .border(1.5.dp, borderColor, RoundedCornerShape(16.dp))
-            .clickable { onPlay() }
-            .padding(16.dp)
+            .then(
+                if (isPlaying) Modifier.border(1.5.dp, borderColor, RoundedCornerShape(16.dp)) else Modifier
+            )
+            .clickable { onPlay() },
+        cornerRadius = 16.dp,
+        elevation = if (isPlaying) 1.dp else 4.dp
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
         ) {
             Box(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (isDark) Color(0x26FFFFFF) else Color(0x11000000)),
+                    .background(NeumorphicColors.SurfaceDark.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 SubcomposeAsyncImage(
@@ -1006,18 +1050,21 @@ fun DiscoverStationItem(
             }
 
             // Favorite Button
-            IconButton(
-                onClick = onFavourite,
+            NeumorphicCard(
+                cornerRadius = 12.dp,
+                elevation = 2.dp,
                 modifier = Modifier
-                    .size(40.dp)
-                    .neumorphicShadow(cornerRadius = 20.dp, elevation = 2.dp)
+                    .size(36.dp)
+                    .clickable { onFavourite() }
             ) {
-                Icon(
-                    imageVector = if (isFavourite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                    contentDescription = if (isFavourite) "Remove from favorites" else "Add to favorites",
-                    tint = if (isFavourite) NeumorphicColors.Primary else NeumorphicColors.TextSecondary,
-                    modifier = Modifier.size(18.dp)
-                )
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = if (isFavourite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = if (isFavourite) "Remove from favorites" else "Add to favorites",
+                        tint = if (isFavourite) NeumorphicColors.Accent else NeumorphicColors.TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
     }
