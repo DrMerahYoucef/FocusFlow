@@ -40,9 +40,15 @@ import com.example.ui.theme.NeumorphicColors
 import com.example.data.repository.toSingleNote
 import java.io.File
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+
 enum class CropMode { RECTANGLE, LASSO, QUADRILATERAL }
 enum class HandleType { TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, MOVE }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CropEditorScreen(
     imagePath: String,
@@ -455,232 +461,279 @@ fun CropEditorScreen(
             var showCreateDeckInlineDialog by remember { mutableStateOf(false) }
             var inlineDeckName by remember { mutableStateOf("") }
 
-            AlertDialog(
+            Dialog(
                 onDismissRequest = {
                     showModeDialog = false
                     pendingCroppedBitmap = null
                 },
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.5f))
+                        .padding(16.dp)
+                        .navigationBarsPadding()
+                        .imePadding(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(24.dp),
+                        color = NeumorphicColors.Background,
+                        shadowElevation = 12.dp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 640.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.CropLandscape,
-                            contentDescription = null,
-                            tint = NeumorphicColors.Primary
-                        )
-                        Text(
-                            text = "Card Creation & Options",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            color = NeumorphicColors.TextPrimary
-                        )
-                    }
-                },
-                text = {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = Color.Black.copy(alpha = 0.05f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, NeumorphicColors.Primary.copy(alpha = 0.25f)),
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(min = 120.dp, max = 180.dp)
+                                .padding(20.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Image(
-                                    bitmap = pendingCroppedBitmap!!.asImageBitmap(),
-                                    contentDescription = "Cropped Image Preview",
-                                    contentScale = ContentScale.Fit,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                        }
-
-                        // Target Deck Selector with Inline Deck Creation
-                        Text("Target Deck (Mandatory):", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
-                        
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            val activeDeckName = state.decks.find { it.id == selectedDeckId }?.name ?: "Select Deck (Required)"
-                            
-                            OutlinedButton(
-                                onClick = { isDeckDropdownExpanded = true },
+                            // Header Title Row
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = if (selectedDeckId.isBlank()) MaterialTheme.colorScheme.error else NeumorphicColors.TextPrimary
-                                )
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(activeDeckName, modifier = Modifier.weight(1f))
-                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = NeumorphicColors.Primary)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CropLandscape,
+                                        contentDescription = null,
+                                        tint = NeumorphicColors.Primary
+                                    )
+                                    Text(
+                                        text = "Card Creation & Options",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 18.sp,
+                                        color = NeumorphicColors.TextPrimary
+                                    )
+                                }
+                                IconButton(onClick = {
+                                    showModeDialog = false
+                                    pendingCroppedBitmap = null
+                                }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Close", tint = NeumorphicColors.TextPrimary)
+                                }
                             }
 
-                            DropdownMenu(
-                                expanded = isDeckDropdownExpanded,
-                                onDismissRequest = { isDeckDropdownExpanded = false }
+                            // Inner Scrollable Form
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f, fill = false)
+                                    .verticalScroll(rememberScrollState())
                             ) {
-                                state.decks.forEach { deck ->
-                                    DropdownMenuItem(
-                                        text = { Text(deck.name) },
-                                        onClick = {
-                                            selectedDeckId = deck.id
-                                            isDeckDropdownExpanded = false
+                                Surface(
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = Color.Black.copy(alpha = 0.05f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, NeumorphicColors.Primary.copy(alpha = 0.25f)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 140.dp, max = 220.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(8.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Image(
+                                            bitmap = pendingCroppedBitmap!!.asImageBitmap(),
+                                            contentDescription = "Cropped Image Preview",
+                                            contentScale = ContentScale.Fit,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+                                }
+
+                                // Target Deck Selector with Inline Deck Creation
+                                Text("Target Deck (Mandatory):", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+                                
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    val activeDeckName = state.decks.find { it.id == selectedDeckId }?.name ?: "Select Deck (Required)"
+                                    
+                                    OutlinedButton(
+                                        onClick = { isDeckDropdownExpanded = true },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = if (selectedDeckId.isBlank()) MaterialTheme.colorScheme.error else NeumorphicColors.TextPrimary
+                                        )
+                                    ) {
+                                        Text(activeDeckName, modifier = Modifier.weight(1f))
+                                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = NeumorphicColors.Primary)
+                                    }
+
+                                    DropdownMenu(
+                                        expanded = isDeckDropdownExpanded,
+                                        onDismissRequest = { isDeckDropdownExpanded = false }
+                                    ) {
+                                        state.decks.forEach { deck ->
+                                            DropdownMenuItem(
+                                                text = { Text(deck.name) },
+                                                onClick = {
+                                                    selectedDeckId = deck.id
+                                                    isDeckDropdownExpanded = false
+                                                }
+                                            )
                                         }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    // Inline "+ Add New Deck" Button
+                                    TextButton(
+                                        onClick = { showCreateDeckInlineDialog = true },
+                                        modifier = Modifier.align(Alignment.End)
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Add New Deck", fontSize = 12.sp, color = NeumorphicColors.Primary)
+                                    }
+                                }
+
+                                // Card Creation Type Options
+                                Text("Card Type:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    FilterChip(
+                                        selected = cardCreationType == "OCR",
+                                        onClick = {
+                                            if (state.hasApiKey) {
+                                                cardCreationType = "OCR"
+                                            } else {
+                                                Toast.makeText(context, "Gemini API key is required for AI OCR text extraction.", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        enabled = state.hasApiKey,
+                                        label = { Text(if (state.hasApiKey) "OCR (AI Text)" else "OCR (AI Key Required)") }
+                                    )
+                                    FilterChip(
+                                        selected = cardCreationType == "LOCAL_IMAGE",
+                                        onClick = { cardCreationType = "LOCAL_IMAGE" },
+                                        label = { Text("Local Photo Card") }
+                                    )
+                                }
+
+                                if (cardCreationType == "OCR") {
+                                    OutlinedTextField(
+                                        value = temporaryPromptAddendum,
+                                        onValueChange = { temporaryPromptAddendum = it },
+                                        label = { Text("Temporary Prompt Note (Optional)") },
+                                        placeholder = { Text("e.g., Focus on equations or vocabulary only") },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { selectedExplainMode = !selectedExplainMode }
+                                    ) {
+                                        Checkbox(
+                                            checked = selectedExplainMode,
+                                            onCheckedChange = { selectedExplainMode = it },
+                                            colors = CheckboxDefaults.colors(checkedColor = NeumorphicColors.Primary)
+                                        )
+                                        Text("Mode Explication (IA Q&R Synthesis)", fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+                                    }
+                                } else {
+                                    OutlinedTextField(
+                                        value = temporaryPromptAddendum,
+                                        onValueChange = { temporaryPromptAddendum = it },
+                                        label = { Text("Card Title (Optional)") },
+                                        placeholder = { Text("Leave blank for auto-generated title") },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth()
                                     )
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            // Inline "+ Add New Deck" Button
-                            TextButton(
-                                onClick = { showCreateDeckInlineDialog = true },
-                                modifier = Modifier.align(Alignment.End)
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Add New Deck", fontSize = 12.sp, color = NeumorphicColors.Primary)
-                            }
-                        }
-
-                        // Card Creation Type Options
-                        Text("Card Type:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(
-                                selected = cardCreationType == "OCR",
-                                onClick = {
-                                    if (state.hasApiKey) {
-                                        cardCreationType = "OCR"
-                                    } else {
-                                        Toast.makeText(context, "Gemini API key is required for AI OCR text extraction.", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                                enabled = state.hasApiKey,
-                                label = { Text(if (state.hasApiKey) "OCR (AI Text)" else "OCR (AI Key Required)") }
-                            )
-                            FilterChip(
-                                selected = cardCreationType == "LOCAL_IMAGE",
-                                onClick = { cardCreationType = "LOCAL_IMAGE" },
-                                label = { Text("Local Photo Card") }
-                            )
-                        }
-
-                        if (cardCreationType == "OCR") {
-                            OutlinedTextField(
-                                value = temporaryPromptAddendum,
-                                onValueChange = { temporaryPromptAddendum = it },
-                                label = { Text("Temporary Prompt Note (Optional)") },
-                                placeholder = { Text("e.g., Focus on equations or vocabulary only") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-
+                            // Card Action Buttons attached to form
                             Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { selectedExplainMode = !selectedExplainMode }
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                Checkbox(
-                                    checked = selectedExplainMode,
-                                    onCheckedChange = { selectedExplainMode = it },
-                                    colors = CheckboxDefaults.colors(checkedColor = NeumorphicColors.Primary)
-                                )
-                                Text("Mode Explication (IA Q&R Synthesis)", fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+                                OutlinedButton(
+                                    onClick = {
+                                        showModeDialog = false
+                                        pendingCroppedBitmap = null
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Cancel")
+                                }
+
+                                Button(
+                                    onClick = {
+                                        if (selectedDeckId.isBlank()) {
+                                            Toast.makeText(context, "Please select a Target Deck first!", Toast.LENGTH_SHORT).show()
+                                            return@Button
+                                        }
+
+                                        val bitmapToProcess = pendingCroppedBitmap!!
+                                        val targetDeck = selectedDeckId
+                                        val promptAddendumVal = temporaryPromptAddendum.trim().ifBlank { null }
+                                        showModeDialog = false
+                                        pendingCroppedBitmap = null
+
+                                        if (cardCreationType == "OCR") {
+                                            viewModel.processCapturedImageWithCustomPrompt(
+                                                croppedBitmap = bitmapToProcess,
+                                                temporaryPromptAddendum = promptAddendumVal,
+                                                explainMode = selectedExplainMode,
+                                                targetDeckId = targetDeck
+                                            ) { result, err ->
+                                                try {
+                                                    if (sourceFile.exists()) sourceFile.delete()
+                                                } catch (e: Exception) {}
+
+                                                if (result != null) {
+                                                    val note = result.toSingleNote(targetDeck, viewModel.uiState.value.srsSettings.startingEaseFactor)
+                                                    viewModel.updateNote(note)
+                                                    Toast.makeText(context, "Carte créée avec succès ! ✨", Toast.LENGTH_SHORT).show()
+                                                    onCropConfirmed()
+                                                } else {
+                                                    errorMessageToShow = err ?: "Échec de l'extraction. Veuillez vérifier l'image ou la clé API."
+                                                }
+                                            }
+                                        } else {
+                                            viewModel.createLocalImageCard(
+                                                bitmap = bitmapToProcess,
+                                                userTitle = promptAddendumVal,
+                                                deckId = targetDeck
+                                            ) { success, err ->
+                                                try {
+                                                    if (sourceFile.exists()) sourceFile.delete()
+                                                } catch (e: Exception) {}
+
+                                                if (success) {
+                                                    Toast.makeText(context, "Photo Card créée avec succès ! 📷", Toast.LENGTH_SHORT).show()
+                                                    onCropConfirmed()
+                                                } else {
+                                                    errorMessageToShow = err ?: "Failed to save photo card."
+                                                }
+                                            }
+                                        }
+                                    },
+                                    enabled = selectedDeckId.isNotBlank(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Confirm & Create")
+                                }
                             }
-                        } else {
-                            OutlinedTextField(
-                                value = temporaryPromptAddendum,
-                                onValueChange = { temporaryPromptAddendum = it },
-                                label = { Text("Card Title (Optional)") },
-                                placeholder = { Text("Leave blank for AI auto-generated title") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
                         }
                     }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            if (selectedDeckId.isBlank()) {
-                                Toast.makeText(context, "Please select a Target Deck first!", Toast.LENGTH_SHORT).show()
-                                return@Button
-                            }
-
-                            val bitmapToProcess = pendingCroppedBitmap!!
-                            val targetDeck = selectedDeckId
-                            val promptAddendumVal = temporaryPromptAddendum.trim().ifBlank { null }
-                            showModeDialog = false
-                            pendingCroppedBitmap = null
-
-                            if (cardCreationType == "OCR") {
-                                viewModel.processCapturedImageWithCustomPrompt(
-                                    croppedBitmap = bitmapToProcess,
-                                    temporaryPromptAddendum = promptAddendumVal,
-                                    explainMode = selectedExplainMode,
-                                    targetDeckId = targetDeck
-                                ) { result, err ->
-                                    try {
-                                        if (sourceFile.exists()) sourceFile.delete()
-                                    } catch (e: Exception) {}
-
-                                    if (result != null) {
-                                        val note = result.toSingleNote(targetDeck, viewModel.uiState.value.srsSettings.startingEaseFactor)
-                                        viewModel.updateNote(note)
-                                        Toast.makeText(context, "Carte créée avec succès ! ✨", Toast.LENGTH_SHORT).show()
-                                        onCropConfirmed()
-                                    } else {
-                                        errorMessageToShow = err ?: "Échec de l'extraction. Veuillez vérifier l'image ou la clé API."
-                                    }
-                                }
-                            } else {
-                                viewModel.createLocalImageCard(
-                                    bitmap = bitmapToProcess,
-                                    userTitle = promptAddendumVal,
-                                    deckId = targetDeck
-                                ) { success, err ->
-                                    try {
-                                        if (sourceFile.exists()) sourceFile.delete()
-                                    } catch (e: Exception) {}
-
-                                    if (success) {
-                                        Toast.makeText(context, "Photo Card créée avec succès ! 📷", Toast.LENGTH_SHORT).show()
-                                        onCropConfirmed()
-                                    } else {
-                                        errorMessageToShow = err ?: "Failed to save photo card."
-                                    }
-                                }
-                            }
-                        },
-                        enabled = selectedDeckId.isNotBlank(),
-                        colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
-                    ) {
-                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Create Card")
-                    }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = {
-                            showModeDialog = false
-                            pendingCroppedBitmap = null
-                        }
-                    ) {
-                        Text("Cancel", color = NeumorphicColors.TextSecondary)
-                    }
-                },
-                containerColor = NeumorphicColors.SurfaceLight
-            )
+                }
+            }
 
             // Inline Deck Creation Dialog
             if (showCreateDeckInlineDialog) {

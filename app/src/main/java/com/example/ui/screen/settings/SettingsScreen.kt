@@ -697,101 +697,112 @@ fun SettingsScreen(
                         onDismissRequest = { showAdjustPromptDialog = false },
                         properties = DialogProperties(usePlatformDefaultWidth = false)
                     ) {
-                        Surface(
-                            modifier = Modifier.fillMaxSize(),
-                            color = NeumorphicColors.Background
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.5f))
+                                .padding(16.dp)
+                                .navigationBarsPadding()
+                                .imePadding(),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Column(
+                            Surface(
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+                                color = NeumorphicColors.Background,
+                                shadowElevation = 12.dp,
                                 modifier = Modifier
-                                    .fillMaxSize()
-                                    .systemBarsPadding()
-                                    .padding(20.dp)
+                                    .fillMaxWidth()
+                                    .heightIn(max = 580.dp)
                             ) {
-                                // Header
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        IconButton(onClick = { showAdjustPromptDialog = false }) {
-                                            Icon(Icons.Default.Close, contentDescription = "Close", tint = NeumorphicColors.TextPrimary)
-                                        }
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = "Adjust System Prompt",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 18.sp,
-                                            color = NeumorphicColors.TextPrimary
-                                        )
-                                    }
-
-                                    TextButton(
-                                        onClick = {
-                                            editingPrompt = defaultPrompt
-                                            revisionsViewModel.updateSrsSettings(srsUiState.srsSettings.copy(customPromptOverride = null))
-                                            Toast.makeText(context, "Original prompt restored!", Toast.LENGTH_SHORT).show()
-                                        }
-                                    ) {
-                                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Restore Original", color = NeumorphicColors.TextSecondary)
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                Text(
-                                    text = "Edit the instruction prompt used by Gemini when reading your cards and notes:",
-                                    fontSize = 13.sp,
-                                    color = NeumorphicColors.TextSecondary
-                                )
-
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                OutlinedTextField(
-                                    value = editingPrompt,
-                                    onValueChange = { editingPrompt = it },
-                                    label = { Text("System Prompt") },
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedTextColor = NeumorphicColors.TextPrimary,
-                                        unfocusedTextColor = NeumorphicColors.TextPrimary,
-                                        focusedBorderColor = NeumorphicColors.Primary,
-                                        unfocusedBorderColor = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f),
-                                        focusedContainerColor = NeumorphicColors.SurfaceLight,
-                                        unfocusedContainerColor = NeumorphicColors.SurfaceLight
-                                    ),
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .weight(1f)
-                                )
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        .padding(20.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    OutlinedButton(
-                                        onClick = { showAdjustPromptDialog = false },
-                                        modifier = Modifier.weight(1f)
+                                    // Header
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text("Cancel")
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            IconButton(onClick = { showAdjustPromptDialog = false }) {
+                                                Icon(Icons.Default.Close, contentDescription = "Close", tint = NeumorphicColors.TextPrimary)
+                                            }
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = "Adjust System Prompt",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 17.sp,
+                                                color = NeumorphicColors.TextPrimary
+                                            )
+                                        }
+
+                                        TextButton(
+                                            onClick = {
+                                                editingPrompt = defaultPrompt
+                                                revisionsViewModel.updateSrsSettings(srsUiState.srsSettings.copy(customPromptOverride = null))
+                                                Toast.makeText(context, "Original prompt restored!", Toast.LENGTH_SHORT).show()
+                                            }
+                                        ) {
+                                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Restore", color = NeumorphicColors.TextSecondary, fontSize = 12.sp)
+                                        }
                                     }
 
-                                    Button(
-                                        onClick = {
-                                            val finalPrompt = if (editingPrompt.trim() == defaultPrompt.trim()) null else editingPrompt.trim().ifBlank { null }
-                                            revisionsViewModel.updateSrsSettings(srsUiState.srsSettings.copy(customPromptOverride = finalPrompt))
-                                            Toast.makeText(context, "New prompt saved!", Toast.LENGTH_SHORT).show()
-                                            showAdjustPromptDialog = false
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary),
-                                        modifier = Modifier.weight(1f)
+                                    Text(
+                                        text = "Edit the instruction prompt used by Gemini when reading your cards and notes:",
+                                        fontSize = 12.sp,
+                                        color = NeumorphicColors.TextSecondary
+                                    )
+
+                                    OutlinedTextField(
+                                        value = editingPrompt,
+                                        onValueChange = { editingPrompt = it },
+                                        label = { Text("System Prompt") },
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedTextColor = NeumorphicColors.TextPrimary,
+                                            unfocusedTextColor = NeumorphicColors.TextPrimary,
+                                            focusedBorderColor = NeumorphicColors.Primary,
+                                            unfocusedBorderColor = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f),
+                                            focusedContainerColor = NeumorphicColors.SurfaceLight,
+                                            unfocusedContainerColor = NeumorphicColors.SurfaceLight
+                                        ),
+                                        minLines = 6,
+                                        maxLines = 10,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .weight(1f, fill = false)
+                                            .heightIn(min = 160.dp, max = 280.dp)
+                                    )
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                                     ) {
-                                        Icon(Icons.Default.Save, contentDescription = null)
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Save New Prompt")
+                                        OutlinedButton(
+                                            onClick = { showAdjustPromptDialog = false },
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text("Cancel")
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                val finalPrompt = if (editingPrompt.trim() == defaultPrompt.trim()) null else editingPrompt.trim().ifBlank { null }
+                                                revisionsViewModel.updateSrsSettings(srsUiState.srsSettings.copy(customPromptOverride = finalPrompt))
+                                                Toast.makeText(context, "New prompt saved!", Toast.LENGTH_SHORT).show()
+                                                showAdjustPromptDialog = false
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Save New Prompt", fontSize = 13.sp)
+                                        }
                                     }
                                 }
                             }

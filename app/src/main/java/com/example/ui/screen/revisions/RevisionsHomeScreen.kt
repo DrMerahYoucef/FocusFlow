@@ -40,6 +40,10 @@ import com.example.ui.components.NeumorphicButton
 import com.example.ui.components.NeumorphicCard
 import com.example.ui.theme.NeumorphicColors
 import java.io.File
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 fun formatDueIn(dueDateMillis: Long): String {
     val diffMs = dueDateMillis - System.currentTimeMillis()
@@ -345,35 +349,27 @@ fun RevisionsHomeScreen(
                         }
                     )
 
-                    // Option 3: Upload Picture (Gallery - AI OCR)
+                    // Option 3: Upload Picture
                     SpeedDialOptionRow(
-                        label = if (uiState.hasApiKey) "Upload Picture (AI)" else "Upload Picture (AI Key Required)",
+                        label = "Upload Picture",
                         icon = Icons.Default.PhotoLibrary,
-                        enabled = uiState.hasApiKey,
+                        enabled = true,
                         onClick = {
                             isSpeedDialExpanded = false
-                            if (uiState.hasApiKey) {
-                                galleryLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
-                            } else {
-                                Toast.makeText(context, "Gemini API key is required for AI picture scanning. Configure key in Settings.", Toast.LENGTH_LONG).show()
-                            }
+                            galleryLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
                         }
                     )
 
-                    // Option 4: Camera Capture (AI OCR)
+                    // Option 4: Camera Capture
                     SpeedDialOptionRow(
-                        label = if (uiState.hasApiKey) "Camera Capture (AI)" else "Camera Capture (AI Key Required)",
+                        label = "Camera Capture",
                         icon = Icons.Default.PhotoCamera,
-                        enabled = uiState.hasApiKey,
+                        enabled = true,
                         onClick = {
                             isSpeedDialExpanded = false
-                            if (uiState.hasApiKey) {
-                                onAddClick()
-                            } else {
-                                Toast.makeText(context, "Gemini API key is required for AI camera capture. Configure key in Settings.", Toast.LENGTH_LONG).show()
-                            }
+                            onAddClick()
                         }
                     )
                 }
@@ -505,6 +501,7 @@ fun SpeedDialOptionRow(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManualCardCreationDialog(
     viewModel: RevisionsViewModel,
@@ -521,115 +518,180 @@ fun ManualCardCreationDialog(
     var showInlineDeckDialog by remember { mutableStateOf(false) }
     var inlineDeckName by remember { mutableStateOf("") }
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = { Text("Manual Card Creation", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.5f))
+                .padding(16.dp)
+                .navigationBarsPadding()
+                .imePadding(),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = NeumorphicColors.Background,
+                shadowElevation = 12.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 620.dp)
             ) {
-                // Target Deck Selector
-                Text("Target Deck (Mandatory):", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                val deckName = state.decks.find { it.id == selectedDeckId }?.name ?: "Select Deck (Required)"
-                OutlinedButton(
-                    onClick = { isDeckDropdownExpanded = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(deckName, modifier = Modifier.weight(1f))
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                }
-
-                DropdownMenu(
-                    expanded = isDeckDropdownExpanded,
-                    onDismissRequest = { isDeckDropdownExpanded = false }
-                ) {
-                    state.decks.forEach { deck ->
-                        DropdownMenuItem(
-                            text = { Text(deck.name) },
-                            onClick = {
-                                selectedDeckId = deck.id
-                                isDeckDropdownExpanded = false
-                            }
-                        )
-                    }
-                }
-
-                TextButton(
-                    onClick = { showInlineDeckDialog = true },
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Add New Deck", fontSize = 12.sp)
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = title,
-                        onValueChange = { title = it },
-                        label = { Text("Title / Question") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    OutlinedButton(
-                        onClick = {
-                            if (state.hasApiKey) {
-                                viewModel.generateTitleFromContent(answer.ifBlank { title }) { generatedTitle ->
-                                    title = generatedTitle
-                                }
-                            } else {
-                                Toast.makeText(context, "Gemini API key is required for AI Title generation.", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        enabled = state.hasApiKey && !state.isProcessingOcr,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)
-                    ) {
-                        if (state.isProcessingOcr) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        } else {
-                            Icon(Icons.Default.AutoAwesome, contentDescription = "Generate Title", modifier = Modifier.size(16.dp), tint = if (state.hasApiKey) Color(0xFF6C5CE7) else Color.Gray)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(if (state.hasApiKey) "AI Title" else "AI Title (Key Required)", fontSize = 12.sp, color = if (state.hasApiKey) Color(0xFF6C5CE7) else Color.Gray)
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = answer,
-                    onValueChange = { answer = it },
-                    label = { Text("Answer / Notes") },
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(110.dp)
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (selectedDeckId.isNotBlank() && title.isNotBlank() && answer.isNotBlank()) {
-                        viewModel.createManualNote(
-                            title = title.trim(),
-                            answerText = answer.trim(),
-                            deckId = selectedDeckId
-                        ) {
-                            onCardCreated()
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Manual Card Creation",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = NeumorphicColors.TextPrimary
+                        )
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = NeumorphicColors.TextPrimary)
                         }
                     }
-                },
-                enabled = selectedDeckId.isNotBlank() && title.isNotBlank() && answer.isNotBlank()
-            ) { Text("Save Card") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+
+                    // Form Content
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Target Deck Selector
+                        Text("Target Deck (Mandatory):", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+                        val deckName = state.decks.find { it.id == selectedDeckId }?.name ?: "Select Deck (Required)"
+                        
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            OutlinedButton(
+                                onClick = { isDeckDropdownExpanded = true },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(deckName, modifier = Modifier.weight(1f))
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                            }
+
+                            DropdownMenu(
+                                expanded = isDeckDropdownExpanded,
+                                onDismissRequest = { isDeckDropdownExpanded = false }
+                            ) {
+                                state.decks.forEach { deck ->
+                                    DropdownMenuItem(
+                                        text = { Text(deck.name) },
+                                        onClick = {
+                                            selectedDeckId = deck.id
+                                            isDeckDropdownExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        TextButton(
+                            onClick = { showInlineDeckDialog = true },
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Add New Deck", fontSize = 12.sp)
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = title,
+                                onValueChange = { title = it },
+                                label = { Text("Title / Question") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            OutlinedButton(
+                                onClick = {
+                                    if (state.hasApiKey) {
+                                        viewModel.generateTitleFromContent(answer.ifBlank { title }) { generatedTitle ->
+                                            title = generatedTitle
+                                        }
+                                    } else {
+                                        Toast.makeText(context, "Gemini API key is required for AI Title generation.", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                enabled = state.hasApiKey && !state.isProcessingOcr,
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)
+                            ) {
+                                if (state.isProcessingOcr) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Icon(Icons.Default.AutoAwesome, contentDescription = "Generate Title", modifier = Modifier.size(16.dp), tint = if (state.hasApiKey) Color(0xFF6C5CE7) else Color.Gray)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(if (state.hasApiKey) "AI Title" else "AI Title (Key Required)", fontSize = 12.sp, color = if (state.hasApiKey) Color(0xFF6C5CE7) else Color.Gray)
+                                }
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = answer,
+                            onValueChange = { answer = it },
+                            label = { Text("Answer / Notes / Explanation") },
+                            placeholder = { Text("Type complete answer or markdown notes here...") },
+                            minLines = 6,
+                            maxLines = 10,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(220.dp)
+                        )
+                    }
+
+                    // Action Buttons Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Cancel")
+                        }
+
+                        Button(
+                            onClick = {
+                                if (selectedDeckId.isNotBlank() && title.isNotBlank() && answer.isNotBlank()) {
+                                    viewModel.createManualNote(
+                                        title = title.trim(),
+                                        answerText = answer.trim(),
+                                        deckId = selectedDeckId
+                                    ) {
+                                        onCardCreated()
+                                    }
+                                }
+                            },
+                            enabled = selectedDeckId.isNotBlank() && title.isNotBlank() && answer.isNotBlank(),
+                            colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Save Card")
+                        }
+                    }
+                }
+            }
         }
-    )
+    }
 
     if (showInlineDeckDialog) {
         AlertDialog(
@@ -664,6 +726,7 @@ fun ManualCardCreationDialog(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AudioCardCreationDialog(
     viewModel: RevisionsViewModel,
@@ -672,13 +735,14 @@ fun AudioCardCreationDialog(
     onCardCreated: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
+    val recordingState by com.example.service.AudioRecordingService.recordingState.collectAsState()
+
     var audioTitle by remember { mutableStateOf("") }
     var selectedDeckId by remember { mutableStateOf(state.selectedDeckId.takeIf { it != "ALL" } ?: state.decks.firstOrNull()?.id ?: "") }
 
-    var isRecording by remember { mutableStateOf(false) }
-    var recordingSeconds by remember { mutableIntStateOf(0) }
-    var recordedFile by remember { mutableStateOf<File?>(null) }
-    var mediaRecorder by remember { mutableStateOf<android.media.MediaRecorder?>(null) }
+    val isRecording = recordingState.isRecording
+    val recordingSeconds = recordingState.elapsedSeconds
+    val recordedFile = recordingState.recordedFile
 
     var isDeckDropdownExpanded by remember { mutableStateOf(false) }
     var showInlineDeckDialog by remember { mutableStateOf(false) }
@@ -692,215 +756,316 @@ fun AudioCardCreationDialog(
         }
     }
 
-    LaunchedEffect(isRecording) {
-        if (isRecording) {
-            recordingSeconds = 0
-            while (isRecording) {
-                kotlinx.coroutines.delay(1000L)
-                recordingSeconds++
-            }
-        }
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            try {
-                mediaRecorder?.stop()
-                mediaRecorder?.release()
-            } catch (e: Exception) {}
-        }
-    }
-
-    AlertDialog(
+    Dialog(
         onDismissRequest = {
-            try { mediaRecorder?.stop(); mediaRecorder?.release() } catch (e: Exception) {}
+            if (isRecording) {
+                com.example.service.AudioRecordingService.stopRecording(context)
+            }
             onDismiss()
         },
-        title = { Text("Audio Card Creation", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.5f))
+                .padding(16.dp)
+                .navigationBarsPadding()
+                .imePadding(),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = NeumorphicColors.Background,
+                shadowElevation = 12.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 600.dp)
             ) {
-                // Target Deck Selector
-                Text("Target Deck (Mandatory):", fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.align(Alignment.Start))
-                val deckName = state.decks.find { it.id == selectedDeckId }?.name ?: "Select Deck (Required)"
-                OutlinedButton(
-                    onClick = { isDeckDropdownExpanded = true },
-                    modifier = Modifier.fillMaxWidth()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text(deckName, modifier = Modifier.weight(1f))
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                }
-
-                DropdownMenu(
-                    expanded = isDeckDropdownExpanded,
-                    onDismissRequest = { isDeckDropdownExpanded = false }
-                ) {
-                    state.decks.forEach { deck ->
-                        DropdownMenuItem(
-                            text = { Text(deck.name) },
-                            onClick = {
-                                selectedDeckId = deck.id
-                                isDeckDropdownExpanded = false
-                            }
-                        )
-                    }
-                }
-
-                TextButton(
-                    onClick = { showInlineDeckDialog = true },
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Add New Deck", fontSize = 12.sp)
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = audioTitle,
-                        onValueChange = { audioTitle = it },
-                        label = { Text("Audio Title (Optional)") },
-                        placeholder = { Text("e.g. Lecture summary") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    OutlinedButton(
-                        onClick = {
-                            if (state.hasApiKey) {
-                                viewModel.generateTitleFromAudio(recordedFile, audioTitle) { generatedTitle ->
-                                    audioTitle = generatedTitle
-                                }
-                            } else {
-                                Toast.makeText(context, "Gemini API key is required for AI Title generation.", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        enabled = state.hasApiKey && !state.isProcessingOcr,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)
+                    // Header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        if (state.isProcessingOcr) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        } else {
-                            Icon(Icons.Default.AutoAwesome, contentDescription = "Generate Title", modifier = Modifier.size(16.dp), tint = if (state.hasApiKey) Color(0xFF6C5CE7) else Color.Gray)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(if (state.hasApiKey) "AI Title" else "AI Title (Key Required)", fontSize = 12.sp, color = if (state.hasApiKey) Color(0xFF6C5CE7) else Color.Gray)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Default.Mic, contentDescription = null, tint = NeumorphicColors.Primary)
+                            Text(
+                                text = "Audio Card Creation",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
+                                color = NeumorphicColors.TextPrimary
+                            )
+                        }
+                        IconButton(onClick = {
+                            if (isRecording) {
+                                com.example.service.AudioRecordingService.stopRecording(context)
+                            }
+                            onDismiss()
+                        }) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = NeumorphicColors.TextPrimary)
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Audio Recorder Controls
-                if (isRecording) {
-                    val formattedTime = String.format(java.util.Locale.getDefault(), "%02d:%02d", recordingSeconds / 60, recordingSeconds % 60)
-                    Text("🔴 Recording... $formattedTime", color = Color.Red, fontWeight = FontWeight.Bold)
-                    Button(
-                        onClick = {
-                            try {
-                                mediaRecorder?.stop()
-                                mediaRecorder?.release()
-                            } catch (e: Exception) {}
-                            mediaRecorder = null
-                            isRecording = false
-                            if (recordedFile?.exists() != true || recordedFile?.length() == 0L) {
-                                try { recordedFile?.writeBytes(ByteArray(4096) { 0 }) } catch (_: Exception) {}
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                    // Content
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState())
                     ) {
-                        Icon(Icons.Default.Stop, contentDescription = null)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Stop Recording")
+                        // Target Deck Selector
+                        Text("Target Deck (Mandatory):", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary, modifier = Modifier.align(Alignment.Start))
+                        val deckName = state.decks.find { it.id == selectedDeckId }?.name ?: "Select Deck (Required)"
+                        
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            OutlinedButton(
+                                onClick = { isDeckDropdownExpanded = true },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(deckName, modifier = Modifier.weight(1f))
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                            }
+
+                            DropdownMenu(
+                                expanded = isDeckDropdownExpanded,
+                                onDismissRequest = { isDeckDropdownExpanded = false }
+                            ) {
+                                state.decks.forEach { deck ->
+                                    DropdownMenuItem(
+                                        text = { Text(deck.name) },
+                                        onClick = {
+                                            selectedDeckId = deck.id
+                                            isDeckDropdownExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        TextButton(
+                            onClick = { showInlineDeckDialog = true },
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Add New Deck", fontSize = 12.sp)
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = audioTitle,
+                                onValueChange = { audioTitle = it },
+                                label = { Text("Audio Title (Optional)") },
+                                placeholder = { Text("e.g. Lecture summary") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            OutlinedButton(
+                                onClick = {
+                                    if (state.hasApiKey) {
+                                        viewModel.generateTitleFromAudio(recordedFile, audioTitle) { generatedTitle ->
+                                            audioTitle = generatedTitle
+                                        }
+                                    } else {
+                                        Toast.makeText(context, "Gemini API key is required for AI Title generation.", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                enabled = state.hasApiKey && !state.isProcessingOcr && recordedFile != null,
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)
+                            ) {
+                                if (state.isProcessingOcr) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Icon(Icons.Default.AutoAwesome, contentDescription = "Generate Title", modifier = Modifier.size(16.dp), tint = if (state.hasApiKey) Color(0xFF6C5CE7) else Color.Gray)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(if (state.hasApiKey) "AI Title" else "AI Title (Key Required)", fontSize = 12.sp, color = if (state.hasApiKey) Color(0xFF6C5CE7) else Color.Gray)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Stylish Audio Recorder Section Card
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = Color.Black.copy(alpha = 0.04f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, NeumorphicColors.Primary.copy(alpha = 0.2f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.padding(20.dp)
+                            ) {
+                                if (isRecording) {
+                                    val formattedTime = String.format(java.util.Locale.getDefault(), "%02d:%02d", recordingSeconds / 60, recordingSeconds % 60)
+                                    Surface(
+                                        color = Color.Red.copy(alpha = 0.15f),
+                                        shape = RoundedCornerShape(50)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(10.dp)
+                                                    .background(Color.Red, CircleShape)
+                                            )
+                                            Text(
+                                                text = "Recording... $formattedTime",
+                                                color = Color.Red,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 15.sp
+                                            )
+                                        }
+                                    }
+
+                                    Text(
+                                        text = "Recording continues in background when locked or exited",
+                                        fontSize = 11.sp,
+                                        color = NeumorphicColors.TextSecondary
+                                    )
+
+                                    IconButton(
+                                        onClick = {
+                                            com.example.service.AudioRecordingService.stopRecording(context)
+                                        },
+                                        modifier = Modifier
+                                            .size(68.dp)
+                                            .background(Color.Red, CircleShape)
+                                    ) {
+                                        Icon(Icons.Default.Stop, contentDescription = "Stop", tint = Color.White, modifier = Modifier.size(32.dp))
+                                    }
+                                } else if (recordedFile != null && recordedFile.exists()) {
+                                    val sizeKb = (recordedFile.length() / 1024).coerceAtLeast(1)
+                                    Surface(
+                                        color = Color(0xFF2ECC71).copy(alpha = 0.15f),
+                                        shape = RoundedCornerShape(50)
+                                    ) {
+                                        Text(
+                                            text = "✅ Audio Recorded (${sizeKb} KB)",
+                                            color = Color(0xFF2ECC71),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                                        )
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = {
+                                            com.example.service.AudioRecordingService.clearLastRecording()
+                                        },
+                                        shape = RoundedCornerShape(50)
+                                    ) {
+                                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Re-record Audio")
+                                    }
+                                } else {
+                                    Text(
+                                        text = "Tap button below to start background voice note recording",
+                                        fontSize = 13.sp,
+                                        color = NeumorphicColors.TextSecondary
+                                    )
+
+                                    IconButton(
+                                        onClick = {
+                                            val hasPermission = androidx.core.content.ContextCompat.checkSelfPermission(
+                                                context,
+                                                android.Manifest.permission.RECORD_AUDIO
+                                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+                                            if (!hasPermission) {
+                                                micPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+                                            } else {
+                                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                                    val hasNotifPermission = androidx.core.content.ContextCompat.checkSelfPermission(
+                                                        context,
+                                                        android.Manifest.permission.POST_NOTIFICATIONS
+                                                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                                    if (!hasNotifPermission) {
+                                                        micPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                                                    }
+                                                }
+                                                com.example.service.AudioRecordingService.startRecording(context)
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .size(68.dp)
+                                            .background(NeumorphicColors.Primary, CircleShape)
+                                    ) {
+                                        Icon(Icons.Default.Mic, contentDescription = "Record", tint = Color.White, modifier = Modifier.size(32.dp))
+                                    }
+                                }
+                            }
+                        }
                     }
-                } else if (recordedFile != null && recordedFile!!.exists()) {
-                    val sizeKb = (recordedFile!!.length() / 1024).coerceAtLeast(1)
-                    Text("✅ Audio Recorded (${sizeKb} KB)", color = Color(0xFF2ECC71), fontWeight = FontWeight.Bold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+                    // Action Buttons Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                         OutlinedButton(
                             onClick = {
-                                recordedFile = null
-                            }
-                        ) { Text("Re-record") }
-                    }
-                } else {
-                    Button(
-                        onClick = {
-                            val hasPermission = androidx.core.content.ContextCompat.checkSelfPermission(
-                                context,
-                                android.Manifest.permission.RECORD_AUDIO
-                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-
-                            if (!hasPermission) {
-                                micPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
-                            }
-
-                            val file = File(context.cacheDir, "audio_card_${System.currentTimeMillis()}.3gp")
-                            try {
-                                val recorder = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                                    android.media.MediaRecorder(context)
-                                } else {
-                                    @Suppress("DEPRECATION")
-                                    android.media.MediaRecorder()
-                                }.apply {
-                                    try {
-                                        setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
-                                    } catch (e: Exception) {
-                                        setAudioSource(android.media.MediaRecorder.AudioSource.DEFAULT)
-                                    }
-                                    setOutputFormat(android.media.MediaRecorder.OutputFormat.THREE_GPP)
-                                    setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AMR_NB)
-                                    setOutputFile(file.absolutePath)
-                                    prepare()
-                                    start()
+                                if (isRecording) {
+                                    com.example.service.AudioRecordingService.stopRecording(context)
                                 }
-                                mediaRecorder = recorder
-                                recordedFile = file
-                                isRecording = true
-                            } catch (e: Exception) {
-                                // Keep recording state active so user can record / stop normally
-                                recordedFile = file
-                                isRecording = true
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
-                    ) {
-                        Icon(Icons.Default.Mic, contentDescription = null)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Start Recording")
+                                onDismiss()
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Cancel")
+                        }
+
+                        Button(
+                            onClick = {
+                                val fileToSave = recordedFile
+                                if (selectedDeckId.isNotBlank() && fileToSave != null && fileToSave.exists()) {
+                                    viewModel.createLocalAudioCard(
+                                        recordingFile = fileToSave,
+                                        userTitle = audioTitle.trim().ifBlank { null },
+                                        deckId = selectedDeckId
+                                    ) { success, _ ->
+                                        if (success) {
+                                            com.example.service.AudioRecordingService.clearLastRecording()
+                                            onCardCreated()
+                                        }
+                                    }
+                                }
+                            },
+                            enabled = selectedDeckId.isNotBlank() && recordedFile != null && !isRecording,
+                            colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Save Audio Card")
+                        }
                     }
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val fileToSave = recordedFile
-                    if (selectedDeckId.isNotBlank() && fileToSave != null && fileToSave.exists()) {
-                        viewModel.createLocalAudioCard(
-                            recordingFile = fileToSave,
-                            userTitle = audioTitle.trim().ifBlank { null },
-                            deckId = selectedDeckId
-                        ) { success, _ ->
-                            if (success) {
-                                onCardCreated()
-                            }
-                        }
-                    }
-                },
-                enabled = selectedDeckId.isNotBlank() && recordedFile != null && !isRecording
-            ) { Text("Save Audio Card") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
         }
-    )
+    }
 
     if (showInlineDeckDialog) {
         AlertDialog(

@@ -12,6 +12,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 
 val LocalIsDarkTheme = staticCompositionLocalOf { false }
 
@@ -91,7 +93,14 @@ fun MyApplicationTheme(
     )
   }
 
+  val currentDensity = LocalDensity.current
+  val fixedDensity = Density(
+    density = currentDensity.density,
+    fontScale = 1.0f
+  )
+
   CompositionLocalProvider(
+    LocalDensity provides fixedDensity,
     LocalIsDarkTheme provides darkTheme,
     LocalAppThemeColors provides defaultThemeColors
   ) {

@@ -31,6 +31,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun attachBaseContext(newBase: android.content.Context?) {
+        if (newBase != null) {
+            val overrideConfig = android.content.res.Configuration(newBase.resources.configuration)
+            overrideConfig.fontScale = 1.0f
+            val context = newBase.createConfigurationContext(overrideConfig)
+            super.attachBaseContext(context)
+        } else {
+            super.attachBaseContext(null)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

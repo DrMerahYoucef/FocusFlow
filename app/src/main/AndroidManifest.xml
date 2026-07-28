@@ -18,6 +18,7 @@
     <!-- Foreground service for timer -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 
     <!-- Do Not Disturb / Notification Policy access -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
@@ -61,6 +62,11 @@
 
     <!-- Wallpaper setting -->
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
+
+    <!-- Attribution tag for data access attribution (Android 12+) -->
+    <attribution
+        android:tag="default"
+        android:label="@string/app_name" />
 
     <application
         android:name="com.example.FocusFlowApplication"
@@ -130,6 +136,12 @@
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
+
+        <!-- Audio recording foreground service -->
+        <service
+            android:name=".service.AudioRecordingService"
+            android:foregroundServiceType="microphone"
+            android:exported="false" />
 
         <!-- Focus Overlay activity -->
         <activity
