@@ -767,21 +767,26 @@ fun StationRowItem(
                 )
             }
             
-            androidx.compose.material3.IconButton(
-                onClick = {
-                    onToggleFav()
-                    try {
-                        view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-                    } catch (e: Exception) {}
-                },
-                modifier = Modifier.size(32.dp)
+            com.example.ui.components.NeumorphicCard(
+                cornerRadius = 12.dp,
+                elevation = 2.dp,
+                modifier = Modifier
+                    .size(44.dp)
+                    .clickable {
+                        onToggleFav()
+                        try {
+                            view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                        } catch (e: Exception) {}
+                    }
             ) {
-                Icon(
-                    imageVector = if (isFav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                    contentDescription = "Favorite",
-                    tint = if (isFav) NeumorphicColors.Accent else NeumorphicColors.TextSecondary,
-                    modifier = Modifier.size(16.dp)
-                )
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = if (isFav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = "Favorite",
+                        tint = if (isFav) NeumorphicColors.Accent else NeumorphicColors.TextPrimary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
         }
     }

@@ -108,39 +108,25 @@ class GeminiOcrEngine(
 
     companion object {
         val VERBATIM_PROMPT = """
-You are a strict, literal OCR transcription engine. Your ONLY job is to reproduce the text visible
-in this image character-for-character, exactly as it is written. You are not a writer, teacher, or
-assistant here — you never generate your own sentences.
+You are an intelligent OCR transcription engine. Unless user instructions specify otherwise, your default job is to reproduce the relevant text visible in this image accurately and preserve structural elements like tables and lists.
 
-Absolute rules — never break these:
-- Copy every word in the exact order, exactly as spelled — including any typos, unusual
-  capitalization, abbreviations, or punctuation present in the source.
-- Do NOT correct grammar, spelling, or punctuation, even if it looks like an error.
-- Do NOT paraphrase, summarize, translate, reorder, shorten, or add a single word of your own.
-- Do NOT answer questions, explain concepts, or generate commentary — even if the source text
-  looks like a question or a quiz prompt. Transcribe it as-is; never answer it.
-- Preserve paragraph and line breaks as they appear in the source.
-- Preserve bold/italic/headers using Markdown syntax, without changing the wording.
-- If a table is present, reproduce it as a "table" block (see schema) with every cell copied
-  verbatim — never flatten a table into a paragraph of prose.
+General guidelines (unless overridden by specific user instructions):
+- Respect user directives: If user instructions specify to focus on, extract, or ignore specific elements (such as focusing only on a table, ignoring surrounding paragraphs, or selecting specific sections), STRICTLY follow those user instructions above all default rules.
+- Copy words accurately in the exact order as spelled.
+- Preserve paragraph and line breaks.
+- Preserve bold/italic/headers using Markdown syntax.
+- If a table is present and included in the requested extraction, reproduce it as a "table" block (see schema).
 
-Table-specific discipline — tables are the most common source of dropped or merged rows, so:
-- The header row is always the very FIRST row of the table as it appears in the image — never
-  substitute a data row's content for the header row.
-- Before writing the "table" block, silently count how many rows the table has in the image
-  (including the header row) and how many columns. Your "rows" array must contain exactly
-  (row count − 1) entries, and every row array must have exactly the same number of cells as
-  "headers". Do not skip a row because it's visually complex, small, differently colored, or
-  contains stacked/overlaid numbers — transcribe it anyway.
-- If a cell contains multiple lines or a bullet/dash list, keep it as one cell whose text
-  includes line breaks (\\n) — do not turn one table row into extra rows.
+Table-specific discipline (when tables are extracted):
+- The header row is always the very FIRST row of the table as it appears in the image.
+- Preserve all columns and rows accurately in the "headers" and "rows" arrays.
 
 Return ONLY valid JSON matching this schema, nothing else — no markdown code fences, no commentary:
 
 {
-  "title": "a short label (3-8 words) describing what this content IS ABOUT — its subject, classification, or concept name — not necessarily copied verbatim from the first line. Example: for a table comparing three fracture types by mechanism, a good title is 'Classification des fractures ligamentaires' or the specific classification name if the source names one, NOT the first cell's text.",
+  "title": "a short label (3-8 words) describing what this content IS ABOUT",
   "blocks": [
-    { "type": "text", "content": "verbatim markdown text..." },
+    { "type": "text", "content": "markdown text..." },
     { "type": "table", "headers": ["col1", "col2"], "rows": [["a", "b"], ["c", "d"]] }
   ],
   "highlights": [
@@ -149,17 +135,12 @@ Return ONLY valid JSON matching this schema, nothing else — no markdown code f
 }
 
 Rules for blocks:
-- Always return the ENTIRE scanned passage as blocks belonging to a SINGLE card — never split the
-  passage into multiple cards/notes, no matter how many paragraphs, headings, or tables it has.
-- Emit one "table" block per distinct table in the image, and "text" blocks for everything else,
-  in the same order they appear in the source.
-- "highlights" should only mark terms already visually emphasized in the source (bold, underlined,
-  colored) or obvious key terms/dates — copy the highlighted text verbatim, and only reference text
-  that literally appears inside one of the "text" blocks (never inside a table).
+- Emit "table" blocks for distinct tables extracted, and "text" blocks for other text requested.
+- If user instructions ask to ignore certain parts (e.g. "forget paragraph, focus on table"), ONLY emit blocks for the requested content.
 """.trimIndent()
 
         val EXPLAIN_PROMPT = """
-You are a flashcard generator. Analyze this image and create a Q&A study card.
+You are a flashcard generator. Analyze this image and create a Q&A study card according to the image content and any specific user instructions.
 Return ONLY valid JSON matching this schema, nothing else:
 
 {
@@ -174,9 +155,9 @@ Return ONLY valid JSON matching this schema, nothing else:
 }
 
 Rules:
+- Respect any user instructions provided regarding what content to focus on, ignore, or rephrase.
 - Rephrase the core concept as a clean question (in "title") and answer (in "blocks").
 - Use a "table" block for any tabular data instead of describing it in prose.
-- Keep the result as a SINGLE card — one title, one set of blocks.
 """.trimIndent()
     }
 
@@ -194,7 +175,18 @@ Rules:
         val base64Jpeg = bitmapToBase64(bitmap)
         val basePrompt = promptOverride ?: if (mode == ExtractionMode.EXPLAIN) EXPLAIN_PROMPT else VERBATIM_PROMPT
         val finalPrompt = if (!temporaryPromptAddendum.isNullOrBlank()) {
-            "$basePrompt\n\nAdditional instructions for this capture only: $temporaryPromptAddendum"
+            """
+            HIGH PRIORITY USER DIRECTIVE FOR THIS SCAN:
+            "$temporaryPromptAddendum"
+            
+            CRITICAL REQUIREMENT: The user directive above is your HIGHEST PRIORITY instruction.
+            Strictly follow what the user requested above (for example: if the user asks to ignore paragraphs and focus only on tables, or extract specific sections, only include the requested content in the JSON blocks).
+            Override any default guidelines below that conflict with the user's directive above.
+            
+            ---
+            SYSTEM EXTRACTION RULES & SCHEMA:
+            $basePrompt
+            """.trimIndent()
         } else basePrompt
 
         val jsonRequest = JSONObject().apply {

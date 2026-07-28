@@ -127,26 +127,64 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun synthesizeAiCardFromPrompt(
-        prompt: String,
-        onResult: (String, String) -> Unit
+    fun generateTitleFromContent(
+        content: String,
+        onResult: (String) -> Unit
     ) {
+        val promptText = content.ifBlank { "Study Card" }
         viewModelScope.launch {
             _uiState.update { it.copy(isProcessingOcr = true) }
             try {
                 val apiKey = getEffectiveApiKey()
                 if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
                     _uiState.update { it.copy(isProcessingOcr = false) }
-                    onResult(prompt, "Answer/Explanation for: $prompt")
+                    val fallback = promptText.trim().lines().firstOrNull()?.take(35) ?: "Study Card"
+                    onResult(fallback)
                     return@launch
                 }
                 val titleEngine = com.example.data.repository.GeminiTitleEngine { apiKey }
-                val titleRes = titleEngine.generateTitle(prompt.toByteArray(), "text/plain")
+                val titleRes = titleEngine.generateTitle(promptText.toByteArray(Charsets.UTF_8), "text/plain")
                 _uiState.update { it.copy(isProcessingOcr = false) }
-                onResult(titleRes.title, "AI Synthesis for: $prompt")
+                onResult(titleRes.title)
             } catch (e: Exception) {
                 _uiState.update { it.copy(isProcessingOcr = false) }
-                onResult(prompt, "AI Synthesis for: $prompt")
+                val fallback = promptText.trim().lines().firstOrNull()?.take(35) ?: "Study Card"
+                onResult(fallback)
+            }
+        }
+    }
+
+    fun generateTitleFromAudio(
+        audioFile: java.io.File?,
+        currentTitleText: String,
+        onResult: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isProcessingOcr = true) }
+            try {
+                val apiKey = getEffectiveApiKey()
+                if (audioFile != null && audioFile.exists() && audioFile.length() > 0L && apiKey.isNotBlank() && apiKey != "MY_GEMINI_API_KEY") {
+                    val audioBytes = audioFile.readBytes()
+                    val titleEngine = com.example.data.repository.GeminiTitleEngine { apiKey }
+                    val titleRes = titleEngine.generateTitle(audioBytes, "audio/3gpp")
+                    _uiState.update { it.copy(isProcessingOcr = false) }
+                    onResult(titleRes.title)
+                    return@launch
+                }
+                if (currentTitleText.isNotBlank() && apiKey.isNotBlank() && apiKey != "MY_GEMINI_API_KEY") {
+                    val titleEngine = com.example.data.repository.GeminiTitleEngine { apiKey }
+                    val titleRes = titleEngine.generateTitle(currentTitleText.toByteArray(Charsets.UTF_8), "text/plain")
+                    _uiState.update { it.copy(isProcessingOcr = false) }
+                    onResult(titleRes.title)
+                    return@launch
+                }
+                _uiState.update { it.copy(isProcessingOcr = false) }
+                val fallback = currentTitleText.ifBlank { "Voice Note ${System.currentTimeMillis() % 10000}" }
+                onResult(fallback)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isProcessingOcr = false) }
+                val fallback = currentTitleText.ifBlank { "Voice Note ${System.currentTimeMillis() % 10000}" }
+                onResult(fallback)
             }
         }
     }

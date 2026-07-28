@@ -38,6 +38,8 @@ import java.io.File
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.ui.unit.sp
 import android.media.MediaRecorder
 import java.io.IOException
 
@@ -51,6 +53,7 @@ fun CaptureScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val state by viewModel.uiState.collectAsState()
 
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
     val audioPermissionState = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
@@ -219,13 +222,37 @@ fun CaptureScreen(
                 title = { Text("Manual Card Creation") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedTextField(
-                            value = manualTitle,
-                            onValueChange = { manualTitle = it },
-                            label = { Text("Card Title / Question") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = manualTitle,
+                                onValueChange = { manualTitle = it },
+                                label = { Text("Card Title / Question") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            OutlinedButton(
+                                onClick = {
+                                    viewModel.generateTitleFromContent(manualAnswer.ifBlank { manualTitle }) { generatedTitle ->
+                                        manualTitle = generatedTitle
+                                    }
+                                },
+                                enabled = !state.isProcessingOcr,
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)
+                            ) {
+                                if (state.isProcessingOcr) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Icon(Icons.Default.AutoAwesome, contentDescription = "Generate Title", modifier = Modifier.size(16.dp), tint = Color(0xFF6C5CE7))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("AI Title", fontSize = 12.sp, color = Color(0xFF6C5CE7))
+                                }
+                            }
+                        }
                         OutlinedTextField(
                             value = manualAnswer,
                             onValueChange = { manualAnswer = it },
@@ -276,14 +303,38 @@ fun CaptureScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        OutlinedTextField(
-                            value = audioCardTitle,
-                            onValueChange = { audioCardTitle = it },
-                            label = { Text("Audio Title (Optional)") },
-                            placeholder = { Text("Leave blank for AI title") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = audioCardTitle,
+                                onValueChange = { audioCardTitle = it },
+                                label = { Text("Audio Title (Optional)") },
+                                placeholder = { Text("e.g. Lecture summary") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            OutlinedButton(
+                                onClick = {
+                                    viewModel.generateTitleFromAudio(currentAudioFile, audioCardTitle) { generatedTitle ->
+                                        audioCardTitle = generatedTitle
+                                    }
+                                },
+                                enabled = !state.isProcessingOcr,
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)
+                            ) {
+                                if (state.isProcessingOcr) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Icon(Icons.Default.AutoAwesome, contentDescription = "Generate Title", modifier = Modifier.size(16.dp), tint = Color(0xFF6C5CE7))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("AI Title", fontSize = 12.sp, color = Color(0xFF6C5CE7))
+                                }
+                            }
+                        }
 
                         Spacer(modifier = Modifier.height(8.dp))
 

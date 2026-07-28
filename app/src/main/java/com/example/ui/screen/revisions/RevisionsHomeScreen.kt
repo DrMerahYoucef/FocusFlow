@@ -534,13 +534,37 @@ fun ManualCardCreationDialog(
                     Text("Add New Deck", fontSize = 12.sp)
                 }
 
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Title / Question") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { Text("Title / Question") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.generateTitleFromContent(answer.ifBlank { title }) { generatedTitle ->
+                                title = generatedTitle
+                            }
+                        },
+                        enabled = !state.isProcessingOcr,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)
+                    ) {
+                        if (state.isProcessingOcr) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = "Generate Title", modifier = Modifier.size(16.dp), tint = Color(0xFF6C5CE7))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("AI Title", fontSize = 12.sp, color = Color(0xFF6C5CE7))
+                        }
+                    }
+                }
 
                 OutlinedTextField(
                     value = answer,
@@ -550,23 +574,6 @@ fun ManualCardCreationDialog(
                         .fillMaxWidth()
                         .height(110.dp)
                 )
-
-                // AI Q&R Synthesis
-                Button(
-                    onClick = {
-                        val prompt = title.ifBlank { answer }.ifBlank { "General Quiz" }
-                        viewModel.synthesizeAiCardFromPrompt(prompt) { qTitle, qAnswer ->
-                            title = qTitle
-                            answer = qAnswer
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C5CE7)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("AI Q&R Synthesis", fontSize = 13.sp)
-                }
             }
         },
         confirmButton = {
@@ -717,14 +724,38 @@ fun AudioCardCreationDialog(
                     Text("Add New Deck", fontSize = 12.sp)
                 }
 
-                OutlinedTextField(
-                    value = audioTitle,
-                    onValueChange = { audioTitle = it },
-                    label = { Text("Audio Title (Optional)") },
-                    placeholder = { Text("Leave blank for AI auto title") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = audioTitle,
+                        onValueChange = { audioTitle = it },
+                        label = { Text("Audio Title (Optional)") },
+                        placeholder = { Text("e.g. Lecture summary") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.generateTitleFromAudio(recordedFile, audioTitle) { generatedTitle ->
+                                audioTitle = generatedTitle
+                            }
+                        },
+                        enabled = !state.isProcessingOcr,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)
+                    ) {
+                        if (state.isProcessingOcr) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = "Generate Title", modifier = Modifier.size(16.dp), tint = Color(0xFF6C5CE7))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("AI Title", fontSize = 12.sp, color = Color(0xFF6C5CE7))
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(4.dp))
 

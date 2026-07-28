@@ -1051,18 +1051,18 @@ fun DiscoverStationItem(
 
             // Favorite Button
             NeumorphicCard(
-                cornerRadius = 12.dp,
+                cornerRadius = 14.dp,
                 elevation = 2.dp,
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(44.dp)
                     .clickable { onFavourite() }
             ) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = if (isFavourite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = if (isFavourite) "Remove from favorites" else "Add to favorites",
-                        tint = if (isFavourite) NeumorphicColors.Accent else NeumorphicColors.TextSecondary,
-                        modifier = Modifier.size(18.dp)
+                        tint = if (isFavourite) NeumorphicColors.Accent else NeumorphicColors.TextPrimary,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }
