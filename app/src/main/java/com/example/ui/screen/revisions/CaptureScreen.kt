@@ -16,9 +16,11 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Camera
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -171,13 +173,42 @@ fun CaptureScreen(
 
                 IconButton(
                     onClick = {
-                        galleryLauncher.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                        )
+                        if (state.hasApiKey) {
+                            galleryLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        } else {
+                            Toast.makeText(context, "Gemini API key is required for AI picture scanning. Configure key in Settings.", Toast.LENGTH_LONG).show()
+                        }
                     },
-                    colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Black.copy(alpha = 0.5f))
+                    colors = IconButtonDefaults.iconButtonColors(containerColor = if (state.hasApiKey) Color.Black.copy(alpha = 0.5f) else Color.DarkGray.copy(alpha = 0.5f))
                 ) {
-                    Icon(Icons.Default.PhotoLibrary, contentDescription = "Galerie", tint = Color.White)
+                    Icon(Icons.Default.PhotoLibrary, contentDescription = "Galerie", tint = if (state.hasApiKey) Color.White else Color.Gray)
+                }
+            }
+        }
+
+        if (!state.hasApiKey) {
+            Surface(
+                color = Color.Black.copy(alpha = 0.75f),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .align(Alignment.TopCenter)
+                    .padding(top = 95.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Yellow, modifier = Modifier.size(18.dp))
+                    Text(
+                        "Gemini API key not configured. AI scanning disabled. You can still add local manual & audio cards.",
+                        color = Color.White,
+                        fontSize = 12.sp
+                    )
                 }
             }
         }
@@ -190,6 +221,10 @@ fun CaptureScreen(
         ) {
             FloatingActionButton(
                 onClick = {
+                    if (!state.hasApiKey) {
+                        Toast.makeText(context, "Gemini API key is required for AI camera capture. Configure key in Settings.", Toast.LENGTH_LONG).show()
+                        return@FloatingActionButton
+                    }
                     val photoFile = File(context.cacheDir, "capture_${System.currentTimeMillis()}.jpg")
                     val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
                     imageCapture.takePicture(
@@ -206,7 +241,7 @@ fun CaptureScreen(
                         }
                     )
                 },
-                containerColor = Color.White,
+                containerColor = if (state.hasApiKey) Color.White else Color.Gray,
                 contentColor = Color.Black,
                 shape = CircleShape,
                 modifier = Modifier.size(72.dp)
@@ -237,19 +272,23 @@ fun CaptureScreen(
 
                             OutlinedButton(
                                 onClick = {
-                                    viewModel.generateTitleFromContent(manualAnswer.ifBlank { manualTitle }) { generatedTitle ->
-                                        manualTitle = generatedTitle
+                                    if (state.hasApiKey) {
+                                        viewModel.generateTitleFromContent(manualAnswer.ifBlank { manualTitle }) { generatedTitle ->
+                                            manualTitle = generatedTitle
+                                        }
+                                    } else {
+                                        Toast.makeText(context, "Gemini API key is required for AI Title generation.", Toast.LENGTH_SHORT).show()
                                     }
                                 },
-                                enabled = !state.isProcessingOcr,
+                                enabled = state.hasApiKey && !state.isProcessingOcr,
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)
                             ) {
                                 if (state.isProcessingOcr) {
                                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                                 } else {
-                                    Icon(Icons.Default.AutoAwesome, contentDescription = "Generate Title", modifier = Modifier.size(16.dp), tint = Color(0xFF6C5CE7))
+                                    Icon(Icons.Default.AutoAwesome, contentDescription = "Generate Title", modifier = Modifier.size(16.dp), tint = if (state.hasApiKey) Color(0xFF6C5CE7) else Color.Gray)
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("AI Title", fontSize = 12.sp, color = Color(0xFF6C5CE7))
+                                    Text(if (state.hasApiKey) "AI Title" else "AI Title (Key Required)", fontSize = 12.sp, color = if (state.hasApiKey) Color(0xFF6C5CE7) else Color.Gray)
                                 }
                             }
                         }
@@ -319,19 +358,23 @@ fun CaptureScreen(
 
                             OutlinedButton(
                                 onClick = {
-                                    viewModel.generateTitleFromAudio(currentAudioFile, audioCardTitle) { generatedTitle ->
-                                        audioCardTitle = generatedTitle
+                                    if (state.hasApiKey) {
+                                        viewModel.generateTitleFromAudio(currentAudioFile, audioCardTitle) { generatedTitle ->
+                                            audioCardTitle = generatedTitle
+                                        }
+                                    } else {
+                                        Toast.makeText(context, "Gemini API key is required for AI Title generation.", Toast.LENGTH_SHORT).show()
                                     }
                                 },
-                                enabled = !state.isProcessingOcr,
+                                enabled = state.hasApiKey && !state.isProcessingOcr,
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)
                             ) {
                                 if (state.isProcessingOcr) {
                                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                                 } else {
-                                    Icon(Icons.Default.AutoAwesome, contentDescription = "Generate Title", modifier = Modifier.size(16.dp), tint = Color(0xFF6C5CE7))
+                                    Icon(Icons.Default.AutoAwesome, contentDescription = "Generate Title", modifier = Modifier.size(16.dp), tint = if (state.hasApiKey) Color(0xFF6C5CE7) else Color.Gray)
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("AI Title", fontSize = 12.sp, color = Color(0xFF6C5CE7))
+                                    Text(if (state.hasApiKey) "AI Title" else "AI Title (Key Required)", fontSize = 12.sp, color = if (state.hasApiKey) Color(0xFF6C5CE7) else Color.Gray)
                                 }
                             }
                         }

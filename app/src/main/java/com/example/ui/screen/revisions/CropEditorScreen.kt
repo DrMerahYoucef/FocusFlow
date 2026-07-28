@@ -449,7 +449,7 @@ fun CropEditorScreen(
         if (showModeDialog && pendingCroppedBitmap != null) {
             var selectedDeckId by remember { mutableStateOf(state.selectedDeckId) }
             var temporaryPromptAddendum by remember { mutableStateOf("") }
-            var cardCreationType by remember { mutableStateOf("OCR") }
+            var cardCreationType by remember { mutableStateOf(if (state.hasApiKey) "OCR" else "LOCAL_IMAGE") }
             var isDeckDropdownExpanded by remember { mutableStateOf(false) }
 
             var showCreateDeckInlineDialog by remember { mutableStateOf(false) }
@@ -556,8 +556,15 @@ fun CropEditorScreen(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(
                                 selected = cardCreationType == "OCR",
-                                onClick = { cardCreationType = "OCR" },
-                                label = { Text("OCR (AI Text)") }
+                                onClick = {
+                                    if (state.hasApiKey) {
+                                        cardCreationType = "OCR"
+                                    } else {
+                                        Toast.makeText(context, "Gemini API key is required for AI OCR text extraction.", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                enabled = state.hasApiKey,
+                                label = { Text(if (state.hasApiKey) "OCR (AI Text)" else "OCR (AI Key Required)") }
                             )
                             FilterChip(
                                 selected = cardCreationType == "LOCAL_IMAGE",

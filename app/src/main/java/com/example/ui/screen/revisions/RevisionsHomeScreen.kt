@@ -24,6 +24,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -326,6 +327,7 @@ fun RevisionsHomeScreen(
                     SpeedDialOptionRow(
                         label = "Manual Card",
                         icon = Icons.Default.Edit,
+                        enabled = true,
                         onClick = {
                             isSpeedDialExpanded = false
                             showManualCardDialog = true
@@ -336,31 +338,42 @@ fun RevisionsHomeScreen(
                     SpeedDialOptionRow(
                         label = "Audio Card",
                         icon = Icons.Default.Mic,
+                        enabled = true,
                         onClick = {
                             isSpeedDialExpanded = false
                             showAudioCardDialog = true
                         }
                     )
 
-                    // Option 3: Upload Picture (Gallery)
+                    // Option 3: Upload Picture (Gallery - AI OCR)
                     SpeedDialOptionRow(
-                        label = "Upload Picture",
+                        label = if (uiState.hasApiKey) "Upload Picture (AI)" else "Upload Picture (AI Key Required)",
                         icon = Icons.Default.PhotoLibrary,
+                        enabled = uiState.hasApiKey,
                         onClick = {
                             isSpeedDialExpanded = false
-                            galleryLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
+                            if (uiState.hasApiKey) {
+                                galleryLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            } else {
+                                Toast.makeText(context, "Gemini API key is required for AI picture scanning. Configure key in Settings.", Toast.LENGTH_LONG).show()
+                            }
                         }
                     )
 
-                    // Option 4: Camera Capture
+                    // Option 4: Camera Capture (AI OCR)
                     SpeedDialOptionRow(
-                        label = "Camera Capture",
+                        label = if (uiState.hasApiKey) "Camera Capture (AI)" else "Camera Capture (AI Key Required)",
                         icon = Icons.Default.PhotoCamera,
+                        enabled = uiState.hasApiKey,
                         onClick = {
                             isSpeedDialExpanded = false
-                            onAddClick()
+                            if (uiState.hasApiKey) {
+                                onAddClick()
+                            } else {
+                                Toast.makeText(context, "Gemini API key is required for AI camera capture. Configure key in Settings.", Toast.LENGTH_LONG).show()
+                            }
                         }
                     )
                 }
@@ -444,30 +457,46 @@ fun RevisionsHomeScreen(
 fun SpeedDialOptionRow(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.clickable(onClick = onClick)
+        modifier = Modifier
+            .alpha(if (enabled) 1f else 0.6f)
+            .clickable(onClick = onClick)
     ) {
         Surface(
             shape = RoundedCornerShape(8.dp),
             color = NeumorphicColors.SurfaceLight.copy(alpha = 0.95f),
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
         ) {
-            Text(
-                text = label,
-                color = NeumorphicColors.TextPrimary,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-            )
+            ) {
+                if (!enabled) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "Key required",
+                        tint = NeumorphicColors.TextSecondary,
+                        modifier = Modifier.size(12.dp)
+                    )
+                }
+                Text(
+                    text = label,
+                    color = if (enabled) NeumorphicColors.TextPrimary else NeumorphicColors.TextSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
 
         SmallFloatingActionButton(
             onClick = onClick,
-            containerColor = NeumorphicColors.Primary,
+            containerColor = if (enabled) NeumorphicColors.Primary else Color.Gray,
             contentColor = Color.White,
             shape = CircleShape
         ) {
@@ -482,6 +511,7 @@ fun ManualCardCreationDialog(
     onDismiss: () -> Unit,
     onCardCreated: () -> Unit
 ) {
+    val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
     var title by remember { mutableStateOf("") }
     var answer by remember { mutableStateOf("") }
@@ -549,19 +579,23 @@ fun ManualCardCreationDialog(
 
                     OutlinedButton(
                         onClick = {
-                            viewModel.generateTitleFromContent(answer.ifBlank { title }) { generatedTitle ->
-                                title = generatedTitle
+                            if (state.hasApiKey) {
+                                viewModel.generateTitleFromContent(answer.ifBlank { title }) { generatedTitle ->
+                                    title = generatedTitle
+                                }
+                            } else {
+                                Toast.makeText(context, "Gemini API key is required for AI Title generation.", Toast.LENGTH_SHORT).show()
                             }
                         },
-                        enabled = !state.isProcessingOcr,
+                        enabled = state.hasApiKey && !state.isProcessingOcr,
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)
                     ) {
                         if (state.isProcessingOcr) {
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                         } else {
-                            Icon(Icons.Default.AutoAwesome, contentDescription = "Generate Title", modifier = Modifier.size(16.dp), tint = Color(0xFF6C5CE7))
+                            Icon(Icons.Default.AutoAwesome, contentDescription = "Generate Title", modifier = Modifier.size(16.dp), tint = if (state.hasApiKey) Color(0xFF6C5CE7) else Color.Gray)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("AI Title", fontSize = 12.sp, color = Color(0xFF6C5CE7))
+                            Text(if (state.hasApiKey) "AI Title" else "AI Title (Key Required)", fontSize = 12.sp, color = if (state.hasApiKey) Color(0xFF6C5CE7) else Color.Gray)
                         }
                     }
                 }
@@ -740,19 +774,23 @@ fun AudioCardCreationDialog(
 
                     OutlinedButton(
                         onClick = {
-                            viewModel.generateTitleFromAudio(recordedFile, audioTitle) { generatedTitle ->
-                                audioTitle = generatedTitle
+                            if (state.hasApiKey) {
+                                viewModel.generateTitleFromAudio(recordedFile, audioTitle) { generatedTitle ->
+                                    audioTitle = generatedTitle
+                                }
+                            } else {
+                                Toast.makeText(context, "Gemini API key is required for AI Title generation.", Toast.LENGTH_SHORT).show()
                             }
                         },
-                        enabled = !state.isProcessingOcr,
+                        enabled = state.hasApiKey && !state.isProcessingOcr,
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)
                     ) {
                         if (state.isProcessingOcr) {
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                         } else {
-                            Icon(Icons.Default.AutoAwesome, contentDescription = "Generate Title", modifier = Modifier.size(16.dp), tint = Color(0xFF6C5CE7))
+                            Icon(Icons.Default.AutoAwesome, contentDescription = "Generate Title", modifier = Modifier.size(16.dp), tint = if (state.hasApiKey) Color(0xFF6C5CE7) else Color.Gray)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("AI Title", fontSize = 12.sp, color = Color(0xFF6C5CE7))
+                            Text(if (state.hasApiKey) "AI Title" else "AI Title (Key Required)", fontSize = 12.sp, color = if (state.hasApiKey) Color(0xFF6C5CE7) else Color.Gray)
                         }
                     }
                 }

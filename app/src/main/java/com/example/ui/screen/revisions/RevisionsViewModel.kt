@@ -31,7 +31,8 @@ data class RevisionsUiState(
     val isProcessingOcr: Boolean = false,
     val ocrError: String? = null,
     val srsSettings: SrsSettings = SrsSettings(),
-    val lastExportSummary: String? = null
+    val lastExportSummary: String? = null,
+    val hasApiKey: Boolean = false
 )
 
 class RevisionsViewModel(application: Application) : AndroidViewModel(application) {
@@ -47,7 +48,7 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
         apiKeyProvider = { getEffectiveApiKey() }
     )
 
-    private fun getEffectiveApiKey(): String {
+    fun getEffectiveApiKey(): String {
         val userKey = _uiState.value.srsSettings.geminiApiKey.trim()
         val prefKey = sharedPrefs.getString("gemini_api_key", "")?.trim().orEmpty()
         val buildConfigKey = try {
@@ -81,7 +82,7 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
             customPromptOverride = sharedPrefs.getString("srs_custom_prompt_override", null)
         )
         val lastSummary = sharedPrefs.getString("srs_last_export_summary", null)
-        _uiState.update { it.copy(srsSettings = settings, lastExportSummary = lastSummary) }
+        _uiState.update { it.copy(srsSettings = settings, lastExportSummary = lastSummary, hasApiKey = getEffectiveApiKey().isNotBlank()) }
     }
 
     private fun observeData() {
@@ -102,7 +103,8 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
                         allNotes = all,
                         selectedDeckId = activeDeckId,
                         dueCount = due.size,
-                        totalCount = all.size
+                        totalCount = all.size,
+                        hasApiKey = getEffectiveApiKey().isNotBlank()
                     )
                 }
             }
@@ -427,7 +429,7 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
             .putString("srs_custom_prompt_override", settings.customPromptOverride)
             .apply()
 
-        _uiState.update { it.copy(srsSettings = settings) }
+        _uiState.update { it.copy(srsSettings = settings, hasApiKey = getEffectiveApiKey().isNotBlank()) }
         RevisionReminderWorker.scheduleRevisionReminder(getApplication(), settings)
     }
 
