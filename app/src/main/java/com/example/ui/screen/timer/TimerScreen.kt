@@ -159,14 +159,57 @@ fun UpdateBadgeBanner(
 }
 
 @Composable
+fun DndBadgeBanner(
+    themeColors: com.example.ui.theme.AppThemeColors,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .neumorphicShadow(
+                cornerRadius = 12.dp,
+                elevation = 4.dp,
+                isPressed = false
+            )
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = "DND Warning Icon",
+                tint = themeColors.accent,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "⚠️ DND access lacking. Click here to configure.",
+                color = themeColors.accent,
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
 fun TimerScreen(
     viewModel: TimerViewModel,
     settingsViewModel: SettingsViewModel,
     onNavigateToBatterySaver: () -> Unit,
+    onNavigateToRadio: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.timerState.collectAsState()
     val updateState by settingsViewModel.updateState.collectAsState()
+    val settingsState by settingsViewModel.state.collectAsState()
     val context = LocalContext.current
 
     val coroutineScope = rememberCoroutineScope()
@@ -242,16 +285,37 @@ fun TimerScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            if (updateState is UpdateState.UpdateAvailable ||
-                updateState is UpdateState.Downloading ||
-                updateState is UpdateState.ReadyToInstall ||
-                updateState is UpdateState.Error
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                UpdateBadgeBanner(
-                    updateState = updateState,
-                    settingsViewModel = settingsViewModel,
-                    themeColors = themeColors
-                )
+                if (updateState is UpdateState.UpdateAvailable ||
+                    updateState is UpdateState.Downloading ||
+                    updateState is UpdateState.ReadyToInstall ||
+                    updateState is UpdateState.Error
+                ) {
+                    UpdateBadgeBanner(
+                        updateState = updateState,
+                        settingsViewModel = settingsViewModel,
+                        themeColors = themeColors
+                    )
+                }
+
+                if (settingsState.blockNotifications && !hasDndPermission) {
+                    DndBadgeBanner(
+                        themeColors = themeColors,
+                        onClick = {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).apply {
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    }
+                                )
+                            }
+                        }
+                    )
+                }
             }
 
             // App Title / Branding Header
@@ -416,12 +480,9 @@ fun TimerScreen(
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
 
-                val activeSoundName = when (state.currentAmbientId) {
-                    "rain" -> "Rain 🌧️"
-                    "white_noise" -> "Noise 🌫️"
-                    "campfire" -> "Fire 🔥"
-                    "stream" -> "Stream 🌊"
-                    "space" -> "Space 🌌"
+                val activeSoundName = when {
+                    radioPlaying && !currentStation?.name.isNullOrBlank() -> "${currentStation?.name} 📻"
+                    state.currentAmbientId != "none" -> "Ambient sound"
                     else -> "Muted 🔇"
                 }
 
@@ -429,19 +490,23 @@ fun TimerScreen(
                     text = "Playing: $activeSoundName",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
-                    color = if (state.currentAmbientId == "none") themeColors.secondaryText else themeColors.accent,
+                    color = if (!radioPlaying && state.currentAmbientId == "none") themeColors.secondaryText else themeColors.accent,
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
                 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Button 1: Play Random
                     GlassButton(
                         label = "Play Random",
                         icon = Icons.Default.Shuffle,
                         onClick = {
+                            if (radioPlaying) {
+                                radioViewModel.pausePlayback(context)
+                            }
                             val sounds = listOf("rain", "white_noise", "campfire", "stream", "space")
                             val currentId = state.currentAmbientId
                             val nextSounds = sounds.filter { it != currentId }
@@ -449,60 +514,40 @@ fun TimerScreen(
                             viewModel.setAmbientSound(nextId)
                         },
                         accentColor = themeColors.accent,
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 14.dp),
                         modifier = Modifier.weight(1f)
                     )
 
-                    // Button 2: Stop / Mute
+                    // Button 2: Silent button (Middle - Icon of sound or mute, NO TEXT)
+                    val isAudioActive = radioPlaying || state.currentAmbientId != "none"
                     GlassButton(
-                        label = "Mute",
-                        icon = Icons.Default.VolumeOff,
+                        label = "",
+                        icon = if (isAudioActive) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
                         onClick = {
-                            viewModel.setAmbientSound("none")
+                            if (isAudioActive) {
+                                if (radioPlaying) {
+                                    radioViewModel.pausePlayback(context)
+                                }
+                                viewModel.setAmbientSound("none")
+                            } else {
+                                viewModel.setAmbientSound("rain")
+                            }
                         },
-                        accentColor = if (state.currentAmbientId == "none") themeColors.divider else Color(0xFFE57373),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
+                        accentColor = if (isAudioActive) themeColors.accent else Color(0xFFE57373),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp)
+                    )
+
+                    // Button 3: Radio button
+                    GlassButton(
+                        label = "Radio",
+                        icon = Icons.Default.Radio,
+                        onClick = {
+                            onNavigateToRadio()
+                        },
+                        accentColor = themeColors.accent,
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 14.dp),
                         modifier = Modifier.weight(1f)
                     )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Do Not Disturb permission / Status Card
-            if (!hasDndPermission) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                ) {
-                    GlassCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        cornerRadius = 12.dp
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = "⚠️ DND access lacking. Click here to configure.",
-                                color = themeColors.accent,
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 12.sp,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.clickable {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                        context.startActivity(
-                                            Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).apply {
-                                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                            }
-                                        )
-                                    }
-                                }
-                            )
-                        }
-                    }
                 }
             }
         }
@@ -2073,7 +2118,7 @@ fun BatterySaverOverlay(
         "stream" to "Stream 🌊",
         "space" to "Space 🌌"
     )
-    val currentAmbientLabel = ambientLabels[currentAmbientId] ?: "Rain 🌧️"
+    val currentAmbientLabel = if (currentAmbientId != "none") "Ambient sound" else "Silence 🔇"
 
     Box(
         modifier = Modifier

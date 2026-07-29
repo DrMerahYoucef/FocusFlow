@@ -2,6 +2,7 @@ package com.example.ui.screen.radio
 
 import android.app.Application
 import android.content.Context
+import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.FocusFlowApplication
@@ -251,6 +252,15 @@ class RadioViewModel(application: Application) : AndroidViewModel(application) {
     fun selectStation(station: RadioStation, context: Context) {
         _currentStation.value = station
         _isPlaying.value = true
+        try {
+            val intent = Intent(context, com.example.service.PomodoroTimerService::class.java).apply {
+                action = com.example.service.PomodoroTimerService.ACTION_SET_AMBIENT
+                putExtra(com.example.service.PomodoroTimerService.EXTRA_AMBIENT_ID, "none")
+            }
+            context.startService(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         executeWhenControllerReady(context) { controller ->
             val artwork = station.logoUrl.ifEmpty {
                 "android.resource://com.focusflow/drawable/ic_radio_default"

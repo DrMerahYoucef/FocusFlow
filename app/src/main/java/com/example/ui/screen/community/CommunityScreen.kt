@@ -281,7 +281,7 @@ fun IslandMapTab(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(16.dp)
+                    .padding(start = 16.dp, end = 16.dp, bottom = 100.dp)
                     .fillMaxWidth()
             ) {
                 GlassCard(
@@ -354,7 +354,7 @@ fun IslandMapTab(
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(bottom = 24.dp, end = 24.dp)
+                .padding(bottom = 100.dp, end = 20.dp)
         ) {
             FloatingActionButton(
                 onClick = { showSearchPanel = true },

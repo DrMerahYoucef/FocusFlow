@@ -81,7 +81,11 @@ class RadioPlayerService : MediaLibraryService() {
                 session: MediaSession,
                 controller: MediaSession.ControllerInfo
             ): MediaSession.ConnectionResult {
-                return super.onConnect(session, controller)
+                val defaultResult = super.onConnect(session, controller)
+                return MediaSession.ConnectionResult.accept(
+                    defaultResult.availableSessionCommands,
+                    defaultResult.availablePlayerCommands
+                )
             }
 
             override fun onGetLibraryRoot(
@@ -95,6 +99,8 @@ class RadioPlayerService : MediaLibraryService() {
                         MediaMetadata.Builder()
                             .setFolderType(MediaMetadata.FOLDER_TYPE_MIXED)
                             .setIsPlayable(false)
+                            .setIsBrowsable(true)
+                            .setTitle("Radio Stations")
                             .build()
                     )
                     .build()
@@ -174,6 +180,8 @@ class RadioPlayerService : MediaLibraryService() {
         val artworkUriStr = prefs.getString("last_artwork_uri", null)
 
         val metadataBuilder = MediaMetadata.Builder()
+            .setIsPlayable(true)
+            .setIsBrowsable(false)
         if (title != null) metadataBuilder.setTitle(title)
         if (artist != null) metadataBuilder.setArtist(artist)
         if (description != null) metadataBuilder.setDescription(description)

@@ -59,12 +59,14 @@ fun GlassButton(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Icon(imageVector = icon, contentDescription = label, tint = accentColor)
-            Text(
-                text  = label,
-                color = themeColors.onSurface,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold
-            )
+            if (label.isNotEmpty()) {
+                Text(
+                    text  = label,
+                    color = themeColors.onSurface,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }

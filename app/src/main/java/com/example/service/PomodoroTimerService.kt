@@ -38,7 +38,7 @@ class PomodoroTimerService : Service() {
     private var shortBreakDurationMs = 5 * 60 * 1000L
     private var longBreakDurationMs = 15 * 60 * 1000L
     private var sessionsBeforeLongBreak = 4
-    private var dndEnabled = true
+    private var dndEnabled = false
     private var vibrateEnabled = true
     private var ambientRotationMin = 5
     private var ambientSecondsElapsed = 0L
@@ -105,7 +105,7 @@ class PomodoroTimerService : Service() {
         shortBreakDurationMs = shortMin * 60 * 1000L
         longBreakDurationMs = longMin * 60 * 1000L
         sessionsBeforeLongBreak = prefs.getInt("sessions_before_long", 4)
-        dndEnabled = prefs.getBoolean("block_notifications", true)
+        dndEnabled = prefs.getBoolean("block_notifications", false)
         vibrateEnabled = prefs.getBoolean("vibrate_on_complete", true)
         ambientRotationMin = prefs.getInt("ambient_rotation_min", 5)
     }

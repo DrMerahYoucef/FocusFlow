@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -32,6 +33,14 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.foundation.pager.HorizontalPager
 import kotlinx.coroutines.launch
 import com.example.ui.components.neumorphicShadow
@@ -87,7 +96,7 @@ fun MainPagerScreen(
                 currentPage = pagerState.currentPage,
                 onTabSelected = { index ->
                     coroutineScope.launch {
-                        pagerState.animateScrollToPage(index)
+                        pagerState.scrollToPage(index)
                     }
                 }
             )
@@ -105,6 +114,7 @@ fun MainPagerScreen(
                         viewModel = timerViewModel,
                         settingsViewModel = settingsViewModel,
                         onNavigateToBatterySaver = { navController.navigate("battery_saver") },
+                        onNavigateToRadio = { navController.navigate("radio") },
                         modifier = screenModifier
                     )
                 }
@@ -207,6 +217,79 @@ fun MainPagerScreen(
     }
 }
 
+class UpwardBumpBarShape(
+    private val cornerRadius: Dp = 28.dp,
+    private val bumpWidth: Dp = 96.dp,
+    private val bumpHeight: Dp = 22.dp,
+    private val topMargin: Dp = 2.dp
+) : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        val cr = with(density) { cornerRadius.toPx() }
+        val bw = with(density) { bumpWidth.toPx() }
+        val bh = with(density) { bumpHeight.toPx() }
+        val yTop = with(density) { topMargin.toPx() }
+        val w = size.width
+        val h = size.height
+        val cx = w / 2f
+
+        val flatY = bh + yTop
+        val wHalf = bw / 2f
+        val c1x = cx - wHalf * 0.52f
+        val c2x = cx - wHalf * 0.48f
+        val c3x = cx + wHalf * 0.48f
+        val c4x = cx + wHalf * 0.52f
+
+        val path = Path().apply {
+            moveTo(cr, flatY)
+            lineTo(cx - wHalf, flatY)
+            cubicTo(
+                c1x, flatY,
+                c2x, yTop,
+                cx, yTop
+            )
+            cubicTo(
+                c3x, yTop,
+                c4x, flatY,
+                cx + wHalf, flatY
+            )
+            lineTo(w - cr, flatY)
+            arcTo(
+                rect = Rect(w - 2 * cr, flatY, w, flatY + 2 * cr),
+                startAngleDegrees = 270f,
+                sweepAngleDegrees = 90f,
+                forceMoveTo = false
+            )
+            lineTo(w, h - cr)
+            arcTo(
+                rect = Rect(w - 2 * cr, h - 2 * cr, w, h),
+                startAngleDegrees = 0f,
+                sweepAngleDegrees = 90f,
+                forceMoveTo = false
+            )
+            lineTo(cr, h)
+            arcTo(
+                rect = Rect(0f, h - 2 * cr, 2 * cr, h),
+                startAngleDegrees = 90f,
+                sweepAngleDegrees = 90f,
+                forceMoveTo = false
+            )
+            lineTo(0f, flatY + cr)
+            arcTo(
+                rect = Rect(0f, flatY, 2 * cr, flatY + 2 * cr),
+                startAngleDegrees = 180f,
+                sweepAngleDegrees = 90f,
+                forceMoveTo = false
+            )
+            close()
+        }
+        return Outline.Generic(path)
+    }
+}
+
 @Composable
 fun NeumorphicBottomNavigationForPager(
     items: List<Screen>,
@@ -215,71 +298,197 @@ fun NeumorphicBottomNavigationForPager(
 ) {
     val themeColors = com.example.ui.theme.LocalAppThemeColors.current
     val isDark = com.example.ui.theme.LocalIsDarkTheme.current
-    val shadowColor = if (isDark) Color(0x40000000) else Color(0x1F000000)
 
-    Row(
+    val purpleGlow = Color(0xFFA855F7)
+    val purpleText = Color(0xFFC084FC)
+    val inactiveColor = if (isDark) Color(0x99ECECF0) else themeColors.secondaryText
+    val barBg = if (isDark) Color(0xEE1E202C) else themeColors.surface
+    val centerCircleBg = if (isDark) Color(0xFF161824) else themeColors.surface
+
+    val bumpHeight = 24.dp
+    val barShape = remember { UpwardBumpBarShape(cornerRadius = 28.dp, bumpWidth = 96.dp, bumpHeight = bumpHeight) }
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-            .shadow(
-                elevation = 12.dp,
-                shape = RoundedCornerShape(24.dp),
-                clip = false,
-                ambientColor = shadowColor,
-                spotColor = shadowColor
-            )
-            .clip(RoundedCornerShape(24.dp))
-            .background(themeColors.surface)
-            .border(1.dp, themeColors.divider, RoundedCornerShape(24.dp))
-            .padding(8.dp),
-        horizontalArrangement = Arrangement.SpaceAround,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 14.dp, vertical = 4.dp),
+        contentAlignment = Alignment.BottomCenter
     ) {
-        items.forEachIndexed { index, screen ->
-            val isSelected = currentPage == index
-            val itemBackground = if (isSelected) {
-                themeColors.accent.copy(alpha = 0.15f)
-            } else {
-                Color.Transparent
-            }
-            val itemBorder = if (isSelected) {
-                themeColors.accent.copy(alpha = 0.3f)
-            } else {
-                Color.Transparent
-            }
-
-            Box(
+        // 1. SINGLE CONTINUOUS BENT BAR
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(88.dp)
+                .shadow(
+                    elevation = 12.dp,
+                    shape = barShape,
+                    ambientColor = if (currentPage != 2) purpleGlow else Color(0x25000000),
+                    spotColor = if (currentPage != 2) purpleGlow else Color(0x25000000)
+                )
+                .clip(barShape)
+                .background(barBg)
+                .border(
+                    width = 1.dp,
+                    color = if (currentPage != 2) purpleGlow.copy(alpha = 0.4f) else themeColors.divider,
+                    shape = barShape
+                ),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(4.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(itemBackground)
-                    .border(1.dp, itemBorder, RoundedCornerShape(16.dp))
-                    .clickable {
-                        onTabSelected(index)
-                    }
-                    .padding(vertical = 8.dp, horizontal = 4.dp),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .height(64.dp),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                // Item 0: Revisions
+                val isRev = currentPage == 0
                 Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable { onTabSelected(0) },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
                     Icon(
-                        imageVector = screen.icon,
-                        contentDescription = screen.title,
-                        tint = if (isSelected) themeColors.accent else themeColors.secondaryText,
-                        modifier = Modifier.size(20.dp)
+                        imageVector = Screen.Revisions.icon,
+                        contentDescription = Screen.Revisions.title,
+                        tint = if (isRev) purpleText else inactiveColor,
+                        modifier = Modifier.size(22.dp)
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = screen.title,
+                        text = Screen.Revisions.title,
                         fontSize = 11.sp,
-                        fontWeight = if (isSelected) FontWeight.Black else FontWeight.Normal,
-                        color = if (isSelected) themeColors.accent else themeColors.secondaryText
+                        fontWeight = if (isRev) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isRev) purpleText else inactiveColor
                     )
                 }
+
+                // Item 1: Stats
+                val isStats = currentPage == 1
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable { onTabSelected(1) },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Screen.Analytics.icon,
+                        contentDescription = Screen.Analytics.title,
+                        tint = if (isStats) purpleText else inactiveColor,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = Screen.Analytics.title,
+                        fontSize = 11.sp,
+                        fontWeight = if (isStats) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isStats) purpleText else inactiveColor
+                    )
+                }
+
+                // CENTER SPACER FOR FLOATING TIMER CIRCLE
+                Spacer(modifier = Modifier.width(76.dp))
+
+                // Item 3: Islands
+                val isIslands = currentPage == 3
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable { onTabSelected(3) },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Screen.Community.icon,
+                        contentDescription = Screen.Community.title,
+                        tint = if (isIslands) purpleText else inactiveColor,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = Screen.Community.title,
+                        fontSize = 11.sp,
+                        fontWeight = if (isIslands) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isIslands) purpleText else inactiveColor
+                    )
+                }
+
+                // Item 4: Config
+                val isConfig = currentPage == 4
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable { onTabSelected(4) },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Screen.Settings.icon,
+                        contentDescription = Screen.Settings.title,
+                        tint = if (isConfig) purpleText else inactiveColor,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = Screen.Settings.title,
+                        fontSize = 11.sp,
+                        fontWeight = if (isConfig) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isConfig) purpleText else inactiveColor
+                    )
+                }
+            }
+        }
+
+        // 2. HERO FLOATING CENTER CIRCLE (Timer - Index 2)
+        val isTimer = currentPage == 2
+        val circleShape = CircleShape
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = 6.dp)
+                .size(68.dp)
+                .then(
+                    if (isTimer) {
+                        Modifier
+                            .shadow(16.dp, circleShape, ambientColor = purpleGlow, spotColor = purpleGlow)
+                            .border(2.5.dp, purpleGlow, circleShape)
+                    } else {
+                        Modifier
+                            .shadow(8.dp, circleShape)
+                            .border(1.5.dp, Color(0x35FFFFFF), circleShape)
+                    }
+                )
+                .clip(circleShape)
+                .background(centerCircleBg)
+                .clickable { onTabSelected(2) },
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = Screen.Timer.icon,
+                    contentDescription = Screen.Timer.title,
+                    tint = if (isTimer) purpleText else inactiveColor,
+                    modifier = Modifier.size(26.dp)
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = Screen.Timer.title,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isTimer) purpleText else inactiveColor
+                )
             }
         }
     }
@@ -292,10 +501,9 @@ fun AppNavGraph(
     settingsViewModel: SettingsViewModel = viewModel()
 ) {
     val items = listOf(
-        Screen.Timer,
         Screen.Revisions,
         Screen.Analytics,
-        Screen.Radio,
+        Screen.Timer,
         Screen.Community,
         Screen.Settings
     )
@@ -328,7 +536,7 @@ fun AppNavGraph(
                     }
                 )
             }
-            composable(Screen.Timer.route) {
+            composable(Screen.Revisions.route) {
                 MainPagerScreen(
                     navController = navController,
                     settingsViewModel = settingsViewModel,
@@ -339,7 +547,7 @@ fun AppNavGraph(
                     initialPage = 0
                 )
             }
-            composable(Screen.Revisions.route) {
+            composable(Screen.Analytics.route) {
                 MainPagerScreen(
                     navController = navController,
                     settingsViewModel = settingsViewModel,
@@ -350,7 +558,7 @@ fun AppNavGraph(
                     initialPage = 1
                 )
             }
-            composable(Screen.Analytics.route) {
+            composable(Screen.Timer.route) {
                 MainPagerScreen(
                     navController = navController,
                     settingsViewModel = settingsViewModel,
@@ -361,7 +569,7 @@ fun AppNavGraph(
                     initialPage = 2
                 )
             }
-            composable(Screen.Radio.route) {
+            composable(Screen.Community.route) {
                 MainPagerScreen(
                     navController = navController,
                     settingsViewModel = settingsViewModel,
@@ -372,7 +580,7 @@ fun AppNavGraph(
                     initialPage = 3
                 )
             }
-            composable(Screen.Community.route) {
+            composable(Screen.Settings.route) {
                 MainPagerScreen(
                     navController = navController,
                     settingsViewModel = settingsViewModel,
@@ -383,16 +591,12 @@ fun AppNavGraph(
                     initialPage = 4
                 )
             }
-            composable(Screen.Settings.route) {
-                MainPagerScreen(
-                    navController = navController,
-                    settingsViewModel = settingsViewModel,
-                    timerViewModel = timerViewModel,
-                    analyticsViewModel = analyticsViewModel,
-                    examsViewModel = examsViewModel,
-                    items = items,
-                    initialPage = 5
-                )
+            composable("radio") {
+                com.example.ui.components.ForestScaffold {
+                    com.example.ui.screen.radio.RadioScreen(
+                        navController = navController
+                    )
+                }
             }
             composable("revisions/capture") {
                 CaptureScreen(
@@ -515,83 +719,37 @@ fun NeumorphicBottomNavigation(
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val themeColors = com.example.ui.theme.LocalAppThemeColors.current
-    val isDark = com.example.ui.theme.LocalIsDarkTheme.current
 
-    val shadowColor = if (isDark) Color(0x40000000) else Color(0x1F000000)
+    val currentIndex = when (currentRoute) {
+        Screen.Revisions.route -> 0
+        Screen.Analytics.route -> 1
+        Screen.Timer.route -> 2
+        Screen.Community.route -> 3
+        Screen.Settings.route -> 4
+        else -> 2
+    }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.navigationBars) // Safeguard notch / bottom nav gesture bar overlap!
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-            .shadow(
-                elevation = 12.dp,
-                shape = RoundedCornerShape(24.dp),
-                clip = false,
-                ambientColor = shadowColor,
-                spotColor = shadowColor
-            )
-            .clip(RoundedCornerShape(24.dp))
-            .background(themeColors.surface)
-            .border(1.dp, themeColors.divider, RoundedCornerShape(24.dp))
-            .padding(8.dp),
-        horizontalArrangement = Arrangement.SpaceAround,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        items.forEach { screen ->
-            val isSelected = currentRoute == screen.route
-            val itemBackground = if (isSelected) {
-                themeColors.accent.copy(alpha = 0.15f)
-            } else {
-                Color.Transparent
+    NeumorphicBottomNavigationForPager(
+        items = items,
+        currentPage = currentIndex,
+        onTabSelected = { index ->
+            val targetScreen = when (index) {
+                0 -> Screen.Revisions
+                1 -> Screen.Analytics
+                2 -> Screen.Timer
+                3 -> Screen.Community
+                4 -> Screen.Settings
+                else -> Screen.Timer
             }
-            val itemBorder = if (isSelected) {
-                themeColors.accent.copy(alpha = 0.3f)
-            } else {
-                Color.Transparent
-            }
-
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(4.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(itemBackground)
-                    .border(1.dp, itemBorder, RoundedCornerShape(16.dp))
-                    .clickable {
-                        if (currentRoute != screen.route) {
-                            navController.navigate(screen.route) {
-                                popUpTo(navController.graph.startDestinationId) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
+            if (currentRoute != targetScreen.route) {
+                navController.navigate(targetScreen.route) {
+                    popUpTo(navController.graph.id) {
+                        saveState = true
                     }
-                    .padding(vertical = 8.dp, horizontal = 4.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = screen.icon,
-                        contentDescription = screen.title,
-                        tint = if (isSelected) themeColors.accent else themeColors.secondaryText,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = screen.title,
-                        fontSize = 11.sp,
-                        fontWeight = if (isSelected) FontWeight.Black else FontWeight.Normal,
-                        color = if (isSelected) themeColors.accent else themeColors.secondaryText
-                    )
+                    launchSingleTop = true
+                    restoreState = true
                 }
             }
         }
-    }
+    )
 }
