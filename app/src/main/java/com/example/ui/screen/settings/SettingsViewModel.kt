@@ -242,20 +242,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun exportSessionsAsCsv(onCompleted: (String) -> Unit) {
-        viewModelScope.launch {
-            val sessions = sessionRepo.getAllSessions().first()
-            val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-            val sb = StringBuilder()
-            sb.append("ID,Timestamp,Date_Readable,Duration_Seconds,Completed,Points_Earned\n")
-            
-            sessions.forEach { s ->
-                val dateStr = sdf.format(Date(s.date))
-                sb.append("${s.id},${s.date},$dateStr,${s.durationSeconds},${s.completed},${s.focusScore}\n")
-            }
-            onCompleted(sb.toString())
-        }
-    }
 
     fun resetAllData(onCompleted: () -> Unit) {
         viewModelScope.launch {

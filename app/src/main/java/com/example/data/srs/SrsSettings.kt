@@ -11,5 +11,16 @@ data class SrsSettings(
     val notificationsEnabled: Boolean = true,
     val geminiApiKey: String = "",
     val explainModeEnabled: Boolean = false,
-    val customPromptOverride: String? = null
+    val customPromptOverride: String? = null,
+    val selectedGeminiModel: String = "gemini-2.5-flash",
+    val availableGeminiModels: List<String> = listOf(
+        "gemini-2.5-flash",
+        "gemini-2.5-pro",
+        "gemini-2.5-flash-lite",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro",
+        "gemini-2.0-flash",
+        "gemini-3.5-flash",
+        "gemini-3.5-flash-lite"
+    )
 )

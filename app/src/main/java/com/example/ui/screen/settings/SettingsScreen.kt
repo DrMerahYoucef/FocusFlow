@@ -10,6 +10,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -35,6 +36,17 @@ import com.example.ui.components.NeumorphicButton
 import com.example.ui.components.NeumorphicCard
 import com.example.ui.components.neumorphicShadow
 import com.example.ui.theme.NeumorphicColors
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
+import com.example.data.backup.BackupTaskState
+import com.example.data.backup.BackupTaskType
+import com.example.data.backup.CardBackupStateHolder
+import com.example.data.backup.CardTypeFilter
+import com.example.data.repository.ImportMode
+import com.example.service.CardBackupService
+import java.io.File
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 import kotlinx.coroutines.launch
@@ -120,6 +132,7 @@ fun SettingsScreen(
     val updateState by viewModel.updateState.collectAsState()
     val scrollState = rememberScrollState()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     var isResetConfirmOpen by remember { mutableStateOf(false) }
     var isDeleteAccountConfirmOpen by remember { mutableStateOf(false) }
@@ -583,30 +596,44 @@ fun SettingsScreen(
 
         // 5. Section: Data & Backup management
         var isSrsSettingsExpanded by remember { mutableStateOf(false) }
-        var isImportDialogOpen by remember { mutableStateOf(false) }
-        var pendingImportFile by remember { mutableStateOf<com.example.data.repository.RevisionExportFile?>(null) }
-        var selectedImportMode by remember { mutableStateOf(com.example.data.repository.ImportMode.MERGE) }
+        var isExportOptionsDialogOpen by remember { mutableStateOf(false) }
+        var selectedExportCardType by remember { mutableStateOf(CardTypeFilter.ALL) }
+        var selectedExportDeckId by remember { mutableStateOf("ALL") }
+
+        var isImportConfirmDialogOpen by remember { mutableStateOf(false) }
+        var selectedImportUri by remember { mutableStateOf<Uri?>(null) }
+        var selectedImportMode by remember { mutableStateOf(ImportMode.MERGE) }
 
         val revisionsViewModel: com.example.ui.screen.revisions.RevisionsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
         val srsUiState by revisionsViewModel.uiState.collectAsState()
+        val backupState by CardBackupStateHolder.state.collectAsState()
 
-        val jsonPickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-            contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+        val saveDocumentLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.CreateDocument("application/octet-stream")
+        ) { destinationUri ->
+            destinationUri?.let { uri ->
+                if (backupState is BackupTaskState.ExportCompleted) {
+                    val exportedFile = (backupState as BackupTaskState.ExportCompleted).backupFile
+                    try {
+                        context.contentResolver.openOutputStream(uri)?.use { output ->
+                            exportedFile.inputStream().use { input ->
+                                input.copyTo(output)
+                            }
+                        }
+                        Toast.makeText(context, "Backup saved to phone!", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Error saving backup file: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
+
+        val backupPickerLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.GetContent()
         ) { uri ->
             uri?.let {
-                try {
-                    val inputStream = context.contentResolver.openInputStream(it)
-                    val jsonStr = inputStream?.bufferedReader()?.use { br -> br.readText() } ?: ""
-                    val parsed = revisionsViewModel.parseImportJson(jsonStr)
-                    if (parsed != null) {
-                        pendingImportFile = parsed
-                        isImportDialogOpen = true
-                    } else {
-                        Toast.makeText(context, "Fichier JSON invalide ou corrompu", Toast.LENGTH_LONG).show()
-                    }
-                } catch (e: Exception) {
-                    Toast.makeText(context, "Erreur lors de la lecture du fichier: ${e.message}", Toast.LENGTH_LONG).show()
-                }
+                selectedImportUri = it
+                isImportConfirmDialogOpen = true
             }
         }
 
@@ -652,6 +679,293 @@ fun SettingsScreen(
                             Toast.makeText(context, "Gemini API key saved locally!", Toast.LENGTH_SHORT).show()
                         },
                         accentColor = NeumorphicColors.Primary
+                    )
+                }
+
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
+
+                // --- Inner Small Expandable: Gemini Model Selection & Model Verification ---
+                var isModelsSectionExpanded by remember { mutableStateOf(false) }
+                var modelTestStatuses by remember { mutableStateOf<Map<String, com.example.data.repository.GeminiModelTestStatus>>(emptyMap()) }
+                var isVerifyingModels by remember { mutableStateOf(false) }
+                var isAddModelDialogOpen by remember { mutableStateOf(false) }
+                var newModelInput by remember { mutableStateOf("") }
+
+                Card(
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = NeumorphicColors.Background.copy(alpha = 0.7f)),
+                    border = BorderStroke(1.dp, NeumorphicColors.SurfaceDark.copy(alpha = 0.15f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        // Expandable Header
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { isModelsSectionExpanded = !isModelsSectionExpanded },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Tune,
+                                    contentDescription = null,
+                                    tint = NeumorphicColors.Primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Column {
+                                    Text(
+                                        text = "Gemini Models & API Compatibility",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = NeumorphicColors.TextPrimary
+                                    )
+                                    Text(
+                                        text = "Active: ${srsUiState.srsSettings.selectedGeminiModel}",
+                                        fontSize = 11.sp,
+                                        color = NeumorphicColors.Primary
+                                    )
+                                }
+                            }
+
+                            Icon(
+                                imageVector = if (isModelsSectionExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = if (isModelsSectionExpanded) "Collapse" else "Expand",
+                                tint = NeumorphicColors.TextSecondary
+                            )
+                        }
+
+                        if (isModelsSectionExpanded) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Test / Verify Models action column
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "Select model & test API key compatibility:",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = NeumorphicColors.TextSecondary
+                                )
+
+                                NeumorphicButton(
+                                    label = if (isVerifyingModels) "Verifying Models..." else "Check All Models",
+                                    icon = if (isVerifyingModels) Icons.Default.Sync else Icons.Default.FactCheck,
+                                    onClick = {
+                                        val keyToTest = localGeminiKey.ifBlank { srsUiState.srsSettings.geminiApiKey }
+                                        if (keyToTest.isBlank() || keyToTest == "MY_GEMINI_API_KEY") {
+                                            Toast.makeText(context, "Please enter a valid Gemini API Key first!", Toast.LENGTH_SHORT).show()
+                                        } else if (!isVerifyingModels) {
+                                            scope.launch {
+                                                isVerifyingModels = true
+                                                val currentModels = srsUiState.srsSettings.availableGeminiModels
+                                                modelTestStatuses = currentModels.associateWith { com.example.data.repository.GeminiModelTestStatus.UNTESTED }
+
+                                                var approvedCount = 0
+                                                for (modelId in currentModels) {
+                                                    modelTestStatuses = modelTestStatuses + (modelId to com.example.data.repository.GeminiModelTestStatus.TESTING)
+                                                    val passed = com.example.data.repository.verifyGeminiModel(keyToTest, modelId)
+                                                    if (passed) approvedCount++
+                                                    modelTestStatuses = modelTestStatuses + (modelId to if (passed) com.example.data.repository.GeminiModelTestStatus.APPROVED else com.example.data.repository.GeminiModelTestStatus.FAILED)
+                                                }
+                                                isVerifyingModels = false
+                                                Toast.makeText(context, "Model Check Complete: $approvedCount/${currentModels.size} approved!", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    accentColor = NeumorphicColors.Primary
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Available Models List
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                srsUiState.srsSettings.availableGeminiModels.forEach { modelId ->
+                                    val isSelected = srsUiState.srsSettings.selectedGeminiModel == modelId
+                                    val testStatus = modelTestStatuses[modelId] ?: com.example.data.repository.GeminiModelTestStatus.UNTESTED
+
+                                    Surface(
+                                        onClick = { revisionsViewModel.setSelectedGeminiModel(modelId) },
+                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                                        color = if (isSelected) NeumorphicColors.Primary.copy(alpha = 0.12f) else NeumorphicColors.SurfaceDark.copy(alpha = 0.05f),
+                                        border = BorderStroke(
+                                            width = 1.dp,
+                                            color = if (isSelected) NeumorphicColors.Primary else Color.Transparent
+                                        ),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                RadioButton(
+                                                    selected = isSelected,
+                                                    onClick = { revisionsViewModel.setSelectedGeminiModel(modelId) },
+                                                    colors = RadioButtonDefaults.colors(selectedColor = NeumorphicColors.Primary)
+                                                )
+                                                Text(
+                                                    text = modelId,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                    fontSize = 12.sp,
+                                                    color = NeumorphicColors.TextPrimary
+                                                )
+                                                if (isSelected) {
+                                                    Surface(
+                                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
+                                                        color = NeumorphicColors.Primary,
+                                                        modifier = Modifier.padding(start = 4.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "Active",
+                                                            fontSize = 9.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = Color.White,
+                                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+
+                                            // Status Icon (Green check for approved, Red wrong for failed)
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                when (testStatus) {
+                                                    com.example.data.repository.GeminiModelTestStatus.TESTING -> {
+                                                        CircularProgressIndicator(
+                                                            modifier = Modifier.size(16.dp),
+                                                            strokeWidth = 2.dp,
+                                                            color = NeumorphicColors.Primary
+                                                        )
+                                                    }
+                                                    com.example.data.repository.GeminiModelTestStatus.APPROVED -> {
+                                                        Icon(
+                                                            imageVector = Icons.Default.CheckCircle,
+                                                            contentDescription = "Approved",
+                                                            tint = Color(0xFF4CAF50),
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                    }
+                                                    com.example.data.repository.GeminiModelTestStatus.FAILED -> {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Cancel,
+                                                            contentDescription = "Failed",
+                                                            tint = Color(0xFFE53935),
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                    }
+                                                    com.example.data.repository.GeminiModelTestStatus.UNTESTED -> {}
+                                                }
+
+                                                // Delete custom model option if not default
+                                                if (srsUiState.srsSettings.availableGeminiModels.size > 1 &&
+                                                    !listOf("gemini-2.5-flash", "gemini-1.5-flash").contains(modelId)
+                                                ) {
+                                                    IconButton(
+                                                        onClick = { revisionsViewModel.removeCustomGeminiModel(modelId) },
+                                                        modifier = Modifier.size(24.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Delete,
+                                                            contentDescription = "Remove model",
+                                                            tint = NeumorphicColors.TextSecondary.copy(alpha = 0.5f),
+                                                            modifier = Modifier.size(14.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Button to add custom new model
+                            OutlinedButton(
+                                onClick = { isAddModelDialogOpen = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = NeumorphicColors.Primary)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Add New Model to List", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
+
+                if (isAddModelDialogOpen) {
+                    AlertDialog(
+                        onDismissRequest = { isAddModelDialogOpen = false },
+                        containerColor = NeumorphicColors.DialogBackground,
+                        titleContentColor = NeumorphicColors.TextPrimary,
+                        textContentColor = NeumorphicColors.TextSecondary,
+                        title = { Text("Add Custom Gemini Model", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = NeumorphicColors.TextPrimary) },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = "Enter the model ID (e.g. gemini-2.0-flash-exp, gemini-exp-1206):",
+                                    fontSize = 12.sp,
+                                    color = NeumorphicColors.TextSecondary
+                                )
+                                OutlinedTextField(
+                                    value = newModelInput,
+                                    onValueChange = { newModelInput = it },
+                                    placeholder = { Text("gemini-2.0-flash", color = NeumorphicColors.TextSecondary.copy(alpha = 0.5f)) },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = NeumorphicColors.TextPrimary,
+                                        unfocusedTextColor = NeumorphicColors.TextPrimary,
+                                        focusedBorderColor = NeumorphicColors.Primary,
+                                        unfocusedBorderColor = NeumorphicColors.SurfaceDark.copy(alpha = 0.3f),
+                                        focusedLabelColor = NeumorphicColors.Primary,
+                                        unfocusedLabelColor = NeumorphicColors.TextSecondary,
+                                        cursorColor = NeumorphicColors.Primary
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    if (newModelInput.isNotBlank()) {
+                                        revisionsViewModel.addCustomGeminiModel(newModelInput.trim())
+                                        newModelInput = ""
+                                        isAddModelDialogOpen = false
+                                        Toast.makeText(context, "New model added & selected!", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
+                            ) {
+                                Text("Add Model", color = Color.White)
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { isAddModelDialogOpen = false }) {
+                                Text("Cancel", color = NeumorphicColors.TextSecondary)
+                            }
+                        }
                     )
                 }
 
@@ -888,93 +1202,197 @@ fun SettingsScreen(
                         colors = SwitchDefaults.colors(checkedThumbColor = NeumorphicColors.Primary)
                     )
                 }
-
-                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
-
-                // Export / Import buttons
-                Text(text = "Backup & Export Cards", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
-                if (srsUiState.lastExportSummary != null) {
-                    Text(text = "Last export: ${srsUiState.lastExportSummary}", fontSize = 11.sp, color = NeumorphicColors.TextSecondary)
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    val scope = rememberCoroutineScope()
-                    NeumorphicButton(
-                        label = "Export (JSON)",
-                        icon = Icons.Default.Upload,
-                        onClick = {
-                            scope.launch {
-                                val jsonStr = revisionsViewModel.getExportJson()
-                                try {
-                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "application/json"
-                                        putExtra(Intent.EXTRA_SUBJECT, "Revision Cards Export")
-                                        putExtra(Intent.EXTRA_TEXT, jsonStr)
-                                    }
-                                    context.startActivity(Intent.createChooser(shareIntent, "Share card file:"))
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, "Export error: ${e.message}", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        accentColor = NeumorphicColors.Primary
-                    )
-
-                    NeumorphicButton(
-                        label = "Import (JSON)",
-                        icon = Icons.Default.Download,
-                        onClick = {
-                            jsonPickerLauncher.launch("application/json")
-                        },
-                        modifier = Modifier.weight(1f),
-                        accentColor = NeumorphicColors.Accent
-                    )
-                }
             }
         }
 
-        if (isImportDialogOpen && pendingImportFile != null) {
-            val importData = pendingImportFile!!
+        // Export Options Dialog
+        if (isExportOptionsDialogOpen) {
             AlertDialog(
-                onDismissRequest = { isImportDialogOpen = false },
-                title = { Text("Import Flashcards") },
+                onDismissRequest = { isExportOptionsDialogOpen = false },
+                containerColor = NeumorphicColors.DialogBackground,
+                titleContentColor = NeumorphicColors.TextPrimary,
+                textContentColor = NeumorphicColors.TextSecondary,
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.CloudUpload, contentDescription = null, tint = NeumorphicColors.Primary)
+                        Text("Export Card Backup (.focuscards)", color = NeumorphicColors.TextPrimary)
+                    }
+                },
                 text = {
-                    Column {
-                        Text("The file contains ${importData.notes.size} cards and ${importData.decks.size} decks.")
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text("Choose import mode:", fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(
-                                selected = selectedImportMode == com.example.data.repository.ImportMode.MERGE,
-                                onClick = { selectedImportMode = com.example.data.repository.ImportMode.MERGE }
-                            )
-                            Text("Merge (keep most recent history)", fontSize = 13.sp)
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Select Card Types to Export:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+
+                        CardTypeFilter.values().forEach { filter ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedExportCardType = filter }
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                RadioButton(
+                                    selected = selectedExportCardType == filter,
+                                    onClick = { selectedExportCardType = filter },
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = NeumorphicColors.Primary,
+                                        unselectedColor = NeumorphicColors.TextSecondary
+                                    )
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(filter.label, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+                            }
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+
+                        Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.2f))
+
+                        Text("Select Deck:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedExportDeckId = "ALL" }
+                                .padding(vertical = 4.dp)
+                        ) {
                             RadioButton(
-                                selected = selectedImportMode == com.example.data.repository.ImportMode.REPLACE_ALL,
-                                onClick = { selectedImportMode = com.example.data.repository.ImportMode.REPLACE_ALL }
+                                selected = selectedExportDeckId == "ALL",
+                                onClick = { selectedExportDeckId = "ALL" },
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = NeumorphicColors.Primary,
+                                    unselectedColor = NeumorphicColors.TextSecondary
+                                )
                             )
-                            Text("Replace all (clear existing cards)", fontSize = 13.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("All Decks (${srsUiState.totalCount} cards)", fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+                        }
+
+                        srsUiState.decks.forEach { deck ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedExportDeckId = deck.id }
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                RadioButton(
+                                    selected = selectedExportDeckId == deck.id,
+                                    onClick = { selectedExportDeckId = deck.id },
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = NeumorphicColors.Primary,
+                                        unselectedColor = NeumorphicColors.TextSecondary
+                                    )
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(deck.name, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+                            }
                         }
                     }
                 },
                 confirmButton = {
                     Button(
                         onClick = {
-                            revisionsViewModel.applyImport(importData, selectedImportMode) {
-                                Toast.makeText(context, "${importData.notes.size} cards imported successfully!", Toast.LENGTH_SHORT).show()
-                                isImportDialogOpen = false
-                            }
-                        }
-                    ) { Text("Import") }
+                            isExportOptionsDialogOpen = false
+                            CardBackupService.startExport(
+                                context = context,
+                                cardTypeFilter = selectedExportCardType,
+                                deckIdFilter = selectedExportDeckId
+                            )
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
+                    ) {
+                        Text("Start Export", color = Color.White)
+                    }
                 },
                 dismissButton = {
-                    TextButton(onClick = { isImportDialogOpen = false }) { Text("Cancel") }
+                    TextButton(onClick = { isExportOptionsDialogOpen = false }) {
+                        Text("Cancel", color = NeumorphicColors.TextSecondary)
+                    }
+                }
+            )
+        }
+
+        // Import Confirmation Dialog
+        if (isImportConfirmDialogOpen && selectedImportUri != null) {
+            AlertDialog(
+                onDismissRequest = { isImportConfirmDialogOpen = false },
+                containerColor = NeumorphicColors.DialogBackground,
+                titleContentColor = NeumorphicColors.TextPrimary,
+                textContentColor = NeumorphicColors.TextSecondary,
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.CloudDownload, contentDescription = null, tint = NeumorphicColors.Accent)
+                        Text("Restore Cards Backup", color = NeumorphicColors.TextPrimary)
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Select Import Mode:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedImportMode = ImportMode.MERGE }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            RadioButton(
+                                selected = selectedImportMode == ImportMode.MERGE,
+                                onClick = { selectedImportMode = ImportMode.MERGE },
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = NeumorphicColors.Primary,
+                                    unselectedColor = NeumorphicColors.TextSecondary
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column {
+                                Text("Merge (Recommended)", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+                                Text("Add imported cards & keep existing history", fontSize = 11.sp, color = NeumorphicColors.TextSecondary)
+                            }
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedImportMode = ImportMode.REPLACE_ALL }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            RadioButton(
+                                selected = selectedImportMode == ImportMode.REPLACE_ALL,
+                                onClick = { selectedImportMode = ImportMode.REPLACE_ALL },
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = NeumorphicColors.Primary,
+                                    unselectedColor = NeumorphicColors.TextSecondary
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column {
+                                Text("Replace All Cards", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = Color(0xFFE53935))
+                                Text("Delete current cards & replace with backup", fontSize = 11.sp, color = NeumorphicColors.TextSecondary)
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val uri = selectedImportUri!!
+                            isImportConfirmDialogOpen = false
+                            CardBackupService.startImport(
+                                context = context,
+                                importUri = uri,
+                                importMode = selectedImportMode
+                            )
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Accent)
+                    ) {
+                        Text("Restore Now", color = Color.White)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { isImportConfirmDialogOpen = false }) {
+                        Text("Cancel", color = NeumorphicColors.TextSecondary)
+                    }
                 }
             )
         }
@@ -986,27 +1404,282 @@ fun SettingsScreen(
             isExpanded = isDataBackupExpanded,
             onHeaderClick = { isDataBackupExpanded = !isDataBackupExpanded }
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                NeumorphicButton(
-                    label = "Export CSV",
-                    icon = Icons.Default.SaveAlt,
-                    onClick = {
-                        viewModel.exportSessionsAsCsv { csvString ->
-                            shareCsvContent(context, csvString)
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                    accentColor = NeumorphicColors.Primary
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                // Card Collection Backup (.focuscards)
+                Text(text = "Card Collection Backup (.focuscards)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+                Text(
+                    text = "Bundle all markdown text, images, voice notes, and review history into a single portable backup file.",
+                    fontSize = 11.sp,
+                    color = NeumorphicColors.TextSecondary
                 )
 
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    NeumorphicButton(
+                        label = "Create Backup",
+                        icon = Icons.Default.CloudUpload,
+                        onClick = {
+                            isExportOptionsDialogOpen = true
+                        },
+                        modifier = Modifier.weight(1f),
+                        accentColor = NeumorphicColors.Primary
+                    )
+
+                    NeumorphicButton(
+                        label = "Restore Backup",
+                        icon = Icons.Default.CloudDownload,
+                        onClick = {
+                            backupPickerLauncher.launch("*/*")
+                        },
+                        modifier = Modifier.weight(1f),
+                        accentColor = NeumorphicColors.Accent
+                    )
+                }
+
+                // Active Backup/Restore Process or Result Card
+                when (val state = backupState) {
+                    is BackupTaskState.Running -> {
+                        NeumorphicCard(
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.5.dp,
+                                        color = NeumorphicColors.Primary
+                                    )
+                                    Text(
+                                        text = if (state.type == BackupTaskType.EXPORT) "Creating Card Backup..." else "Restoring Flashcards...",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = NeumorphicColors.TextPrimary
+                                    )
+                                    Spacer(modifier = Modifier.weight(1f))
+                                    Text(
+                                        text = "${(state.progress * 100).toInt()}%",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = NeumorphicColors.Primary
+                                    )
+                                }
+
+                                LinearProgressIndicator(
+                                    progress = { state.progress },
+                                    modifier = Modifier.fillMaxWidth().height(6.dp),
+                                    color = NeumorphicColors.Primary,
+                                    trackColor = NeumorphicColors.SurfaceDark.copy(alpha = 0.2f)
+                                )
+
+                                Text(
+                                    text = state.statusMessage,
+                                    fontSize = 11.sp,
+                                    color = NeumorphicColors.TextSecondary
+                                )
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Lock,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(12.dp),
+                                        tint = NeumorphicColors.Primary
+                                    )
+                                    Text(
+                                        text = "Process continues in background even if phone is locked.",
+                                        fontSize = 10.sp,
+                                        color = NeumorphicColors.TextSecondary
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    is BackupTaskState.ExportCompleted -> {
+                        NeumorphicCard(
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = Color(0xFF4CAF50)
+                                    )
+                                    Text(
+                                        text = "Backup Ready!",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = NeumorphicColors.TextPrimary
+                                    )
+                                }
+
+                                Text(
+                                    text = state.result.summaryText,
+                                    fontSize = 12.sp,
+                                    color = NeumorphicColors.TextSecondary
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Button(
+                                        onClick = {
+                                            saveDocumentLauncher.launch(state.backupFile.name)
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
+                                    ) {
+                                        Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Save", fontSize = 12.sp)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = {
+                                            try {
+                                                val authority = "${context.packageName}.fileprovider"
+                                                val contentUri = FileProvider.getUriForFile(context, authority, state.backupFile)
+                                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                    type = "application/octet-stream"
+                                                    putExtra(Intent.EXTRA_STREAM, contentUri)
+                                                    putExtra(Intent.EXTRA_SUBJECT, "Focus Island Cards Backup (.focuscards)")
+                                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                }
+                                                context.startActivity(Intent.createChooser(shareIntent, "Send Card Backup:"))
+                                            } catch (e: Exception) {
+                                                Toast.makeText(context, "Share error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Send", fontSize = 12.sp)
+                                    }
+
+                                    TextButton(
+                                        onClick = { CardBackupStateHolder.reset() }
+                                    ) {
+                                        Text("Dismiss", fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    is BackupTaskState.ImportCompleted -> {
+                        NeumorphicCard(
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = Color(0xFF4CAF50)
+                                    )
+                                    Text(
+                                        text = "Import Successful!",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = NeumorphicColors.TextPrimary
+                                    )
+                                }
+
+                                Text(
+                                    text = state.result.summaryText,
+                                    fontSize = 12.sp,
+                                    color = NeumorphicColors.TextSecondary
+                                )
+
+                                Button(
+                                    onClick = { CardBackupStateHolder.reset() },
+                                    modifier = Modifier.align(Alignment.End),
+                                    colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
+                                ) {
+                                    Text("Done", fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    is BackupTaskState.Error -> {
+                        NeumorphicCard(
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Error,
+                                        contentDescription = null,
+                                        tint = Color.Red
+                                    )
+                                    Text(
+                                        text = if (state.type == BackupTaskType.EXPORT) "Export Error" else "Import Error",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = Color.Red
+                                    )
+                                }
+
+                                Text(
+                                    text = state.errorMessage,
+                                    fontSize = 12.sp,
+                                    color = Color.DarkGray
+                                )
+
+                                TextButton(
+                                    onClick = { CardBackupStateHolder.reset() },
+                                    modifier = Modifier.align(Alignment.End)
+                                ) {
+                                    Text("Dismiss", color = Color.Red, fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    else -> {}
+                }
+
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
+
+                // Clear Database / Reset Data
+                Text(text = "Database Reset", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
                 NeumorphicButton(
-                    label = "Clear DB",
+                    label = "Reset All Local Data",
                     icon = Icons.Default.DeleteSweep,
                     onClick = { isResetConfirmOpen = true },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                     accentColor = NeumorphicColors.Accent
                 )
             }
@@ -1775,15 +2448,4 @@ fun SettingsScreen(
     }
 }
 
-private fun shareCsvContent(context: Context, csvText: String) {
-    try {
-        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/csv"
-            putExtra(Intent.EXTRA_SUBJECT, "Focus Island Sessions Report")
-            putExtra(Intent.EXTRA_TEXT, csvText)
-        }
-        context.startActivity(Intent.createChooser(shareIntent, "Save focus statistics report via:"))
-    } catch (e: Exception) {
-        Toast.makeText(context, "Failed to export data: ${e.message}", Toast.LENGTH_LONG).show()
-    }
-}
+

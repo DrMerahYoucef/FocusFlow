@@ -19,6 +19,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <!-- Do Not Disturb / Notification Policy access -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
@@ -141,6 +142,12 @@
         <service
             android:name=".service.AudioRecordingService"
             android:foregroundServiceType="microphone"
+            android:exported="false" />
+
+        <!-- Card backup and restore foreground service -->
+        <service
+            android:name=".service.CardBackupService"
+            android:foregroundServiceType="dataSync"
             android:exported="false" />
 
         <!-- Focus Overlay activity -->

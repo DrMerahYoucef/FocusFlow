@@ -739,7 +739,10 @@ fun CropEditorScreen(
             if (showCreateDeckInlineDialog) {
                 AlertDialog(
                     onDismissRequest = { showCreateDeckInlineDialog = false },
-                    title = { Text("Add New Deck") },
+                    containerColor = NeumorphicColors.DialogBackground,
+                    titleContentColor = NeumorphicColors.TextPrimary,
+                    textContentColor = NeumorphicColors.TextSecondary,
+                    title = { Text("Add New Deck", color = NeumorphicColors.TextPrimary) },
                     text = {
                         OutlinedTextField(
                             value = inlineDeckName,
@@ -760,11 +763,12 @@ fun CropEditorScreen(
                                         Toast.makeText(context, "Deck created & selected!", Toast.LENGTH_SHORT).show()
                                     }
                                 }
-                            }
-                        ) { Text("Create") }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
+                        ) { Text("Create", color = Color.White) }
                     },
                     dismissButton = {
-                        TextButton(onClick = { showCreateDeckInlineDialog = false }) { Text("Cancel") }
+                        TextButton(onClick = { showCreateDeckInlineDialog = false }) { Text("Cancel", color = NeumorphicColors.TextSecondary) }
                     }
                 )
             }
@@ -774,6 +778,9 @@ fun CropEditorScreen(
         if (errorMessageToShow != null) {
             AlertDialog(
                 onDismissRequest = { errorMessageToShow = null },
+                containerColor = NeumorphicColors.DialogBackground,
+                titleContentColor = NeumorphicColors.TextPrimary,
+                textContentColor = NeumorphicColors.TextSecondary,
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -803,10 +810,9 @@ fun CropEditorScreen(
                         onClick = { errorMessageToShow = null },
                         colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
                     ) {
-                        Text("OK")
+                        Text("OK", color = Color.White)
                     }
-                },
-                containerColor = NeumorphicColors.SurfaceLight
+                }
             )
         }
 

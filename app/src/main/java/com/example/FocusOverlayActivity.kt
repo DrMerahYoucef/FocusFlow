@@ -39,6 +39,17 @@ class FocusOverlayActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (!android.provider.Settings.canDrawOverlays(this)) {
+            val intent = Intent(
+                android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                android.net.Uri.parse("package:$packageName")
+            )
+            startActivity(intent)
+            finish()
+            return
+        }
+
         val blockedPkg = intent.getStringExtra("blocked_package") ?: ""
         var appName = "An app"
         try {

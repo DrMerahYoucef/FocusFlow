@@ -396,7 +396,10 @@ fun RevisionsHomeScreen(
     if (isAddDeckDialogOpen) {
         AlertDialog(
             onDismissRequest = { isAddDeckDialogOpen = false },
-            title = { Text("New Deck") },
+            containerColor = NeumorphicColors.DialogBackground,
+            titleContentColor = NeumorphicColors.TextPrimary,
+            textContentColor = NeumorphicColors.TextSecondary,
+            title = { Text("New Deck", color = NeumorphicColors.TextPrimary) },
             text = {
                 OutlinedTextField(
                     value = newDeckName,
@@ -415,10 +418,10 @@ fun RevisionsHomeScreen(
                             isAddDeckDialogOpen = false
                         }
                     }
-                ) { Text("Create") }
+                ) { Text("Create", color = NeumorphicColors.Primary) }
             },
             dismissButton = {
-                TextButton(onClick = { isAddDeckDialogOpen = false }) { Text("Cancel") }
+                TextButton(onClick = { isAddDeckDialogOpen = false }) { Text("Cancel", color = NeumorphicColors.TextSecondary) }
             }
         )
     }

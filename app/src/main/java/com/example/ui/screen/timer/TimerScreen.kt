@@ -482,7 +482,7 @@ fun TimerScreen(
 
                 val activeSoundName = when {
                     radioPlaying && !currentStation?.name.isNullOrBlank() -> "${currentStation?.name} 📻"
-                    state.currentAmbientId != "none" -> "Ambient sound"
+                    state.currentAmbientId != "none" -> "${state.currentAmbientId.replace("_", " ").split(" ").joinToString(" ") { char -> char.replaceFirstChar { c -> c.uppercase() } }} 🎵"
                     else -> "Muted 🔇"
                 }
 
@@ -493,47 +493,52 @@ fun TimerScreen(
                     color = if (!radioPlaying && state.currentAmbientId == "none") themeColors.secondaryText else themeColors.accent,
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
+
+                val isAmbientSelected = !radioPlaying && state.currentAmbientId != "none"
+                val isRadioSelected = radioPlaying
+                val isAudioActive = radioPlaying || state.currentAmbientId != "none"
                 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Button 1: Play Random
+                    // Button 1: Ambient Music
                     GlassButton(
-                        label = "Play Random",
-                        icon = Icons.Default.Shuffle,
+                        label = "Ambient 🎶",
+                        icon = Icons.Default.MusicNote,
+                        isSelected = isAmbientSelected,
                         onClick = {
                             if (radioPlaying) {
                                 radioViewModel.pausePlayback(context)
                             }
                             val sounds = listOf("rain", "white_noise", "campfire", "stream", "space")
-                            val currentId = state.currentAmbientId
-                            val nextSounds = sounds.filter { it != currentId }
-                            val nextId = if (nextSounds.isNotEmpty()) nextSounds.random() else sounds.random()
-                            viewModel.setAmbientSound(nextId)
+                            if (state.currentAmbientId == "none") {
+                                viewModel.setAmbientSound("rain")
+                            } else {
+                                val currentId = state.currentAmbientId
+                                val nextSounds = sounds.filter { it != currentId }
+                                val nextId = if (nextSounds.isNotEmpty()) nextSounds.random() else sounds.random()
+                                viewModel.setAmbientSound(nextId)
+                            }
                         },
                         accentColor = themeColors.accent,
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 14.dp),
                         modifier = Modifier.weight(1f)
                     )
 
-                    // Button 2: Silent button (Middle - Icon of sound or mute, NO TEXT)
-                    val isAudioActive = radioPlaying || state.currentAmbientId != "none"
+                    // Button 2: Mute button (Middle - Icon of mute, stops both)
                     GlassButton(
                         label = "",
-                        icon = if (isAudioActive) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
+                        icon = if (isAudioActive) Icons.Default.VolumeOff else Icons.Default.VolumeUp,
+                        isSelected = false,
                         onClick = {
-                            if (isAudioActive) {
-                                if (radioPlaying) {
-                                    radioViewModel.pausePlayback(context)
-                                }
-                                viewModel.setAmbientSound("none")
-                            } else {
-                                viewModel.setAmbientSound("rain")
+                            if (radioPlaying) {
+                                radioViewModel.pausePlayback(context)
                             }
+                            viewModel.setAmbientSound("none")
                         },
-                        accentColor = if (isAudioActive) themeColors.accent else Color(0xFFE57373),
+                        accentColor = if (isAudioActive) Color(0xFFE57373) else themeColors.secondaryText,
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp)
                     )
 
@@ -541,6 +546,7 @@ fun TimerScreen(
                     GlassButton(
                         label = "Radio",
                         icon = Icons.Default.Radio,
+                        isSelected = isRadioSelected,
                         onClick = {
                             onNavigateToRadio()
                         },

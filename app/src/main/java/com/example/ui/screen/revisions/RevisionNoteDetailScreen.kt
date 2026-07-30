@@ -416,11 +416,12 @@ fun RevisionNoteDetailScreen(
 @Composable
 fun AudioCardPlayerView(
     audioFile: File,
-    context: Context
+    context: Context,
+    autoPlay: Boolean = false
 ) {
-    var isPlaying by remember { mutableStateOf(false) }
-    var currentPosition by remember { mutableStateOf(0) }
-    var duration by remember { mutableStateOf(1) }
+    var isPlaying by remember(audioFile) { mutableStateOf(autoPlay) }
+    var currentPosition by remember(audioFile) { mutableStateOf(0) }
+    var duration by remember(audioFile) { mutableStateOf(1) }
 
     val mediaPlayer = remember(audioFile) {
         MediaPlayer().apply {
@@ -428,6 +429,13 @@ fun AudioCardPlayerView(
                 setDataSource(audioFile.absolutePath)
                 prepare()
                 duration = this.duration.coerceAtLeast(1)
+                setOnCompletionListener {
+                    isPlaying = false
+                    currentPosition = 0
+                }
+                if (autoPlay) {
+                    start()
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -553,7 +561,10 @@ fun EditCardDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit Card", fontWeight = FontWeight.Bold) },
+        containerColor = NeumorphicColors.DialogBackground,
+        titleContentColor = NeumorphicColors.TextPrimary,
+        textContentColor = NeumorphicColors.TextSecondary,
+        title = { Text("Edit Card", fontWeight = FontWeight.Bold, color = NeumorphicColors.TextPrimary) },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -583,7 +594,7 @@ fun EditCardDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text("Cancel", color = NeumorphicColors.TextSecondary) }
         }
     )
 }
@@ -602,7 +613,10 @@ fun MoveToDeckDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Move Card to Deck") },
+        containerColor = NeumorphicColors.DialogBackground,
+        titleContentColor = NeumorphicColors.TextPrimary,
+        textContentColor = NeumorphicColors.TextSecondary,
+        title = { Text("Move Card to Deck", color = NeumorphicColors.TextPrimary) },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -620,7 +634,11 @@ fun MoveToDeckDialog(
                         ) {
                             RadioButton(
                                 selected = selectedId == deck.id,
-                                onClick = { selectedId = deck.id }
+                                onClick = { selectedId = deck.id },
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = NeumorphicColors.Primary,
+                                    unselectedColor = NeumorphicColors.TextSecondary
+                                )
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(deck.name, fontWeight = FontWeight.Medium, color = NeumorphicColors.TextPrimary)

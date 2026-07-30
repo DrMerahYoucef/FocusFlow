@@ -11,7 +11,6 @@ import com.example.data.db.entity.RevisionNoteEntity
 import com.example.data.repository.GeminiOcrRepository
 import com.example.data.repository.ImportMode
 import com.example.data.repository.OcrEngineProvider
-import com.example.data.repository.RevisionExportFile
 import com.example.data.repository.toSingleNote
 import com.example.data.srs.ReviewGrade
 import com.example.data.srs.Sm2Scheduler
@@ -70,6 +69,24 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun loadSettings() {
+        val defaultModels = listOf(
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
+            "gemini-2.5-flash-lite",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+            "gemini-2.0-flash",
+            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite"
+        )
+        val savedModelsCsv = sharedPrefs.getString("gemini_available_models", null)
+        val availableModels = if (savedModelsCsv.isNullOrBlank()) {
+            defaultModels
+        } else {
+            savedModelsCsv.split(",").map { it.trim() }.filter { it.isNotBlank() }.distinct()
+        }
+        val selectedModel = sharedPrefs.getString("selected_gemini_model", "gemini-2.5-flash") ?: "gemini-2.5-flash"
+
         val settings = SrsSettings(
             newCardsPerDay = sharedPrefs.getInt("srs_new_cards_per_day", 20),
             maxReviewsPerDay = sharedPrefs.getInt("srs_max_reviews_per_day", 200),
@@ -79,7 +96,9 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
             notificationsEnabled = sharedPrefs.getBoolean("srs_notifications_enabled", true),
             geminiApiKey = sharedPrefs.getString("gemini_api_key", "") ?: "",
             explainModeEnabled = sharedPrefs.getBoolean("srs_explain_mode_enabled", false),
-            customPromptOverride = sharedPrefs.getString("srs_custom_prompt_override", null)
+            customPromptOverride = sharedPrefs.getString("srs_custom_prompt_override", null),
+            selectedGeminiModel = selectedModel,
+            availableGeminiModels = availableModels
         )
         val lastSummary = sharedPrefs.getString("srs_last_export_summary", null)
         _uiState.update { it.copy(srsSettings = settings, lastExportSummary = lastSummary, hasApiKey = getEffectiveApiKey().isNotBlank()) }
@@ -427,6 +446,8 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
             .putString("gemini_api_key", settings.geminiApiKey)
             .putBoolean("srs_explain_mode_enabled", settings.explainModeEnabled)
             .putString("srs_custom_prompt_override", settings.customPromptOverride)
+            .putString("selected_gemini_model", settings.selectedGeminiModel)
+            .putString("gemini_available_models", settings.availableGeminiModels.joinToString(","))
             .apply()
 
         _uiState.update { it.copy(srsSettings = settings, hasApiKey = getEffectiveApiKey().isNotBlank()) }
@@ -438,29 +459,26 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
         updateSrsSettings(current.copy(geminiApiKey = apiKey))
     }
 
-    // Export / Import
-    suspend fun getExportJson(): String {
-        val json = repository.buildExportJson()
-        val summary = "${_uiState.value.totalCount} cards, ${_uiState.value.decks.size} decks"
-        sharedPrefs.edit().putString("srs_last_export_summary", summary).apply()
-        _uiState.update { it.copy(lastExportSummary = summary) }
-        return json
+    fun setSelectedGeminiModel(model: String) {
+        val current = _uiState.value.srsSettings
+        updateSrsSettings(current.copy(selectedGeminiModel = model))
     }
 
-    fun parseImportJson(jsonString: String): RevisionExportFile? {
-        return try {
-            repository.parseExportJson(jsonString)
-        } catch (e: Exception) {
-            android.util.Log.e("RevisionsViewModel", "Failed to parse import JSON", e)
-            null
+    fun addCustomGeminiModel(model: String) {
+        val current = _uiState.value.srsSettings
+        val cleanModel = model.trim().lowercase()
+        if (cleanModel.isNotBlank() && !current.availableGeminiModels.contains(cleanModel)) {
+            val updated = current.availableGeminiModels + cleanModel
+            updateSrsSettings(current.copy(availableGeminiModels = updated, selectedGeminiModel = cleanModel))
         }
     }
 
-    fun applyImport(data: RevisionExportFile, mode: ImportMode, onComplete: () -> Unit) {
-        viewModelScope.launch {
-            repository.applyImport(data, mode)
-            RevisionSyncWorker.scheduleSyncWork(getApplication())
-            onComplete()
+    fun removeCustomGeminiModel(model: String) {
+        val current = _uiState.value.srsSettings
+        if (current.availableGeminiModels.size > 1) {
+            val updated = current.availableGeminiModels.filter { it != model }
+            val newSelected = if (current.selectedGeminiModel == model) updated.first() else current.selectedGeminiModel
+            updateSrsSettings(current.copy(availableGeminiModels = updated, selectedGeminiModel = newSelected))
         }
     }
 

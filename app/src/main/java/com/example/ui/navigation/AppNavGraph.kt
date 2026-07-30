@@ -299,11 +299,10 @@ fun NeumorphicBottomNavigationForPager(
     val themeColors = com.example.ui.theme.LocalAppThemeColors.current
     val isDark = com.example.ui.theme.LocalIsDarkTheme.current
 
-    val purpleGlow = Color(0xFFA855F7)
-    val purpleText = Color(0xFFC084FC)
+    val activeColor = themeColors.accent
     val inactiveColor = if (isDark) Color(0x99ECECF0) else themeColors.secondaryText
-    val barBg = if (isDark) Color(0xEE1E202C) else themeColors.surface
-    val centerCircleBg = if (isDark) Color(0xFF161824) else themeColors.surface
+    val barBg = if (isDark) Color(0xFA1A1D28) else themeColors.surface
+    val centerCircleBg = if (isDark) Color(0xFF1E222F) else themeColors.surface
 
     val bumpHeight = 24.dp
     val barShape = remember { UpwardBumpBarShape(cornerRadius = 28.dp, bumpWidth = 96.dp, bumpHeight = bumpHeight) }
@@ -321,16 +320,16 @@ fun NeumorphicBottomNavigationForPager(
                 .fillMaxWidth()
                 .height(88.dp)
                 .shadow(
-                    elevation = 12.dp,
+                    elevation = 10.dp,
                     shape = barShape,
-                    ambientColor = if (currentPage != 2) purpleGlow else Color(0x25000000),
-                    spotColor = if (currentPage != 2) purpleGlow else Color(0x25000000)
+                    ambientColor = if (isDark) Color(0x40000000) else Color(0x18000000),
+                    spotColor = if (isDark) Color(0x60000000) else Color(0x20000000)
                 )
                 .clip(barShape)
                 .background(barBg)
                 .border(
                     width = 1.dp,
-                    color = if (currentPage != 2) purpleGlow.copy(alpha = 0.4f) else themeColors.divider,
+                    color = themeColors.divider.copy(alpha = if (isDark) 0.5f else 0.8f),
                     shape = barShape
                 ),
             contentAlignment = Alignment.BottomCenter
@@ -344,52 +343,68 @@ fun NeumorphicBottomNavigationForPager(
             ) {
                 // Item 0: Revisions
                 val isRev = currentPage == 0
-                Column(
+                Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
                         .clickable { onTabSelected(0) },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Screen.Revisions.icon,
-                        contentDescription = Screen.Revisions.title,
-                        tint = if (isRev) purpleText else inactiveColor,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = Screen.Revisions.title,
-                        fontSize = 11.sp,
-                        fontWeight = if (isRev) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isRev) purpleText else inactiveColor
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                            .background(if (isRev) activeColor.copy(alpha = 0.14f) else Color.Transparent)
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Screen.Revisions.icon,
+                            contentDescription = Screen.Revisions.title,
+                            tint = if (isRev) activeColor else inactiveColor,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = Screen.Revisions.title,
+                            fontSize = 11.sp,
+                            fontWeight = if (isRev) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isRev) activeColor else inactiveColor
+                        )
+                    }
                 }
 
                 // Item 1: Stats
                 val isStats = currentPage == 1
-                Column(
+                Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
                         .clickable { onTabSelected(1) },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Screen.Analytics.icon,
-                        contentDescription = Screen.Analytics.title,
-                        tint = if (isStats) purpleText else inactiveColor,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = Screen.Analytics.title,
-                        fontSize = 11.sp,
-                        fontWeight = if (isStats) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isStats) purpleText else inactiveColor
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                            .background(if (isStats) activeColor.copy(alpha = 0.14f) else Color.Transparent)
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Screen.Analytics.icon,
+                            contentDescription = Screen.Analytics.title,
+                            tint = if (isStats) activeColor else inactiveColor,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = Screen.Analytics.title,
+                            fontSize = 11.sp,
+                            fontWeight = if (isStats) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isStats) activeColor else inactiveColor
+                        )
+                    }
                 }
 
                 // CENTER SPACER FOR FLOATING TIMER CIRCLE
@@ -397,52 +412,68 @@ fun NeumorphicBottomNavigationForPager(
 
                 // Item 3: Islands
                 val isIslands = currentPage == 3
-                Column(
+                Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
                         .clickable { onTabSelected(3) },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Screen.Community.icon,
-                        contentDescription = Screen.Community.title,
-                        tint = if (isIslands) purpleText else inactiveColor,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = Screen.Community.title,
-                        fontSize = 11.sp,
-                        fontWeight = if (isIslands) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isIslands) purpleText else inactiveColor
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                            .background(if (isIslands) activeColor.copy(alpha = 0.14f) else Color.Transparent)
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Screen.Community.icon,
+                            contentDescription = Screen.Community.title,
+                            tint = if (isIslands) activeColor else inactiveColor,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = Screen.Community.title,
+                            fontSize = 11.sp,
+                            fontWeight = if (isIslands) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isIslands) activeColor else inactiveColor
+                        )
+                    }
                 }
 
                 // Item 4: Config
                 val isConfig = currentPage == 4
-                Column(
+                Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
                         .clickable { onTabSelected(4) },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Screen.Settings.icon,
-                        contentDescription = Screen.Settings.title,
-                        tint = if (isConfig) purpleText else inactiveColor,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = Screen.Settings.title,
-                        fontSize = 11.sp,
-                        fontWeight = if (isConfig) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isConfig) purpleText else inactiveColor
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                            .background(if (isConfig) activeColor.copy(alpha = 0.14f) else Color.Transparent)
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Screen.Settings.icon,
+                            contentDescription = Screen.Settings.title,
+                            tint = if (isConfig) activeColor else inactiveColor,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = Screen.Settings.title,
+                            fontSize = 11.sp,
+                            fontWeight = if (isConfig) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isConfig) activeColor else inactiveColor
+                        )
+                    }
                 }
             }
         }
@@ -459,16 +490,16 @@ fun NeumorphicBottomNavigationForPager(
                 .then(
                     if (isTimer) {
                         Modifier
-                            .shadow(16.dp, circleShape, ambientColor = purpleGlow, spotColor = purpleGlow)
-                            .border(2.5.dp, purpleGlow, circleShape)
+                            .shadow(10.dp, circleShape, ambientColor = activeColor.copy(alpha = 0.25f), spotColor = activeColor.copy(alpha = 0.25f))
+                            .border(2.dp, activeColor, circleShape)
                     } else {
                         Modifier
-                            .shadow(8.dp, circleShape)
-                            .border(1.5.dp, Color(0x35FFFFFF), circleShape)
+                            .shadow(6.dp, circleShape)
+                            .border(1.dp, themeColors.divider, circleShape)
                     }
                 )
                 .clip(circleShape)
-                .background(centerCircleBg)
+                .background(if (isTimer) activeColor.copy(alpha = 0.12f) else centerCircleBg)
                 .clickable { onTabSelected(2) },
             contentAlignment = Alignment.Center
         ) {
@@ -479,7 +510,7 @@ fun NeumorphicBottomNavigationForPager(
                 Icon(
                     imageVector = Screen.Timer.icon,
                     contentDescription = Screen.Timer.title,
-                    tint = if (isTimer) purpleText else inactiveColor,
+                    tint = if (isTimer) activeColor else inactiveColor,
                     modifier = Modifier.size(26.dp)
                 )
                 Spacer(modifier = Modifier.height(2.dp))
@@ -487,7 +518,7 @@ fun NeumorphicBottomNavigationForPager(
                     text = Screen.Timer.title,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (isTimer) purpleText else inactiveColor
+                    color = if (isTimer) activeColor else inactiveColor
                 )
             }
         }

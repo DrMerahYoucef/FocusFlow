@@ -28,6 +28,6 @@ fun ConfirmDeleteDialog(
                 Text(text = stringResource(R.string.cancel), color = NeumorphicColors.TextSecondary)
             }
         },
-        containerColor = NeumorphicColors.SurfaceLight
+        containerColor = NeumorphicColors.DialogBackground
     )
 }

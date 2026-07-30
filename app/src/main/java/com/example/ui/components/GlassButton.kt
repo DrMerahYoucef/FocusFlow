@@ -33,18 +33,20 @@ fun GlassButton(
     modifier: Modifier = Modifier,
     isDark: Boolean = LocalIsDarkTheme.current,
     accentColor: Color = Color(0xFF6C63FF),
+    isSelected: Boolean = false,
     contentPadding: PaddingValues = PaddingValues(horizontal = 28.dp, vertical = 16.dp)
 ) {
     val themeColors = com.example.ui.theme.LocalAppThemeColors.current
-    val glassColor  = themeColors.surface
-    val borderColor = themeColors.divider
+    val baseGlassColor = themeColors.surface
+    val glassColor  = if (isSelected) accentColor.copy(alpha = 0.22f) else baseGlassColor
+    val borderColor = if (isSelected) accentColor else themeColors.divider
     var pressed by remember { mutableStateOf(false) }
 
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
             .background(if (pressed) glassColor.copy(alpha = 0.6f) else glassColor)
-            .border(1.dp, borderColor, RoundedCornerShape(20.dp))
+            .border(if (isSelected) 1.5.dp else 1.dp, borderColor, RoundedCornerShape(20.dp))
             .pointerInput(Unit) {
                 detectTapGestures(
                     onPress = { pressed = true; tryAwaitRelease(); pressed = false },
@@ -62,9 +64,9 @@ fun GlassButton(
             if (label.isNotEmpty()) {
                 Text(
                     text  = label,
-                    color = themeColors.onSurface,
+                    color = if (isSelected) accentColor else themeColors.onSurface,
                     style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                 )
             }
         }

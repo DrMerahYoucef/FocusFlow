@@ -1,12 +1,16 @@
 package com.example.ui.screen.revisions
 
+import android.graphics.BitmapFactory
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
@@ -17,17 +21,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.example.data.db.entity.RevisionNoteEntity
 import com.example.data.srs.ReviewGrade
 import com.example.ui.components.NeumorphicCard
 import com.example.ui.revisions.HighlightedMarkdownWithTables
 import com.example.ui.revisions.NoteBlocksRenderer
 import com.example.ui.theme.NeumorphicColors
+import java.io.File
 
 @Composable
 fun RevisionSessionScreen(
@@ -49,6 +58,8 @@ fun RevisionSessionScreen(
     val totalInSession = remember(dueNotes.size) { dueNotes.size }
     var currentIndex by remember { mutableStateOf(0) }
     var isFlipped by remember { mutableStateOf(false) }
+    var zoomImageFile by remember { mutableStateOf<File?>(null) }
+    val context = LocalContext.current
 
     val currentNote = dueNotes.getOrNull(currentIndex)
 
@@ -224,6 +235,7 @@ fun RevisionSessionScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxSize()
+                                        .verticalScroll(rememberScrollState())
                                         .graphicsLayer { rotationY = 180f },
                                     horizontalAlignment = Alignment.Start
                                 ) {
@@ -234,28 +246,85 @@ fun RevisionSessionScreen(
                                         letterSpacing = 2.sp,
                                         color = NeumorphicColors.Accent
                                     )
-                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
                                     Text(
                                         text = currentNote.title,
-                                        fontSize = 16.sp,
+                                        fontSize = 18.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = NeumorphicColors.TextSecondary
+                                        color = NeumorphicColors.TextPrimary
                                     )
                                     Spacer(modifier = Modifier.height(12.dp))
                                     HorizontalDivider(color = NeumorphicColors.TextSecondary.copy(alpha = 0.2f))
                                     Spacer(modifier = Modifier.height(16.dp))
 
-                                    if (currentNote.contentBlocksJson.isBlank() || currentNote.contentBlocksJson == "[]") {
-                                        HighlightedMarkdownWithTables(
-                                            markdown = currentNote.plainTextPreview,
-                                            fontSize = 16.sp,
-                                            modifier = Modifier.weight(1f)
+                                    val mediaFile = remember(currentNote.mediaFilePath) {
+                                        currentNote.mediaFilePath?.let { File(it) }
+                                    }
+                                    val isImage = (currentNote.mediaType == "IMAGE" ||
+                                        (currentNote.mediaFilePath != null && (currentNote.mediaFilePath.endsWith(".jpg", true) || currentNote.mediaFilePath.endsWith(".png", true) || currentNote.mediaFilePath.endsWith(".jpeg", true)))) && mediaFile != null && mediaFile.exists()
+
+                                    val isAudio = (currentNote.mediaType == "AUDIO" ||
+                                        (currentNote.mediaFilePath != null && (currentNote.mediaFilePath.endsWith(".m4a", true) || currentNote.mediaFilePath.endsWith(".mp3", true) || currentNote.mediaFilePath.endsWith(".wav", true) || currentNote.mediaFilePath.endsWith(".3gp", true) || currentNote.mediaFilePath.endsWith(".aac", true)))) && mediaFile != null && mediaFile.exists()
+
+                                    if (isImage) {
+                                        val bitmap = remember(currentNote.mediaFilePath) {
+                                            BitmapFactory.decodeFile(mediaFile!!.absolutePath)
+                                        }
+                                        if (bitmap != null) {
+                                            Column(
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(16.dp),
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .height(220.dp)
+                                                        .clip(RoundedCornerShape(16.dp))
+                                                        .clickable { zoomImageFile = mediaFile }
+                                                ) {
+                                                    Image(
+                                                        bitmap = bitmap.asImageBitmap(),
+                                                        contentDescription = "Card Photo",
+                                                        contentScale = ContentScale.Fit,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                                Text(
+                                                    text = "Tap photo to zoom",
+                                                    fontSize = 11.sp,
+                                                    color = NeumorphicColors.TextSecondary
+                                                )
+                                                Spacer(modifier = Modifier.height(12.dp))
+                                            }
+                                        }
+                                    } else if (isAudio) {
+                                        AudioCardPlayerView(
+                                            audioFile = mediaFile!!,
+                                            context = context,
+                                            autoPlay = true
                                         )
-                                    } else {
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                    }
+
+                                    val hasBlocks = currentNote.contentBlocksJson.isNotBlank() && currentNote.contentBlocksJson != "[]"
+                                    val plainText = currentNote.plainTextPreview.trim()
+                                    val showPlainText = !hasBlocks && plainText.isNotBlank() &&
+                                            !plainText.equals("Photo Card", ignoreCase = true) &&
+                                            !plainText.equals("Voice Note Card", ignoreCase = true)
+
+                                    if (hasBlocks) {
                                         NoteBlocksRenderer(
                                             blocksJson = currentNote.contentBlocksJson,
-                                            fontSize = 16.sp,
-                                            modifier = Modifier.weight(1f)
+                                            fontSize = 15.sp,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    } else if (showPlainText) {
+                                        HighlightedMarkdownWithTables(
+                                            markdown = plainText,
+                                            fontSize = 15.sp,
+                                            modifier = Modifier.fillMaxWidth()
                                         )
                                     }
                                 }
@@ -330,6 +399,29 @@ fun RevisionSessionScreen(
                             .height(52.dp)
                     ) {
                         Text("Show answer", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
+                }
+            }
+        }
+
+        if (zoomImageFile != null && zoomImageFile!!.exists()) {
+            val bitmap = remember(zoomImageFile) { BitmapFactory.decodeFile(zoomImageFile!!.absolutePath) }
+            Dialog(onDismissRequest = { zoomImageFile = null }) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.8f)
+                        .background(Color.Black.copy(alpha = 0.9f), RoundedCornerShape(16.dp))
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "Zoomed Image",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
                     }
                 }
             }

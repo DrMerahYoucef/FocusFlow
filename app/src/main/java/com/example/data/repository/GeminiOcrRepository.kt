@@ -98,7 +98,8 @@ interface OcrEngine {
 }
 
 class GeminiOcrEngine(
-    private val apiKeyProvider: () -> String
+    private val apiKeyProvider: () -> String,
+    private val selectedModelProvider: () -> String? = { null }
 ) : OcrEngine {
     private val client = OkHttpClient.Builder()
         .connectTimeout(60, TimeUnit.SECONDS)
@@ -269,12 +270,22 @@ Rules:
         // Current, real, GA model IDs only (checked against Google's live model list — the
         // previous version of this file guessed at some IDs that don't exist, which silently
         // burned through 404 fallbacks before landing on a weaker/older model).
-        val models = listOf(
-            "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
+        val baseModels = listOf(
             "gemini-2.5-flash",
-            "gemini-2.5-flash-lite"
+            "gemini-2.5-pro",
+            "gemini-2.5-flash-lite",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+            "gemini-2.0-flash",
+            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite"
         )
+        val selected = selectedModelProvider()?.trim().orEmpty()
+        val models = if (selected.isNotBlank()) {
+            listOf(selected) + baseModels.filter { it != selected }
+        } else {
+            baseModels
+        }
         var lastException: Exception? = null
 
         for (model in models) {
@@ -402,7 +413,8 @@ Rules:
 // If no valid key is configured, capture must fail with a clear message pointing to Settings
 // rather than silently switching to a lower-quality engine.
 class OcrEngineProvider(
-    private val apiKeyProvider: () -> String
+    private val apiKeyProvider: () -> String,
+    private val selectedModelProvider: () -> String? = { null }
 ) {
     fun get(): OcrEngine {
         val key = apiKeyProvider().trim()
@@ -410,7 +422,7 @@ class OcrEngineProvider(
         if (!isValidKey) {
             throw IllegalStateException("A Gemini API key is required to scan text. Add one in Settings.")
         }
-        return GeminiOcrEngine { key }
+        return GeminiOcrEngine(apiKeyProvider = { key }, selectedModelProvider = selectedModelProvider)
     }
 }
 
@@ -418,7 +430,7 @@ class OcrEngineProvider(
 class GeminiOcrRepository(
     private val getApiKey: () -> String
 ) {
-    private val engine = GeminiOcrEngine(getApiKey)
+    private val engine = GeminiOcrEngine(apiKeyProvider = getApiKey)
 
     suspend fun extractNotesFromImage(
         bitmap: Bitmap,
@@ -521,6 +533,42 @@ Return ONLY valid JSON: {"title": "..."}
             }
         }
         throw lastException ?: IllegalStateException("Failed to generate title with Gemini API.")
+    }
+}
+
+enum class GeminiModelTestStatus {
+    UNTESTED, TESTING, APPROVED, FAILED
+}
+
+suspend fun verifyGeminiModel(apiKey: String, model: String): Boolean = withContext(Dispatchers.IO) {
+    val cleanKey = apiKey.trim()
+    if (cleanKey.isBlank() || cleanKey == "MY_GEMINI_API_KEY") return@withContext false
+    val client = OkHttpClient.Builder()
+        .connectTimeout(8, TimeUnit.SECONDS)
+        .readTimeout(8, TimeUnit.SECONDS)
+        .build()
+    return@withContext try {
+        val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$cleanKey"
+        val jsonRequest = JSONObject().apply {
+            put("contents", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("parts", JSONArray().apply {
+                        put(JSONObject().apply { put("text", "ping") })
+                    })
+                })
+            })
+            put("generationConfig", JSONObject().apply {
+                put("max_output_tokens", 1)
+            })
+        }
+        val requestBody = jsonRequest.toString().toRequestBody("application/json".toMediaType())
+        val request = Request.Builder().url(url).post(requestBody).build()
+        val response = client.newCall(request).execute()
+        val isSuccessful = response.isSuccessful
+        response.close()
+        isSuccessful
+    } catch (e: Exception) {
+        false
     }
 }
 
