@@ -4,9 +4,6 @@
 
 
 
-    <!-- Intent permission for manual package installation -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-
     <!-- Camera permission for revision capture -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
