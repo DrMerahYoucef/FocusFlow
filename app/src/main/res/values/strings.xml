@@ -2,6 +2,8 @@
     <string name="app_name">Focus Island</string>
     <string name="widget_label">Focus Island Exam Countdown</string>
     <string name="widget_description">Shows a countdown timeline of your closest academic trial.</string>
+    <string name="matrix_widget_label">Exam Matrix Calendar</string>
+    <string name="matrix_widget_description">Displays a dot-matrix calendar lighting up days until your next exam.</string>
 
     <string name="revisions_title">Review</string>
     <string name="scan_text">Scan a text</string>

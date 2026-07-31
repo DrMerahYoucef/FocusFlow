@@ -154,7 +154,7 @@
             android:theme="@style/Theme.MyApplication"
             android:launchMode="singleTop" />
 
-        <!-- Home Screen Widget Receiver -->
+        <!-- Home Screen Widget Receivers -->
         <receiver
             android:name=".widget.ExamCountdownWidgetReceiver"
             android:exported="true">
@@ -164,6 +164,18 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/exam_countdown_widget_info" />
+        </receiver>
+
+        <!-- Exam Matrix Dot Calendar Widget Receiver -->
+        <receiver
+            android:name=".widget.ExamMatrixWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/exam_matrix_widget_info" />
         </receiver>
 
         <!-- Secure file sharing provider for local updates -->

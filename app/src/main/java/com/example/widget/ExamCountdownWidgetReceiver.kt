@@ -313,42 +313,52 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                 if (!isDay) {
                     // Draw stars
                     val r = java.util.Random(101)
-                    repeat(20) {
+                    repeat(25) {
                         val sx = r.nextFloat() * W
                         val sy = r.nextFloat() * H * 0.45f
                         drawCircle(
                             color = Color.White.copy(alpha = 0.4f + r.nextFloat() * 0.5f),
-                            radius = 1.5f + r.nextFloat() * 2f,
+                            radius = 1.2f + r.nextFloat() * 1.8f,
                             center = Offset(sx, sy)
                         )
                     }
-                    // Moon
-                    val moonCenter = Offset(W * 0.8f, H * 0.15f)
+                    // Moon visible on the top-right corner side
+                    val moonCenter = Offset(W * 0.86f, H * 0.16f)
                     drawCircle(
                         brush = Brush.radialGradient(
-                            colors = listOf(Color(0x22ADC6D1), Color.Transparent),
+                            colors = listOf(Color(0x44ADC6D1), Color.Transparent),
                             center = moonCenter, radius = W * 0.35f
                         ),
                         radius = W * 0.35f, center = moonCenter
                     )
                     drawCircle(
                         color = Color(0xFFE9F5F8),
-                        radius = W * 0.05f,
+                        radius = W * 0.055f,
                         center = moonCenter
                     )
+                    drawCircle(
+                        color = Color(0xFF162536),
+                        radius = W * 0.048f,
+                        center = Offset(moonCenter.x - W * 0.018f, moonCenter.y - H * 0.01f)
+                    )
                 } else {
-                    // Sun
-                    val sunCenter = Offset(W * 0.5f, H * 0.08f)
+                    // Sun visible on the top-right corner side
+                    val sunCenter = Offset(W * 0.86f, H * 0.16f)
                     drawCircle(
                         brush = Brush.radialGradient(
-                            colors = listOf(Color(0x44FFEFA8), Color.Transparent),
-                            center = sunCenter, radius = W * 0.4f
+                            colors = listOf(Color(0x66FFEFA8), Color(0x22FFD700), Color.Transparent),
+                            center = sunCenter, radius = W * 0.38f
                         ),
-                        radius = W * 0.4f, center = sunCenter
+                        radius = W * 0.38f, center = sunCenter
                     )
                     drawCircle(
                         color = Color(0xFFFFFCEB),
-                        radius = W * 0.05f,
+                        radius = W * 0.065f,
+                        center = sunCenter
+                    )
+                    drawCircle(
+                        color = Color(0xFFFFEB3B),
+                        radius = W * 0.048f,
                         center = sunCenter
                     )
                 }
@@ -562,10 +572,15 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
 
     companion object {
         fun triggerWidgetUpdate(context: Context) {
-            val intent = Intent(context, ExamCountdownWidgetReceiver::class.java).apply {
+            val intent1 = Intent(context, ExamCountdownWidgetReceiver::class.java).apply {
                 action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
             }
-            context.sendBroadcast(intent)
+            context.sendBroadcast(intent1)
+
+            val intent2 = Intent(context, ExamMatrixWidgetReceiver::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            }
+            context.sendBroadcast(intent2)
         }
     }
 }
