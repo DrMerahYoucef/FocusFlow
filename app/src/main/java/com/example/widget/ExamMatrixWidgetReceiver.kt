@@ -27,17 +27,24 @@ import java.util.Calendar
 
 class ExamMatrixWidgetReceiver : AppWidgetProvider() {
 
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        ExamCountdownWidgetReceiver.scheduleDayNightAlarm(context)
+    }
+
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
+        ExamCountdownWidgetReceiver.scheduleDayNightAlarm(context)
         updateAllWidgets(context, appWidgetManager, appWidgetIds)
     }
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
+        ExamCountdownWidgetReceiver.scheduleDayNightAlarm(context)
         val manager = AppWidgetManager.getInstance(context)
         val ids = manager.getAppWidgetIds(ComponentName(context, ExamMatrixWidgetReceiver::class.java))
         updateAllWidgets(context, manager, ids)
@@ -97,17 +104,34 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
         val bitmap = Bitmap.createBitmap(width.toInt(), height.toInt(), Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
-        // 1. Draw App Sky Background Gradient
-        val skyTop = if (isDay) android.graphics.Color.parseColor("#90DBE1") else android.graphics.Color.parseColor("#0E1A29")
-        val skyBottom = if (isDay) android.graphics.Color.parseColor("#E2F8F4") else android.graphics.Color.parseColor("#1C344A")
-        val skyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = LinearGradient(0f, 0f, 0f, height, skyTop, skyBottom, Shader.TileMode.CLAMP)
-        }
-        val fullRect = RectF(0f, 0f, width, height)
-        val cornerRadius = 28f
-        canvas.drawRoundRect(fullRect, cornerRadius, cornerRadius, skyPaint)
+        // 1. Draw Glassy Container Card for Matrix Grid (Background is transparent so launcher wallpaper shows through)
+        val cardBgColor = if (isDay) android.graphics.Color.parseColor("#40FFFFFF") else android.graphics.Color.parseColor("#48101A28")
+        val cardBorderColor = if (isDay) android.graphics.Color.parseColor("#80FFFFFF") else android.graphics.Color.parseColor("#608B84FF")
+        val cardShadowColor = if (isDay) android.graphics.Color.parseColor("#354A6B53") else android.graphics.Color.parseColor("#40FFFFFF")
 
-        // 2. Draw Sun or Moon on top corner side
+        val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = cardBgColor
+            style = Paint.Style.FILL
+        }
+        val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = cardBorderColor
+            style = Paint.Style.STROKE
+            strokeWidth = 3f
+        }
+        val shadowBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = cardShadowColor
+            style = Paint.Style.STROKE
+            strokeWidth = 1.2f
+        }
+
+        val cardRect = RectF(12f, 12f, width - 12f, height - 12f)
+        val shadowRect = RectF(14f, 14f, width - 14f, height - 14f)
+        val innerRadius = 24f
+        canvas.drawRoundRect(cardRect, innerRadius, innerRadius, bgPaint)
+        canvas.drawRoundRect(cardRect, innerRadius, innerRadius, borderPaint)
+        canvas.drawRoundRect(shadowRect, innerRadius - 2f, innerRadius - 2f, shadowBorderPaint)
+
+        // 2. Draw Sun or Moon on top corner side inside glass
         val cornerX = width * 0.85f
         val cornerY = height * 0.18f
 
@@ -117,9 +141,9 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
                 color = android.graphics.Color.WHITE
             }
             val r = java.util.Random(202)
-            repeat(30) {
-                val sx = r.nextFloat() * width
-                val sy = r.nextFloat() * height * 0.5f
+            repeat(25) {
+                val sx = 20f + r.nextFloat() * (width - 40f)
+                val sy = 20f + r.nextFloat() * (height * 0.5f)
                 starPaint.alpha = (100 + r.nextInt(155))
                 canvas.drawCircle(sx, sy, 1.2f + r.nextFloat() * 1.8f, starPaint)
             }
@@ -176,43 +200,6 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
             }
             canvas.drawCircle(cornerX, cornerY, sunRadius * 0.72f, sunCorePaint)
         }
-
-        // 3. Draw Forest Silhouette Horizon at bottom
-        val forestPath = Path()
-        forestPath.moveTo(0f, height)
-        val treeColor = if (isDay) android.graphics.Color.parseColor("#40286532") else android.graphics.Color.parseColor("#50071614")
-        val forestPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = treeColor
-            style = Paint.Style.FILL
-        }
-        val step = 40f
-        var tx = 0f
-        while (tx <= width + step) {
-            val th = 30f + (Math.sin(tx.toDouble() * 0.05).toFloat() * 15f)
-            forestPath.lineTo(tx, height - th)
-            tx += step
-        }
-        forestPath.lineTo(width, height)
-        forestPath.close()
-        canvas.drawPath(forestPath, forestPaint)
-
-        // 4. Glass Container Card for Matrix Grid
-        val cardBgColor = if (isDay) android.graphics.Color.parseColor("#DAEFF7F4") else android.graphics.Color.parseColor("#E0101824")
-        val cardBorderColor = if (isDay) android.graphics.Color.parseColor("#504A6B53") else android.graphics.Color.parseColor("#408B84FF")
-
-        val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = cardBgColor
-            style = Paint.Style.FILL
-        }
-        val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = cardBorderColor
-            style = Paint.Style.STROKE
-            strokeWidth = 3f
-        }
-        val cardRect = RectF(12f, 12f, width - 12f, height - 12f)
-        val innerRadius = 22f
-        canvas.drawRoundRect(cardRect, innerRadius, innerRadius, bgPaint)
-        canvas.drawRoundRect(cardRect, innerRadius, innerRadius, borderPaint)
 
         // 5. Calculate Matrix Dates & Values
         val monthLabels = arrayOf("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")

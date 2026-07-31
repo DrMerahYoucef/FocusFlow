@@ -29,17 +29,24 @@ import kotlin.math.sin
 
 class ExamCountdownWidgetReceiver : AppWidgetProvider() {
 
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        scheduleDayNightAlarm(context)
+    }
+
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
+        scheduleDayNightAlarm(context)
         updateAllWidgets(context, appWidgetManager, appWidgetIds)
     }
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
+        scheduleDayNightAlarm(context)
         val manager = AppWidgetManager.getInstance(context)
         val ids = manager.getAppWidgetIds(ComponentName(context, ExamCountdownWidgetReceiver::class.java))
         updateAllWidgets(context, manager, ids)
@@ -300,65 +307,84 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                 canvas = composeCanvas,
                 size = Size(W, H)
             ) {
-                // Background sky color
-                val skyTop = if (isDay) Color(0xFF90DBE1) else Color(0xFF0E1A29)
-                val skyBottom = if (isDay) Color(0xFFE2F8F4) else Color(0xFF1C344A)
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(skyTop, skyBottom),
-                        startY = 0f, endY = H
-                    )
+                // Outer background remains transparent so launcher wallpaper shows through!
+
+                // Draw Neumorphic Glassy Container Card
+                val cardBgColor = if (isDay) Color(0x40FFFFFF) else Color(0x48101A28)
+                val cardBorderColor = if (isDay) Color(0x80FFFFFF) else Color(0x608B84FF)
+                val cardShadowColor = if (isDay) Color(0x354A6B53) else Color(0x40FFFFFF)
+
+                drawRoundRect(
+                    color = cardBgColor,
+                    topLeft = Offset(6f, 6f),
+                    size = Size(W - 12f, H - 12f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(22f, 22f),
+                    style = androidx.compose.ui.graphics.drawscope.Fill
+                )
+                drawRoundRect(
+                    color = cardBorderColor,
+                    topLeft = Offset(6f, 6f),
+                    size = Size(W - 12f, H - 12f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(22f, 22f),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.5f)
+                )
+                drawRoundRect(
+                    color = cardShadowColor,
+                    topLeft = Offset(7.5f, 7.5f),
+                    size = Size(W - 15f, H - 15f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(20.5f, 20.5f),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1f)
                 )
 
                 if (!isDay) {
                     // Draw stars
                     val r = java.util.Random(101)
-                    repeat(25) {
-                        val sx = r.nextFloat() * W
-                        val sy = r.nextFloat() * H * 0.45f
+                    repeat(20) {
+                        val sx = 14f + r.nextFloat() * (W - 28f)
+                        val sy = 14f + r.nextFloat() * (H * 0.45f)
                         drawCircle(
                             color = Color.White.copy(alpha = 0.4f + r.nextFloat() * 0.5f),
                             radius = 1.2f + r.nextFloat() * 1.8f,
                             center = Offset(sx, sy)
                         )
                     }
-                    // Moon visible on the top-right corner side
-                    val moonCenter = Offset(W * 0.86f, H * 0.16f)
+                    // Moon visible on top-right corner side
+                    val moonCenter = Offset(W * 0.86f, H * 0.20f)
                     drawCircle(
                         brush = Brush.radialGradient(
                             colors = listOf(Color(0x44ADC6D1), Color.Transparent),
-                            center = moonCenter, radius = W * 0.35f
+                            center = moonCenter, radius = W * 0.30f
                         ),
-                        radius = W * 0.35f, center = moonCenter
+                        radius = W * 0.30f, center = moonCenter
                     )
                     drawCircle(
                         color = Color(0xFFE9F5F8),
-                        radius = W * 0.055f,
+                        radius = W * 0.052f,
                         center = moonCenter
                     )
                     drawCircle(
                         color = Color(0xFF162536),
-                        radius = W * 0.048f,
+                        radius = W * 0.045f,
                         center = Offset(moonCenter.x - W * 0.018f, moonCenter.y - H * 0.01f)
                     )
                 } else {
-                    // Sun visible on the top-right corner side
-                    val sunCenter = Offset(W * 0.86f, H * 0.16f)
+                    // Sun visible on top-right corner side
+                    val sunCenter = Offset(W * 0.86f, H * 0.20f)
                     drawCircle(
                         brush = Brush.radialGradient(
                             colors = listOf(Color(0x66FFEFA8), Color(0x22FFD700), Color.Transparent),
-                            center = sunCenter, radius = W * 0.38f
+                            center = sunCenter, radius = W * 0.32f
                         ),
-                        radius = W * 0.38f, center = sunCenter
+                        radius = W * 0.32f, center = sunCenter
                     )
                     drawCircle(
                         color = Color(0xFFFFFCEB),
-                        radius = W * 0.065f,
+                        radius = W * 0.060f,
                         center = sunCenter
                     )
                     drawCircle(
                         color = Color(0xFFFFEB3B),
-                        radius = W * 0.048f,
+                        radius = W * 0.045f,
                         center = sunCenter
                     )
                 }
@@ -557,25 +583,6 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                         )
                     )
                 }
-
-                // Draw Neumorphic Glassy Container Card for Stats & Countdown content
-                val cardBgColor = if (isDay) Color(0xDAEFF7F4) else Color(0xE0101824)
-                val cardBorderColor = if (isDay) Color(0x504A6B53) else Color(0x408B84FF)
-
-                drawRoundRect(
-                    color = cardBgColor,
-                    topLeft = Offset(10f, 10f),
-                    size = Size(W - 20f, H - 20f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(20f, 20f),
-                    style = androidx.compose.ui.graphics.drawscope.Fill
-                )
-                drawRoundRect(
-                    color = cardBorderColor,
-                    topLeft = Offset(10f, 10f),
-                    size = Size(W - 20f, H - 20f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(20f, 20f),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.5f)
-                )
             }
             return imageBitmap.asAndroidBitmap()
         } catch (e: Exception) {
@@ -600,6 +607,33 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                 action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
             }
             context.sendBroadcast(intent2)
+        }
+
+        fun scheduleDayNightAlarm(context: Context) {
+            try {
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager ?: return
+                val intent = Intent(context, ExamCountdownWidgetReceiver::class.java).apply {
+                    action = "com.example.ACTION_WIDGET_AUTO_UPDATE"
+                }
+                val pendingIntent = android.app.PendingIntent.getBroadcast(
+                    context,
+                    9901,
+                    intent,
+                    android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+                )
+
+                // Schedule alarm for every hour or exact 6 AM / 6 PM boundary
+                val now = System.currentTimeMillis()
+                val nextHour = now + (30 * 60 * 1000L) // 30 minutes
+                alarmManager.setInexactRepeating(
+                    android.app.AlarmManager.RTC,
+                    nextHour,
+                    android.app.AlarmManager.INTERVAL_HALF_HOUR,
+                    pendingIntent
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("ExamCountdownWidget", "Error scheduling alarm: ${e.message}")
+            }
         }
     }
 }
