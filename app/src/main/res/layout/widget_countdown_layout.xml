@@ -16,6 +16,7 @@
         android:id="@+id/widget_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_margin="8dp"
         android:background="#A6030A0E"
         android:orientation="horizontal"
         android:padding="12dp">

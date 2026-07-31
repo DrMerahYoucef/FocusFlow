@@ -87,9 +87,9 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                 // Assign rendered forest bitmap to image background
                 views.setImageViewBitmap(R.id.widget_background, forestBitmap)
 
-                // Adjust overlay background color and text themes depending on day/night
+                // Adjust overlay background glass card drawable and text themes depending on day/night
                 if (isDay) {
-                    views.setInt(R.id.widget_overlay, "setBackgroundColor", android.graphics.Color.parseColor("#CFE2F8F4"))
+                    views.setInt(R.id.widget_overlay, "setBackgroundResource", R.drawable.widget_glass_card_day)
                     views.setTextColor(R.id.widget_title_label, android.graphics.Color.parseColor("#4A6B53"))
                     views.setTextColor(R.id.widget_stats_title_label, android.graphics.Color.parseColor("#4A6B53"))
                     views.setTextColor(R.id.widget_no_exams_text, android.graphics.Color.parseColor("#286532"))
@@ -115,7 +115,7 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                     // Divider
                     views.setInt(R.id.widget_vertical_divider, "setBackgroundColor", android.graphics.Color.parseColor("#401B4324"))
                 } else {
-                    views.setInt(R.id.widget_overlay, "setBackgroundColor", android.graphics.Color.parseColor("#CC030A0E"))
+                    views.setInt(R.id.widget_overlay, "setBackgroundResource", R.drawable.widget_glass_card_night)
                     views.setTextColor(R.id.widget_title_label, android.graphics.Color.parseColor("#9EA4B0"))
                     views.setTextColor(R.id.widget_stats_title_label, android.graphics.Color.parseColor("#9EA4B0"))
                     views.setTextColor(R.id.widget_no_exams_text, android.graphics.Color.parseColor("#9EA4B0"))
@@ -300,9 +300,9 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                 canvas = composeCanvas,
                 size = Size(W, H)
             ) {
-                // Background sky color
+                // Upper sky color gradient (Seamlessly connects to Widget 2 below!)
                 val skyTop = if (isDay) Color(0xFF90DBE1) else Color(0xFF0E1A29)
-                val skyBottom = if (isDay) Color(0xFFE2F8F4) else Color(0xFF1C344A)
+                val skyBottom = if (isDay) Color(0xFFADEEEC) else Color(0xFF162B40)
                 drawRect(
                     brush = Brush.verticalGradient(
                         colors = listOf(skyTop, skyBottom),
@@ -313,9 +313,9 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                 if (!isDay) {
                     // Draw stars
                     val r = java.util.Random(101)
-                    repeat(25) {
+                    repeat(35) {
                         val sx = r.nextFloat() * W
-                        val sy = r.nextFloat() * H * 0.45f
+                        val sy = r.nextFloat() * H * 0.8f
                         drawCircle(
                             color = Color.White.copy(alpha = 0.4f + r.nextFloat() * 0.5f),
                             radius = 1.2f + r.nextFloat() * 1.8f,
@@ -323,7 +323,7 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                         )
                     }
                     // Moon visible on the top-right corner side
-                    val moonCenter = Offset(W * 0.86f, H * 0.16f)
+                    val moonCenter = Offset(W * 0.86f, H * 0.20f)
                     drawCircle(
                         brush = Brush.radialGradient(
                             colors = listOf(Color(0x44ADC6D1), Color.Transparent),
@@ -343,7 +343,7 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                     )
                 } else {
                     // Sun visible on the top-right corner side
-                    val sunCenter = Offset(W * 0.86f, H * 0.16f)
+                    val sunCenter = Offset(W * 0.86f, H * 0.20f)
                     drawCircle(
                         brush = Brush.radialGradient(
                             colors = listOf(Color(0x66FFEFA8), Color(0x22FFD700), Color.Transparent),
@@ -362,8 +362,9 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                         center = sunCenter
                     )
                 }
-
-                // Deterministic Tree Layout
+            }
+            return imageBitmap.asAndroidBitmap()
+        } catch (e: Exception) {
                 val count = maxOf(treeCount, 1)
                 val layers = List(6) { ArrayList<DeterministicTree>() }
                 for (i in 0 until count) {
