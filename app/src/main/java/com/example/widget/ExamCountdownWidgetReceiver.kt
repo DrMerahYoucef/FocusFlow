@@ -87,20 +87,20 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                 // Assign rendered forest bitmap to image background
                 views.setImageViewBitmap(R.id.widget_background, forestBitmap)
 
-                // Adjust overlay background glass card drawable and text themes depending on day/night
+                // Adjust overlay background color to transparent and text themes depending on day/night
                 if (isDay) {
-                    views.setInt(R.id.widget_overlay, "setBackgroundResource", R.drawable.widget_glass_card_day)
-                    views.setTextColor(R.id.widget_title_label, android.graphics.Color.parseColor("#4A6B53"))
-                    views.setTextColor(R.id.widget_stats_title_label, android.graphics.Color.parseColor("#4A6B53"))
-                    views.setTextColor(R.id.widget_no_exams_text, android.graphics.Color.parseColor("#286532"))
+                    views.setInt(R.id.widget_overlay, "setBackgroundColor", android.graphics.Color.TRANSPARENT)
+                    views.setTextColor(R.id.widget_title_label, android.graphics.Color.parseColor("#1B4324"))
+                    views.setTextColor(R.id.widget_stats_title_label, android.graphics.Color.parseColor("#1B4324"))
+                    views.setTextColor(R.id.widget_no_exams_text, android.graphics.Color.parseColor("#2E5B37"))
                     
                     // Left column Exam text colors
                     views.setTextColor(R.id.widget_exam1_name, android.graphics.Color.parseColor("#1B4324"))
-                    views.setTextColor(R.id.widget_exam1_days, android.graphics.Color.parseColor("#286532"))
-                    views.setTextColor(R.id.widget_exam2_name, android.graphics.Color.parseColor("#1B4324"))
-                    views.setTextColor(R.id.widget_exam2_days, android.graphics.Color.parseColor("#286532"))
-                    views.setTextColor(R.id.widget_exam3_name, android.graphics.Color.parseColor("#1B4324"))
-                    views.setTextColor(R.id.widget_exam3_days, android.graphics.Color.parseColor("#286532"))
+                    views.setTextColor(R.id.widget_exam1_days, android.graphics.Color.parseColor("#6750A4"))
+                    views.setTextColor(R.id.widget_exam2_name, android.graphics.Color.parseColor("#2E5B37"))
+                    views.setTextColor(R.id.widget_exam2_days, android.graphics.Color.parseColor("#6750A4"))
+                    views.setTextColor(R.id.widget_exam3_name, android.graphics.Color.parseColor("#2E5B37"))
+                    views.setTextColor(R.id.widget_exam3_days, android.graphics.Color.parseColor("#6750A4"))
 
                     // Stats Labels & Values
                     views.setTextColor(R.id.widget_stat_focus_value, android.graphics.Color.parseColor("#1B4324"))
@@ -115,17 +115,17 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                     // Divider
                     views.setInt(R.id.widget_vertical_divider, "setBackgroundColor", android.graphics.Color.parseColor("#401B4324"))
                 } else {
-                    views.setInt(R.id.widget_overlay, "setBackgroundResource", R.drawable.widget_glass_card_night)
+                    views.setInt(R.id.widget_overlay, "setBackgroundColor", android.graphics.Color.TRANSPARENT)
                     views.setTextColor(R.id.widget_title_label, android.graphics.Color.parseColor("#9EA4B0"))
                     views.setTextColor(R.id.widget_stats_title_label, android.graphics.Color.parseColor("#9EA4B0"))
-                    views.setTextColor(R.id.widget_no_exams_text, android.graphics.Color.parseColor("#9EA4B0"))
+                    views.setTextColor(R.id.widget_no_exams_text, android.graphics.Color.parseColor("#CCCCCC"))
 
                     // Left column Exam text colors
                     views.setTextColor(R.id.widget_exam1_name, android.graphics.Color.parseColor("#FFFFFF"))
                     views.setTextColor(R.id.widget_exam1_days, android.graphics.Color.parseColor("#8B84FF"))
-                    views.setTextColor(R.id.widget_exam2_name, android.graphics.Color.parseColor("#FFFFFF"))
+                    views.setTextColor(R.id.widget_exam2_name, android.graphics.Color.parseColor("#E0E4EC"))
                     views.setTextColor(R.id.widget_exam2_days, android.graphics.Color.parseColor("#8B84FF"))
-                    views.setTextColor(R.id.widget_exam3_name, android.graphics.Color.parseColor("#FFFFFF"))
+                    views.setTextColor(R.id.widget_exam3_name, android.graphics.Color.parseColor("#E0E4EC"))
                     views.setTextColor(R.id.widget_exam3_days, android.graphics.Color.parseColor("#8B84FF"))
                     
                     // Stats Labels & Values
@@ -300,9 +300,9 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                 canvas = composeCanvas,
                 size = Size(W, H)
             ) {
-                // Upper sky color gradient (Seamlessly connects to Widget 2 below!)
+                // Background sky color
                 val skyTop = if (isDay) Color(0xFF90DBE1) else Color(0xFF0E1A29)
-                val skyBottom = if (isDay) Color(0xFFADEEEC) else Color(0xFF162B40)
+                val skyBottom = if (isDay) Color(0xFFE2F8F4) else Color(0xFF1C344A)
                 drawRect(
                     brush = Brush.verticalGradient(
                         colors = listOf(skyTop, skyBottom),
@@ -313,9 +313,9 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                 if (!isDay) {
                     // Draw stars
                     val r = java.util.Random(101)
-                    repeat(35) {
+                    repeat(25) {
                         val sx = r.nextFloat() * W
-                        val sy = r.nextFloat() * H * 0.8f
+                        val sy = r.nextFloat() * H * 0.45f
                         drawCircle(
                             color = Color.White.copy(alpha = 0.4f + r.nextFloat() * 0.5f),
                             radius = 1.2f + r.nextFloat() * 1.8f,
@@ -323,7 +323,7 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                         )
                     }
                     // Moon visible on the top-right corner side
-                    val moonCenter = Offset(W * 0.86f, H * 0.20f)
+                    val moonCenter = Offset(W * 0.86f, H * 0.16f)
                     drawCircle(
                         brush = Brush.radialGradient(
                             colors = listOf(Color(0x44ADC6D1), Color.Transparent),
@@ -343,7 +343,7 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                     )
                 } else {
                     // Sun visible on the top-right corner side
-                    val sunCenter = Offset(W * 0.86f, H * 0.20f)
+                    val sunCenter = Offset(W * 0.86f, H * 0.16f)
                     drawCircle(
                         brush = Brush.radialGradient(
                             colors = listOf(Color(0x66FFEFA8), Color(0x22FFD700), Color.Transparent),
@@ -362,9 +362,8 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                         center = sunCenter
                     )
                 }
-            }
-            return imageBitmap.asAndroidBitmap()
-        } catch (e: Exception) {
+
+                // Deterministic Tree Layout
                 val count = maxOf(treeCount, 1)
                 val layers = List(6) { ArrayList<DeterministicTree>() }
                 for (i in 0 until count) {
@@ -558,6 +557,25 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                         )
                     )
                 }
+
+                // Draw Neumorphic Glassy Container Card for Stats & Countdown content
+                val cardBgColor = if (isDay) Color(0xDAEFF7F4) else Color(0xE0101824)
+                val cardBorderColor = if (isDay) Color(0x504A6B53) else Color(0x408B84FF)
+
+                drawRoundRect(
+                    color = cardBgColor,
+                    topLeft = Offset(10f, 10f),
+                    size = Size(W - 20f, H - 20f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(20f, 20f),
+                    style = androidx.compose.ui.graphics.drawscope.Fill
+                )
+                drawRoundRect(
+                    color = cardBorderColor,
+                    topLeft = Offset(10f, 10f),
+                    size = Size(W - 20f, H - 20f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(20f, 20f),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.5f)
+                )
             }
             return imageBitmap.asAndroidBitmap()
         } catch (e: Exception) {

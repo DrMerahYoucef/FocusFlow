@@ -46,6 +46,8 @@ import com.example.data.backup.CardBackupStateHolder
 import com.example.data.backup.CardTypeFilter
 import com.example.data.repository.ImportMode
 import com.example.service.CardBackupService
+import com.example.widget.ExamCountdownWidgetReceiver
+import com.example.widget.ExamMatrixWidgetReceiver
 import java.io.File
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
@@ -185,33 +187,98 @@ fun SettingsScreen(
             isExpanded = isExamsExpanded,
             onHeaderClick = { isExamsExpanded = !isExamsExpanded }
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { navController?.navigate("exams") }
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Exam Countdowns",
-                        fontWeight = FontWeight.Bold,
-                        color = NeumorphicColors.TextPrimary,
-                        fontSize = 14.sp
-                    )
-                    Text(
-                        text = "$examCount upcoming trials",
-                        fontSize = 11.sp,
-                        color = NeumorphicColors.TextSecondary
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { navController?.navigate("exams") }
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Exam Countdowns",
+                            fontWeight = FontWeight.Bold,
+                            color = NeumorphicColors.TextPrimary,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "$examCount upcoming trials",
+                            fontSize = 11.sp,
+                            color = NeumorphicColors.TextSecondary
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.CalendarMonth,
+                        contentDescription = "Configure Exam Countdown",
+                        tint = NeumorphicColors.Primary,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
-                Icon(
-                    imageVector = Icons.Default.CalendarMonth,
-                    contentDescription = "Configure Exam Countdown",
-                    tint = NeumorphicColors.Primary,
-                    modifier = Modifier.size(20.dp)
+
+                HorizontalDivider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.2f))
+
+                Text(
+                    text = "ADD WIDGET TO PHONE HOME SCREEN",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 0.8.sp,
+                    color = NeumorphicColors.TextPrimary
                 )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                val mgr = android.appwidget.AppWidgetManager.getInstance(context)
+                                if (mgr.isRequestPinAppWidgetSupported) {
+                                    val provider = android.content.ComponentName(context, ExamCountdownWidgetReceiver::class.java)
+                                    mgr.requestPinAppWidget(provider, null, null)
+                                    Toast.makeText(context, "Adding Countdown & Stats Widget...", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Pinning widgets not supported by launcher.", Toast.LENGTH_SHORT).show()
+                                }
+                            } else {
+                                Toast.makeText(context, "Long-press home screen to pick widgets.", Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
+                    ) {
+                        Icon(imageVector = Icons.Default.Widgets, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.White)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Stats Widget", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+
+                    Button(
+                        onClick = {
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                val mgr = android.appwidget.AppWidgetManager.getInstance(context)
+                                if (mgr.isRequestPinAppWidgetSupported) {
+                                    val provider = android.content.ComponentName(context, ExamMatrixWidgetReceiver::class.java)
+                                    mgr.requestPinAppWidget(provider, null, null)
+                                    Toast.makeText(context, "Adding Matrix Calendar Widget...", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Pinning widgets not supported by launcher.", Toast.LENGTH_SHORT).show()
+                                }
+                            } else {
+                                Toast.makeText(context, "Long-press home screen to pick widgets.", Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6750A4))
+                    ) {
+                        Icon(imageVector = Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.White)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Matrix Widget", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
             }
         }
 

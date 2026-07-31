@@ -1,5 +1,7 @@
 package com.example.ui.screen.exams
 
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,12 +15,14 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -28,6 +32,8 @@ import com.example.data.db.entity.ExamEntity
 import com.example.ui.components.NeumorphicButton
 import com.example.ui.components.NeumorphicCard
 import com.example.ui.theme.NeumorphicColors
+import com.example.widget.ExamCountdownWidgetReceiver
+import com.example.widget.ExamMatrixWidgetReceiver
 import java.util.Calendar
 
 @Composable
@@ -37,6 +43,7 @@ fun ExamsScreen(
 ) {
     val examsList by viewModel.exams.collectAsState()
     var isDialogOpen by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     val todayCalendar = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 0)
@@ -74,7 +81,84 @@ fun ExamsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(bottom = 80.dp)
         ) {
-            if (examsList.isEmpty()) {
+            // Widget Pinning Card
+        item {
+            NeumorphicCard(
+                modifier = Modifier.fillMaxWidth(),
+                cornerRadius = 16.dp,
+                elevation = 6.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Widgets,
+                            contentDescription = "Widget Icon",
+                            tint = NeumorphicColors.Primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "HOME SCREEN WIDGETS",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 1.sp,
+                            color = NeumorphicColors.TextPrimary
+                        )
+                    }
+                    Text(
+                        text = "Add live day & night widgets directly to your phone home screen:",
+                        fontSize = 12.sp,
+                        color = NeumorphicColors.TextSecondary
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { requestPinWidgetToHomeScreen(context, ExamCountdownWidgetReceiver::class.java) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Widgets,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Stats Widget", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+
+                        Button(
+                            onClick = { requestPinWidgetToHomeScreen(context, ExamMatrixWidgetReceiver::class.java) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6750A4))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CalendarMonth,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Matrix Widget", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    }
+                }
+            }
+        }
+
+        if (examsList.isEmpty()) {
                 item {
                     Box(
                         modifier = Modifier
@@ -414,5 +498,20 @@ fun ExamsScreen(
                 }
             }
         )
+    }
+}
+
+private fun requestPinWidgetToHomeScreen(context: Context, receiverClass: Class<*>) {
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+        val appWidgetManager = android.appwidget.AppWidgetManager.getInstance(context)
+        if (appWidgetManager.isRequestPinAppWidgetSupported) {
+            val myProvider = android.content.ComponentName(context, receiverClass)
+            appWidgetManager.requestPinAppWidget(myProvider, null, null)
+            Toast.makeText(context, "Adding widget to home screen...", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Widget pinning is not supported by your launcher.", Toast.LENGTH_LONG).show()
+        }
+    } else {
+        Toast.makeText(context, "Long-press your home screen to pick Focus Flow widgets.", Toast.LENGTH_LONG).show()
     }
 }
