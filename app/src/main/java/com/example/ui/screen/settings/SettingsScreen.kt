@@ -281,34 +281,6 @@ fun SettingsScreen(
                         Text("Matrix Widget", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
-
-                Button(
-                    onClick = {
-                        try {
-                            val intent = android.content.Intent(android.app.WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).apply {
-                                putExtra(
-                                    android.app.WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
-                                    android.content.ComponentName(context, DayNightLiveWallpaperService::class.java)
-                                )
-                            }
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            try {
-                                val intent = android.content.Intent(android.app.WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
-                                context.startActivity(intent)
-                            } catch (e2: Exception) {
-                                Toast.makeText(context, "Live wallpaper chooser opened.", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E5B37))
-                ) {
-                    Icon(imageVector = Icons.Default.Wallpaper, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Set Auto Day/Night Phone Wallpaper", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                }
             }
         }
 
@@ -2043,6 +2015,34 @@ fun SettingsScreen(
                         },
                         modifier = Modifier.fillMaxWidth()
                     )
+                }
+
+                Button(
+                    onClick = {
+                        try {
+                            val intent = android.content.Intent(android.app.WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).apply {
+                                putExtra(
+                                    android.app.WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
+                                    android.content.ComponentName(context, DayNightLiveWallpaperService::class.java)
+                                )
+                            }
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            try {
+                                val intent = android.content.Intent(android.app.WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
+                                context.startActivity(intent)
+                            } catch (e2: Exception) {
+                                Toast.makeText(context, "Live wallpaper chooser opened.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E5B37))
+                ) {
+                    Icon(imageVector = Icons.Default.Wallpaper, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Set Live Auto Day/Night Wallpaper Service", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
         }

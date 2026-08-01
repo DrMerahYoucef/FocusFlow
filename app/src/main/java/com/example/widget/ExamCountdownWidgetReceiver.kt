@@ -1,31 +1,26 @@
 package com.example.widget
 
+import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.view.View
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Typeface
 import android.widget.RemoteViews
+import com.example.MainActivity
 import com.example.R
 import com.example.data.db.AppDatabase
+import com.example.data.db.entity.ExamEntity
 import com.example.data.db.entity.SessionEntity
-import com.example.ui.components.DeterministicTree
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.Calendar
-import android.graphics.Bitmap
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Canvas
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
-import kotlin.math.sin
 
 class ExamCountdownWidgetReceiver : AppWidgetProvider() {
 
@@ -70,570 +65,265 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
             set(Calendar.MILLISECOND, 0)
         }
 
+        val appIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            100,
+            appIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         CoroutineScope(Dispatchers.IO).launch {
-            val exams = examDao.getUpcomingExams(todayCalendar.timeInMillis)
-            val completedSessions = sessionDao.getAllSessionsList().filter { it.completed }
+            try {
+                val exams = examDao.getUpcomingExams(todayCalendar.timeInMillis)
+                val completedSessions = sessionDao.getAllSessionsList().filter { it.completed }
 
-            // Compute statistics
-            val totalSeconds = completedSessions.sumOf { it.durationSeconds }
-            val totalFocusHours = totalSeconds / 3600.0
-            val totalPoints = completedSessions.sumOf { it.focusScore }
-            val sessionsCount = completedSessions.size
-            val currentStreak = calculateStreak(completedSessions)
+                val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+                val isDay = hour in 6..17
 
-            val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-            val isDay = hour in 6..17
+                val widgetBitmap = renderStatsAndCountdownBitmap(
+                    isDay = isDay,
+                    upcomingExams = exams,
+                    completedSessions = completedSessions,
+                    todayMs = todayCalendar.timeInMillis
+                )
 
-            // Paint deterministic forest background custom bitmap matching current sessions count
-            val forestBitmap = getForestWidgetBitmap(context, isDay, sessionsCount)
+                for (widgetId in appWidgetIds) {
+                    val views = RemoteViews(context.packageName, R.layout.widget_countdown_layout)
 
-            for (i in 0 until appWidgetIds.size) {
-                val widgetId = appWidgetIds[i]
-                val views = RemoteViews(context.packageName, R.layout.widget_countdown_layout)
+                    views.setImageViewBitmap(R.id.widget_background, widgetBitmap)
+                    views.setOnClickPendingIntent(R.id.widget_container, pendingIntent)
 
-                // Assign rendered forest bitmap to image background
-                views.setImageViewBitmap(R.id.widget_background, forestBitmap)
-
-                // Adjust overlay background color to transparent and text themes depending on day/night
-                if (isDay) {
-                    views.setInt(R.id.widget_overlay, "setBackgroundColor", android.graphics.Color.TRANSPARENT)
-                    views.setTextColor(R.id.widget_title_label, android.graphics.Color.parseColor("#1B4324"))
-                    views.setTextColor(R.id.widget_stats_title_label, android.graphics.Color.parseColor("#1B4324"))
-                    views.setTextColor(R.id.widget_no_exams_text, android.graphics.Color.parseColor("#2E5B37"))
-                    
-                    // Left column Exam text colors
-                    views.setTextColor(R.id.widget_exam1_name, android.graphics.Color.parseColor("#1B4324"))
-                    views.setTextColor(R.id.widget_exam1_days, android.graphics.Color.parseColor("#6750A4"))
-                    views.setTextColor(R.id.widget_exam2_name, android.graphics.Color.parseColor("#2E5B37"))
-                    views.setTextColor(R.id.widget_exam2_days, android.graphics.Color.parseColor("#6750A4"))
-                    views.setTextColor(R.id.widget_exam3_name, android.graphics.Color.parseColor("#2E5B37"))
-                    views.setTextColor(R.id.widget_exam3_days, android.graphics.Color.parseColor("#6750A4"))
-
-                    // Stats Labels & Values
-                    views.setTextColor(R.id.widget_stat_focus_value, android.graphics.Color.parseColor("#1B4324"))
-                    views.setTextColor(R.id.widget_stat_focus_label, android.graphics.Color.parseColor("#4A6B53"))
-                    views.setTextColor(R.id.widget_stat_points_value, android.graphics.Color.parseColor("#1B4324"))
-                    views.setTextColor(R.id.widget_stat_points_label, android.graphics.Color.parseColor("#4A6B53"))
-                    views.setTextColor(R.id.widget_stat_sessions_value, android.graphics.Color.parseColor("#1B4324"))
-                    views.setTextColor(R.id.widget_stat_sessions_label, android.graphics.Color.parseColor("#4A6B53"))
-                    views.setTextColor(R.id.widget_stat_streak_value, android.graphics.Color.parseColor("#1B4324"))
-                    views.setTextColor(R.id.widget_stat_streak_label, android.graphics.Color.parseColor("#4A6B53"))
-                    
-                    // Divider
-                    views.setInt(R.id.widget_vertical_divider, "setBackgroundColor", android.graphics.Color.parseColor("#401B4324"))
-                } else {
-                    views.setInt(R.id.widget_overlay, "setBackgroundColor", android.graphics.Color.TRANSPARENT)
-                    views.setTextColor(R.id.widget_title_label, android.graphics.Color.parseColor("#9EA4B0"))
-                    views.setTextColor(R.id.widget_stats_title_label, android.graphics.Color.parseColor("#9EA4B0"))
-                    views.setTextColor(R.id.widget_no_exams_text, android.graphics.Color.parseColor("#CCCCCC"))
-
-                    // Left column Exam text colors
-                    views.setTextColor(R.id.widget_exam1_name, android.graphics.Color.parseColor("#FFFFFF"))
-                    views.setTextColor(R.id.widget_exam1_days, android.graphics.Color.parseColor("#8B84FF"))
-                    views.setTextColor(R.id.widget_exam2_name, android.graphics.Color.parseColor("#E0E4EC"))
-                    views.setTextColor(R.id.widget_exam2_days, android.graphics.Color.parseColor("#8B84FF"))
-                    views.setTextColor(R.id.widget_exam3_name, android.graphics.Color.parseColor("#E0E4EC"))
-                    views.setTextColor(R.id.widget_exam3_days, android.graphics.Color.parseColor("#8B84FF"))
-                    
-                    // Stats Labels & Values
-                    views.setTextColor(R.id.widget_stat_focus_value, android.graphics.Color.parseColor("#FFFFFF"))
-                    views.setTextColor(R.id.widget_stat_focus_label, android.graphics.Color.parseColor("#9EA4B0"))
-                    views.setTextColor(R.id.widget_stat_points_value, android.graphics.Color.parseColor("#FFFFFF"))
-                    views.setTextColor(R.id.widget_stat_points_label, android.graphics.Color.parseColor("#9EA4B0"))
-                    views.setTextColor(R.id.widget_stat_sessions_value, android.graphics.Color.parseColor("#FFFFFF"))
-                    views.setTextColor(R.id.widget_stat_sessions_label, android.graphics.Color.parseColor("#9EA4B0"))
-                    views.setTextColor(R.id.widget_stat_streak_value, android.graphics.Color.parseColor("#FFFFFF"))
-                    views.setTextColor(R.id.widget_stat_streak_label, android.graphics.Color.parseColor("#9EA4B0"))
-                    
-                    // Divider
-                    views.setInt(R.id.widget_vertical_divider, "setBackgroundColor", android.graphics.Color.parseColor("#33FFFFFF"))
+                    appWidgetManager.updateAppWidget(widgetId, views)
                 }
-
-                // Format and bind statistic numbers
-                val focusStr = if (totalFocusHours >= 10.0) {
-                    val fullHrs = totalFocusHours.toInt()
-                    "${fullHrs}h"
-                } else {
-                    val totalMinutes = (totalSeconds / 60)
-                    "${totalMinutes}m"
-                }
-
-                views.setTextViewText(R.id.widget_stat_focus_value, focusStr)
-                views.setTextViewText(R.id.widget_stat_points_value, "$totalPoints")
-                views.setTextViewText(R.id.widget_stat_sessions_value, "$sessionsCount")
-                views.setTextViewText(R.id.widget_stat_streak_value, "${currentStreak}d")
-
-                // Bind list of exams (up to 3 slots)
-                if (exams.isEmpty()) {
-                    views.setViewVisibility(R.id.widget_no_exams_text, View.VISIBLE)
-                    views.setViewVisibility(R.id.widget_exams_list_container, View.GONE)
-                } else {
-                    views.setViewVisibility(R.id.widget_no_exams_text, View.GONE)
-                    views.setViewVisibility(R.id.widget_exams_list_container, View.VISIBLE)
-
-                    // Slot 1
-                    if (exams.size > 0) {
-                        views.setViewVisibility(R.id.widget_exam1_container, View.VISIBLE)
-                        val ex = exams[0]
-                        views.setTextViewText(R.id.widget_exam1_name, ex.name)
-                        views.setTextViewText(R.id.widget_exam1_days, getDaysLeftStringSpecial(ex.examDate, todayCalendar.timeInMillis))
-                    } else {
-                        views.setViewVisibility(R.id.widget_exam1_container, View.GONE)
-                    }
-
-                    // Slot 2
-                    if (exams.size > 1) {
-                        views.setViewVisibility(R.id.widget_exam2_container, View.VISIBLE)
-                        val ex = exams[1]
-                        views.setTextViewText(R.id.widget_exam2_name, ex.name)
-                        views.setTextViewText(R.id.widget_exam2_days, getDaysLeftString(ex.examDate, todayCalendar.timeInMillis))
-                    } else {
-                        views.setViewVisibility(R.id.widget_exam2_container, View.GONE)
-                    }
-
-                    // Slot 3
-                    if (exams.size > 2) {
-                        views.setViewVisibility(R.id.widget_exam3_container, View.VISIBLE)
-                        val ex = exams[2]
-                        views.setTextViewText(R.id.widget_exam3_name, ex.name)
-                        views.setTextViewText(R.id.widget_exam3_days, getDaysLeftString(ex.examDate, todayCalendar.timeInMillis))
-                    } else {
-                        views.setViewVisibility(R.id.widget_exam3_container, View.GONE)
-                    }
-                }
-
-                appWidgetManager.updateAppWidget(widgetId, views)
+            } catch (e: Exception) {
+                android.util.Log.e("ExamCountdownWidgetReceiver", "Failed to update widgets", e)
             }
         }
     }
 
-    private fun getDaysLeftString(examTime: Long, todayTime: Long): String {
-        val examCalendar = Calendar.getInstance().apply {
-            timeInMillis = examTime
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        val diffMs = examCalendar.timeInMillis - todayTime
-        val daysLeft = (diffMs / (24 * 60 * 60 * 1000L)).toInt()
-        return when {
-            daysLeft < 0 -> "Passed"
-            daysLeft == 0 -> "Today"
-            else -> "${daysLeft}d"
-        }
-    }
-
-    private fun getDaysLeftStringSpecial(examTime: Long, todayTime: Long): String {
-        val examCalendar = Calendar.getInstance().apply {
-            timeInMillis = examTime
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        val diffMs = examCalendar.timeInMillis - todayTime
-        val daysLeft = (diffMs / (24 * 60 * 60 * 1000L)).toInt()
-        val adjustedDays = daysLeft + 2
-        return when {
-            adjustedDays < 0 -> "Passed"
-            adjustedDays == 0 -> "Today"
-            adjustedDays == 1 -> "1 Day"
-            else -> "$adjustedDays Days"
-        }
-    }
-
-    private fun calculateStreak(completedSessions: List<SessionEntity>): Int {
-        if (completedSessions.isEmpty()) return 0
-
-        val calendar = Calendar.getInstance()
-        val uniqueDays = completedSessions.map {
-            calendar.timeInMillis = it.date
-            calendar.set(Calendar.HOUR_OF_DAY, 0)
-            calendar.set(Calendar.MINUTE, 0)
-            calendar.set(Calendar.SECOND, 0)
-            calendar.set(Calendar.MILLISECOND, 0)
-            calendar.timeInMillis
-        }.distinct().sortedDescending()
-
-        if (uniqueDays.isEmpty()) return 0
-
-        var currentStreak = 0
-        val todayCalendar = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        val oneDayMillis = 24 * 60 * 60 * 1000L
-
-        val checkTime = todayCalendar.timeInMillis
-        val newestDay = uniqueDays.first()
-        if (newestDay != checkTime && newestDay != (checkTime - oneDayMillis)) {
-            return 0
-        }
-
-        if (newestDay == checkTime || newestDay == (checkTime - oneDayMillis)) {
-            currentStreak = 1
-            var lastDay = newestDay
-            for (i in 1 until uniqueDays.size) {
-                if (lastDay - uniqueDays[i] == oneDayMillis) {
-                    currentStreak++
-                    lastDay = uniqueDays[i]
-                } else if (lastDay - uniqueDays[i] > oneDayMillis) {
-                    break
-                }
-            }
-        }
-
-        return currentStreak
-    }
-
-    private fun getForestWidgetBitmap(
-        context: Context,
+    private fun renderStatsAndCountdownBitmap(
         isDay: Boolean,
-        treeCount: Int
+        upcomingExams: List<ExamEntity>,
+        completedSessions: List<SessionEntity>,
+        todayMs: Long
     ): Bitmap {
-        val W = 400f
-        val H = 300f
-        try {
-            val imageBitmap = ImageBitmap(W.toInt(), H.toInt())
-            val composeCanvas = Canvas(imageBitmap)
-            val drawScope = CanvasDrawScope()
+        val width = 680f
+        val height = 360f
+        val bitmap = Bitmap.createBitmap(width.toInt(), height.toInt(), Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
 
-            drawScope.draw(
-                density = androidx.compose.ui.unit.Density(context),
-                layoutDirection = androidx.compose.ui.unit.LayoutDirection.Ltr,
-                canvas = composeCanvas,
-                size = Size(W, H)
-            ) {
-                // Outer background remains transparent so launcher wallpaper shows through!
+        val totalSeconds = completedSessions.sumOf { it.durationSeconds }
+        val totalFocusHours = totalSeconds / 3600.0
+        val totalPoints = completedSessions.sumOf { it.focusScore }
+        val sessionsCount = completedSessions.size
+        val currentStreak = calculateStreak(completedSessions)
 
-                // Draw Neumorphic Glassy Container Card
-                val cardBgColor = if (isDay) Color(0x40FFFFFF) else Color(0x48101A28)
-                val cardBorderColor = if (isDay) Color(0x80FFFFFF) else Color(0x608B84FF)
-                val cardShadowColor = if (isDay) Color(0x354A6B53) else Color(0x40FFFFFF)
+        val cardBgColor = if (isDay) android.graphics.Color.parseColor("#40FFFFFF") else android.graphics.Color.parseColor("#48101A28")
+        val cardBorderColor = if (isDay) android.graphics.Color.parseColor("#80FFFFFF") else android.graphics.Color.parseColor("#608B84FF")
+        val cardShadowColor = if (isDay) android.graphics.Color.parseColor("#354A6B53") else android.graphics.Color.parseColor("#40FFFFFF")
 
-                drawRoundRect(
-                    color = cardBgColor,
-                    topLeft = Offset(6f, 6f),
-                    size = Size(W - 12f, H - 12f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(22f, 22f),
-                    style = androidx.compose.ui.graphics.drawscope.Fill
-                )
-                drawRoundRect(
-                    color = cardBorderColor,
-                    topLeft = Offset(6f, 6f),
-                    size = Size(W - 12f, H - 12f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(22f, 22f),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.5f)
-                )
-                drawRoundRect(
-                    color = cardShadowColor,
-                    topLeft = Offset(7.5f, 7.5f),
-                    size = Size(W - 15f, H - 15f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(20.5f, 20.5f),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1f)
-                )
-
-                if (!isDay) {
-                    // Draw stars
-                    val r = java.util.Random(101)
-                    repeat(20) {
-                        val sx = 14f + r.nextFloat() * (W - 28f)
-                        val sy = 14f + r.nextFloat() * (H * 0.45f)
-                        drawCircle(
-                            color = Color.White.copy(alpha = 0.4f + r.nextFloat() * 0.5f),
-                            radius = 1.2f + r.nextFloat() * 1.8f,
-                            center = Offset(sx, sy)
-                        )
-                    }
-                    // Moon visible on top-right corner side
-                    val moonCenter = Offset(W * 0.86f, H * 0.20f)
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(Color(0x44ADC6D1), Color.Transparent),
-                            center = moonCenter, radius = W * 0.30f
-                        ),
-                        radius = W * 0.30f, center = moonCenter
-                    )
-                    drawCircle(
-                        color = Color(0xFFE9F5F8),
-                        radius = W * 0.052f,
-                        center = moonCenter
-                    )
-                    drawCircle(
-                        color = Color(0xFF162536),
-                        radius = W * 0.045f,
-                        center = Offset(moonCenter.x - W * 0.018f, moonCenter.y - H * 0.01f)
-                    )
-                } else {
-                    // Sun visible on top-right corner side
-                    val sunCenter = Offset(W * 0.86f, H * 0.20f)
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(Color(0x66FFEFA8), Color(0x22FFD700), Color.Transparent),
-                            center = sunCenter, radius = W * 0.32f
-                        ),
-                        radius = W * 0.32f, center = sunCenter
-                    )
-                    drawCircle(
-                        color = Color(0xFFFFFCEB),
-                        radius = W * 0.060f,
-                        center = sunCenter
-                    )
-                    drawCircle(
-                        color = Color(0xFFFFEB3B),
-                        radius = W * 0.045f,
-                        center = sunCenter
-                    )
-                }
-
-                // Deterministic Tree Layout
-                val count = maxOf(treeCount, 1)
-                val layers = List(6) { ArrayList<DeterministicTree>() }
-                for (i in 0 until count) {
-                    val iLong = i.toLong()
-                    val seedX = (iLong * 19349663L) xor 0x5DEECE66DL
-                    val seedH = (iLong * 38260237L) xor 0x5DEECE66DL
-                    val seedW = (iLong * 85038241L) xor 0x5DEECE66DL
-
-                    val randX = (((seedX xor 12345L) % 10000L).toFloat() / 10000f).coerceIn(0f, 1f)
-                    val randH = (((seedH xor 54321L) % 10000L).toFloat() / 10000f).coerceIn(0f, 1f)
-                    val randW = (((seedW xor 98765L) % 10000L).toFloat() / 10000f).coerceIn(0f, 1f)
-
-                    val layerIdx = i % 6
-                    val xFraction = -0.12f + randX * 1.24f
-                    val heightScale = 0.70f + randH * 0.45f
-                    val widthScale = 0.75f + randW * 0.35f
-
-                    layers[layerIdx].add(
-                        DeterministicTree(
-                            xFraction = xFraction,
-                            heightScale = heightScale,
-                            horizontalSpacing = widthScale,
-                            layerIndex = layerIdx,
-                            itemIndex = i
-                        )
-                    )
-                }
-
-                val cachedTreePath = Path()
-                val cachedShadowPath = Path()
-
-                // Draw layers
-                for (layerIdx in 0..5) {
-                    val scale = when (layerIdx) {
-                        0 -> 0.35f
-                        1 -> 0.45f
-                        2 -> 0.58f
-                        3 -> 0.72f
-                        4 -> 0.86f
-                        else -> 1.00f
-                    }
-                    val yFraction = when (layerIdx) {
-                        0 -> 0.38f
-                        1 -> 0.30f
-                        2 -> 0.22f
-                        3 -> 0.14f
-                        4 -> 0.06f
-                        else -> 0.00f
-                    }
-                    val baseColor = when (layerIdx) {
-                        0 -> if (isDay) Color(0xFFCBE3CC) else Color(0xFF1E3A36)
-                        1 -> if (isDay) Color(0xFFADCEB1) else Color(0xFF162F2B)
-                        2 -> if (isDay) Color(0xFF8BB78F) else Color(0xFF112622)
-                        3 -> if (isDay) Color(0xFF639D69) else Color(0xFF0C1E1B)
-                        4 -> if (isDay) Color(0xFF42824B) else Color(0xFF071614)
-                        else -> if (isDay) Color(0xFF286532) else Color(0xFF030D0C)
-                    }
-
-                    val list = layers[layerIdx]
-                    val ceiling = when (layerIdx) {
-                        0 -> 10
-                        1 -> 12
-                        2 -> 15
-                        3 -> 18
-                        4 -> 20
-                        else -> 22
-                    }
-                    val treesInLayer = if (list.size <= ceiling) list else list.take(ceiling)
-
-                    val treeH = H * scale * 0.28f
-                    val treeW = treeH * 0.45f
-                    val baseY = H * (1f - yFraction)
-
-                    treesInLayer.forEach { tree ->
-                        val x = tree.xFraction * W
-                        val y = baseY + (tree.itemIndex % 2) * treeH * 0.04f
-                        val finalH = treeH * tree.heightScale
-                        val finalW = treeW * tree.horizontalSpacing
-
-                        // Draw tree
-                        cachedTreePath.reset()
-                        cachedTreePath.moveTo(x, y - finalH)
-                        cachedTreePath.lineTo(x - finalW * 0.14f, y - finalH + finalH * 0.10f)
-                        cachedTreePath.lineTo(x - finalW * 0.07f, y - finalH + finalH * 0.12f)
-                        cachedTreePath.lineTo(x - finalW * 0.23f, y - finalH + finalH * 0.22f)
-                        cachedTreePath.lineTo(x - finalW * 0.11f, y - finalH + finalH * 0.25f)
-                        cachedTreePath.lineTo(x - finalW * 0.33f, y - finalH + finalH * 0.36f)
-                        cachedTreePath.lineTo(x - finalW * 0.16f, y - finalH + finalH * 0.39f)
-                        cachedTreePath.lineTo(x - finalW * 0.43f, y - finalH + finalH * 0.49f)
-                        cachedTreePath.lineTo(x - finalW * 0.21f, y - finalH + finalH * 0.52f)
-                        cachedTreePath.lineTo(x - finalW * 0.53f, y - finalH + finalH * 0.64f)
-                        cachedTreePath.lineTo(x - finalW * 0.26f, y - finalH + finalH * 0.67f)
-                        cachedTreePath.lineTo(x - finalW * 0.63f, y - finalH + finalH * 0.78f)
-                        cachedTreePath.lineTo(x - finalW * 0.30f, y - finalH + finalH * 0.82f)
-                        cachedTreePath.lineTo(x - finalW * 0.72f, y - finalH + finalH * 0.94f)
-                        cachedTreePath.lineTo(x - finalW * 0.33f, y)
-                        cachedTreePath.lineTo(x - finalW * 0.08f, y)
-                        cachedTreePath.lineTo(x - finalW * 0.08f, y + finalH * 0.12f)
-                        cachedTreePath.lineTo(x + finalW * 0.08f, y + finalH * 0.12f)
-                        cachedTreePath.lineTo(x + finalW * 0.08f, y)
-                        cachedTreePath.lineTo(x + finalW * 0.33f, y)
-                        cachedTreePath.lineTo(x + finalW * 0.72f, y - finalH + finalH * 0.94f)
-                        cachedTreePath.lineTo(x + finalW * 0.30f, y - finalH + finalH * 0.82f)
-                        cachedTreePath.lineTo(x + finalW * 0.63f, y - finalH + finalH * 0.78f)
-                        cachedTreePath.lineTo(x + finalW * 0.26f, y - finalH + finalH * 0.67f)
-                        cachedTreePath.lineTo(x + finalW * 0.53f, y - finalH + finalH * 0.64f)
-                        cachedTreePath.lineTo(x + finalW * 0.21f, y - finalH + finalH * 0.52f)
-                        cachedTreePath.lineTo(x + finalW * 0.43f, y - finalH + finalH * 0.49f)
-                        cachedTreePath.lineTo(x + finalW * 0.16f, y - finalH + finalH * 0.39f)
-                        cachedTreePath.lineTo(x + finalW * 0.33f, y - finalH + finalH * 0.36f)
-                        cachedTreePath.lineTo(x + finalW * 0.11f, y - finalH + finalH * 0.25f)
-                        cachedTreePath.lineTo(x + finalW * 0.23f, y - finalH + finalH * 0.22f)
-                        cachedTreePath.lineTo(x + finalW * 0.07f, y - finalH + finalH * 0.12f)
-                        cachedTreePath.lineTo(x + finalW * 0.14f, y - finalH + finalH * 0.10f)
-                        cachedTreePath.close()
-
-                        drawPath(cachedTreePath, baseColor)
-
-                        // Draw simple shadows
-                        cachedShadowPath.reset()
-                        cachedShadowPath.moveTo(x, y - finalH)
-                        cachedShadowPath.lineTo(x + finalW * 0.14f, y - finalH + finalH * 0.10f)
-                        cachedShadowPath.lineTo(x + finalW * 0.07f, y - finalH + finalH * 0.12f)
-                        cachedShadowPath.lineTo(x + finalW * 0.23f, y - finalH + finalH * 0.22f)
-                        cachedShadowPath.lineTo(x + finalW * 0.11f, y - finalH + finalH * 0.25f)
-                        cachedShadowPath.lineTo(x + finalW * 0.33f, y - finalH + finalH * 0.36f)
-                        cachedShadowPath.lineTo(x + finalW * 0.16f, y - finalH + finalH * 0.39f)
-                        cachedShadowPath.lineTo(x + finalW * 0.43f, y - finalH + finalH * 0.49f)
-                        cachedShadowPath.lineTo(x + finalW * 0.21f, y - finalH + finalH * 0.52f)
-                        cachedShadowPath.lineTo(x + finalW * 0.53f, y - finalH + finalH * 0.64f)
-                        cachedShadowPath.lineTo(x + finalW * 0.26f, y - finalH + finalH * 0.67f)
-                        cachedShadowPath.lineTo(x + finalW * 0.63f, y - finalH + finalH * 0.78f)
-                        cachedShadowPath.lineTo(x + finalW * 0.30f, y - finalH + finalH * 0.82f)
-                        cachedShadowPath.lineTo(x + finalW * 0.72f, y - finalH + finalH * 0.94f)
-                        cachedShadowPath.lineTo(x + finalW * 0.33f, y)
-                        cachedShadowPath.lineTo(x + finalW * 0.08f, y)
-                        cachedShadowPath.lineTo(x + finalW * 0.08f, y + finalH * 0.12f)
-                        cachedShadowPath.lineTo(x, y + finalH * 0.12f)
-                        cachedShadowPath.lineTo(x, y)
-                        cachedShadowPath.lineTo(x, y - finalH)
-                        cachedShadowPath.close()
-
-                        val shadowOpacity = if (isDay) 0.18f else 0.24f
-                        drawPath(cachedShadowPath, Color.Black.copy(alpha = shadowOpacity))
-                    }
-
-                    // Fog drawing
-                    val fogColor = if (isDay) Color(0xFFE5FBF6) else Color(0xFF1F353A)
-                    val fogY = H * (1f - yFraction) - H * 0.02f
-                    val fogAlpha = when (layerIdx) {
-                        0 -> 0.12f
-                        1 -> 0.10f
-                        2 -> 0.08f
-                        3 -> 0.06f
-                        4 -> 0.05f
-                        else -> 0.04f
-                    }
-                    val fogScale = when (layerIdx) {
-                        0 -> 1.2f
-                        1 -> 1.0f
-                        2 -> 0.85f
-                        3 -> 0.70f
-                        4 -> 0.55f
-                        else -> 0.40f
-                    }
-
-                    val fogPath = Path()
-                    fogPath.moveTo(0f, H)
-                    val steps = 15
-                    val stepW = W / steps
-                    for (step in 0..steps) {
-                        val fx = step * stepW
-                        val waveY = fogY + sin(fx * 0.005f) * 8f * fogScale
-                        fogPath.lineTo(fx, waveY)
-                    }
-                    fogPath.lineTo(W, H)
-                    fogPath.close()
-
-                    val mistHeight = 110f * fogScale
-                    drawPath(
-                        path = fogPath,
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                fogColor.copy(alpha = fogAlpha * 0.7f),
-                                fogColor.copy(alpha = fogAlpha * 1.2f),
-                                Color.Transparent
-                            ),
-                            startY = fogY - mistHeight * 0.3f,
-                            endY = fogY + mistHeight * 0.7f
-                        )
-                    )
-                }
-            }
-            return imageBitmap.asAndroidBitmap()
-        } catch (e: Exception) {
-            android.util.Log.e("ExamCountdownWidget", "Failed to render forest background: ${e.message}")
-            val fallback = Bitmap.createBitmap(W.toInt(), H.toInt(), Bitmap.Config.ARGB_8888)
-            val canvas = android.graphics.Canvas(fallback)
-            val paint = android.graphics.Paint()
-            paint.color = if (isDay) android.graphics.Color.parseColor("#90DBE1") else android.graphics.Color.parseColor("#030A0E")
-            canvas.drawRect(0f, 0f, W, H, paint)
-            return fallback
+        val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = cardBgColor
+            style = Paint.Style.FILL
         }
+        val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = cardBorderColor
+            style = Paint.Style.STROKE
+            strokeWidth = 3f
+        }
+        val shadowBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = cardShadowColor
+            style = Paint.Style.STROKE
+            strokeWidth = 1.2f
+        }
+
+        val cardRect = RectF(10f, 10f, width - 10f, height - 10f)
+        val shadowRect = RectF(12f, 12f, width - 12f, height - 12f)
+        val innerRadius = 24f
+        canvas.drawRoundRect(cardRect, innerRadius, innerRadius, bgPaint)
+        canvas.drawRoundRect(cardRect, innerRadius, innerRadius, borderPaint)
+        canvas.drawRoundRect(shadowRect, innerRadius - 2f, innerRadius - 2f, shadowBorderPaint)
+
+        val subTitleColor = if (isDay) android.graphics.Color.parseColor("#4A6B53") else android.graphics.Color.parseColor("#9EA4B0")
+        val textColor = if (isDay) android.graphics.Color.parseColor("#1B4324") else android.graphics.Color.parseColor("#FFFFFF")
+        val accentColor = if (isDay) android.graphics.Color.parseColor("#6750A4") else android.graphics.Color.parseColor("#8B84FF")
+
+        val subTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = subTitleColor
+            textSize = 15f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        }
+        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = textColor
+            textSize = 17f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        }
+        val accentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = accentColor
+            textSize = 17f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        }
+
+        // LEFT COLUMN: Upcoming Exams
+        canvas.drawText("🎯 UPCOMING EXAMS", 32f, 50f, subTitlePaint)
+
+        if (upcomingExams.isEmpty()) {
+            val noExamsPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = subTitleColor
+                textSize = 16f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
+            }
+            canvas.drawText("No upcoming exams listed.", 32f, 120f, noExamsPaint)
+            canvas.drawText("Great time to study!", 32f, 150f, noExamsPaint)
+        } else {
+            var startY = 100f
+            for (i in 0 until minOf(upcomingExams.size, 3)) {
+                val exam = upcomingExams[i]
+                val name = if (exam.name.length > 15) exam.name.take(13) + "…" else exam.name
+                val daysStr = getDaysLeftStringSpecial(exam.examDate, todayMs)
+
+                canvas.drawText(name, 32f, startY, textPaint)
+                val daysWidth = accentPaint.measureText(daysStr)
+                canvas.drawText(daysStr, 310f - daysWidth, startY, accentPaint)
+                startY += 75f
+            }
+        }
+
+        // VERTICAL DIVIDER LINE
+        val dividerColor = if (isDay) android.graphics.Color.parseColor("#401B4324") else android.graphics.Color.parseColor("#33FFFFFF")
+        val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = dividerColor
+            strokeWidth = 2f
+        }
+        canvas.drawLine(330f, 30f, 330f, height - 30f, dividerPaint)
+
+        // RIGHT COLUMN: Focus Stats
+        canvas.drawText("📊 ISLAND STATS", 360f, 50f, subTitlePaint)
+
+        val focusStr = if (totalFocusHours >= 10.0) {
+            "${totalFocusHours.toInt()}h"
+        } else {
+            "${totalSeconds / 60}m"
+        }
+
+        val stats = listOf(
+            Pair("⏱️ Focus", focusStr),
+            Pair("⭐ Points", "$totalPoints"),
+            Pair("✅ Sessions", "$sessionsCount"),
+            Pair("🔥 Streak", "${currentStreak}d")
+        )
+
+        var statY = 105f
+        for ((label, valStr) in stats) {
+            val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = subTitleColor
+                textSize = 16f
+            }
+            val valPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = textColor
+                textSize = 18f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            }
+            canvas.drawText(label, 360f, statY, labelPaint)
+            val valWidth = valPaint.measureText(valStr)
+            canvas.drawText(valStr, width - 32f - valWidth, statY, valPaint)
+            statY += 60f
+        }
+
+        return bitmap
     }
 
     companion object {
-        fun triggerWidgetUpdate(context: Context) {
-            val intent1 = Intent(context, ExamCountdownWidgetReceiver::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+        fun getDaysLeftStringSpecial(examTime: Long, todayTime: Long): String {
+            val examCalendar = Calendar.getInstance().apply {
+                timeInMillis = examTime
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
             }
-            context.sendBroadcast(intent1)
+            val diffMs = examCalendar.timeInMillis - todayTime
+            val days = (diffMs / (1000 * 60 * 60 * 24)).toInt()
 
-            val intent2 = Intent(context, ExamMatrixWidgetReceiver::class.java).apply {
+            return when {
+                days == 0 -> "TODAY"
+                days == 1 -> "1 Day"
+                days > 1 -> "$days Days"
+                else -> "Passed"
+            }
+        }
+
+        fun calculateStreak(sessions: List<SessionEntity>): Int {
+            if (sessions.isEmpty()) return 0
+            val dates = sessions.map { session ->
+                val cal = Calendar.getInstance().apply {
+                    timeInMillis = session.date
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                cal.timeInMillis
+            }.distinct().sortedDescending()
+
+            if (dates.isEmpty()) return 0
+
+            val today = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+
+            val yesterday = today - (24 * 60 * 60 * 1000L)
+
+            if (!dates.contains(today) && !dates.contains(yesterday)) {
+                return 0
+            }
+
+            var streak = 0
+            var checkDate = if (dates.contains(today)) today else yesterday
+
+            while (dates.contains(checkDate)) {
+                streak++
+                checkDate -= (24 * 60 * 60 * 1000L)
+            }
+
+            return streak
+        }
+
+        fun triggerWidgetUpdate(context: Context) {
+            val intent = Intent(context, ExamCountdownWidgetReceiver::class.java).apply {
                 action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
             }
-            context.sendBroadcast(intent2)
+            context.sendBroadcast(intent)
         }
 
         fun scheduleDayNightAlarm(context: Context) {
-            try {
-                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager ?: return
-                val intent = Intent(context, ExamCountdownWidgetReceiver::class.java).apply {
-                    action = "com.example.ACTION_WIDGET_AUTO_UPDATE"
-                }
-                val pendingIntent = android.app.PendingIntent.getBroadcast(
-                    context,
-                    9901,
-                    intent,
-                    android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
-                )
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager
+                ?: return
 
-                // Schedule alarm for every hour or exact 6 AM / 6 PM boundary
-                val now = System.currentTimeMillis()
-                val nextHour = now + (30 * 60 * 1000L) // 30 minutes
-                alarmManager.setInexactRepeating(
-                    android.app.AlarmManager.RTC,
-                    nextHour,
-                    android.app.AlarmManager.INTERVAL_HALF_HOUR,
-                    pendingIntent
-                )
-            } catch (e: Exception) {
-                android.util.Log.e("ExamCountdownWidget", "Error scheduling alarm: ${e.message}")
+            val intent = Intent(context, ExamCountdownWidgetReceiver::class.java).apply {
+                action = "com.example.ACTION_WIDGET_AUTO_UPDATE"
             }
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                9901,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val now = System.currentTimeMillis()
+            val nextHour = now + (30 * 60 * 1000L)
+            alarmManager.setInexactRepeating(
+                android.app.AlarmManager.RTC,
+                nextHour,
+                android.app.AlarmManager.INTERVAL_HALF_HOUR,
+                pendingIntent
+            )
         }
     }
 }

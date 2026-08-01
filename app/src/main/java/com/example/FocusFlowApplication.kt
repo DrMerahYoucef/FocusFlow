@@ -25,6 +25,7 @@ class FocusFlowApplication : Application() {
         try {
             RevisionReminderWorker.createNotificationChannel(this)
             RevisionSyncWorker.schedulePeriodicSyncWork(this)
+            com.example.widget.ExamCountdownWidgetReceiver.scheduleDayNightAlarm(this)
         } catch (e: Throwable) {
             android.util.Log.e("FocusFlowApplication", "Failed to init revision services", e)
         }

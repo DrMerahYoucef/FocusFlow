@@ -32,8 +32,6 @@ import com.example.data.db.entity.ExamEntity
 import com.example.ui.components.NeumorphicButton
 import com.example.ui.components.NeumorphicCard
 import com.example.ui.theme.NeumorphicColors
-import androidx.compose.material.icons.filled.Wallpaper
-import com.example.service.DayNightLiveWallpaperService
 import com.example.widget.ExamCountdownWidgetReceiver
 import com.example.widget.ExamMatrixWidgetReceiver
 import java.util.Calendar
@@ -115,7 +113,7 @@ fun ExamsScreen(
                         )
                     }
                     Text(
-                        text = "Add live glassy widgets and dynamic auto day/night phone wallpaper:",
+                        text = "Add live glassy widgets to your home screen:",
                         fontSize = 12.sp,
                         color = NeumorphicColors.TextSecondary
                     )
@@ -155,22 +153,6 @@ fun ExamsScreen(
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Matrix Widget", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         }
-                    }
-
-                    Button(
-                        onClick = { launchLiveWallpaperPicker(context) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E5B37))
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Wallpaper,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = Color.White
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Set Auto Day/Night Phone Wallpaper", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }
@@ -531,24 +513,5 @@ private fun requestPinWidgetToHomeScreen(context: Context, receiverClass: Class<
         }
     } else {
         Toast.makeText(context, "Long-press your home screen to pick Focus Flow widgets.", Toast.LENGTH_LONG).show()
-    }
-}
-
-private fun launchLiveWallpaperPicker(context: Context) {
-    try {
-        val intent = android.content.Intent(android.app.WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).apply {
-            putExtra(
-                android.app.WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
-                android.content.ComponentName(context, DayNightLiveWallpaperService::class.java)
-            )
-        }
-        context.startActivity(intent)
-    } catch (e: Exception) {
-        try {
-            val intent = android.content.Intent(android.app.WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
-            context.startActivity(intent)
-        } catch (e2: Exception) {
-            Toast.makeText(context, "Live wallpaper setup opened.", Toast.LENGTH_SHORT).show()
-        }
     }
 }
