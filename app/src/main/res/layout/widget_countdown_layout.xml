@@ -4,14 +4,14 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Dynamically rendered day/night forest background -->
+    <!-- Neumorphic Translucent Rendered Background Image -->
     <ImageView
         android:id="@+id/widget_background"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:scaleType="centerCrop" />
+        android:scaleType="fitXY" />
 
-    <!-- Semi-transparent overlay to ensure extreme readability and visual polish -->
+    <!-- Overlay Content Container -->
     <LinearLayout
         android:id="@+id/widget_overlay"
         android:layout_width="match_parent"
@@ -28,15 +28,31 @@
             android:orientation="vertical"
             android:layout_marginEnd="8dp">
 
-            <TextView
-                android:id="@+id/widget_title_label"
+            <!-- Title Header with Calendar Icon -->
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🎯 UPCOMING EXAMS"
-                android:textColor="#9EA4B0"
-                android:textSize="9sp"
-                android:textStyle="bold"
-                android:letterSpacing="0.08" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:id="@+id/widget_icon_exams_header"
+                    android:layout_width="13dp"
+                    android:layout_height="13dp"
+                    android:src="@drawable/ic_widget_calendar"
+                    android:layout_marginEnd="5dp"
+                    android:contentDescription="Exams Header Icon" />
+
+                <TextView
+                    android:id="@+id/widget_title_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="UPCOMING EXAMS"
+                    android:textColor="#111827"
+                    android:textSize="9.5sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.08" />
+            </LinearLayout>
 
             <!-- No exams text -->
             <TextView
@@ -45,8 +61,8 @@
                 android:layout_height="match_parent"
                 android:gravity="center_vertical"
                 android:text="No upcoming exams listed. Great time to study!"
-                android:textColor="#CCCCCC"
-                android:textSize="12sp"
+                android:textColor="#64748B"
+                android:textSize="11.5sp"
                 android:textStyle="italic"
                 android:visibility="gone" />
 
@@ -66,8 +82,8 @@
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:paddingTop="4dp"
-                    android:paddingBottom="4dp"
+                    android:paddingTop="3dp"
+                    android:paddingBottom="3dp"
                     android:visibility="visible">
                     <TextView
                         android:id="@+id/widget_exam1_name"
@@ -75,8 +91,8 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Math 101"
-                        android:textColor="#FFFFFF"
-                        android:textSize="15sp"
+                        android:textColor="#111827"
+                        android:textSize="14sp"
                         android:textStyle="bold"
                         android:maxLines="1"
                         android:ellipsize="end" />
@@ -85,8 +101,8 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="3 Days"
-                        android:textColor="#8B84FF"
-                        android:textSize="14sp"
+                        android:textColor="#2563EB"
+                        android:textSize="12.5sp"
                         android:textStyle="bold"
                         android:layout_marginStart="4dp" />
                 </LinearLayout>
@@ -107,7 +123,7 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Physics II"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#111827"
                         android:textSize="12sp"
                         android:maxLines="1"
                         android:ellipsize="end" />
@@ -116,7 +132,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="12d"
-                        android:textColor="#8B84FF"
+                        android:textColor="#2563EB"
                         android:textSize="11sp"
                         android:layout_marginStart="4dp" />
                 </LinearLayout>
@@ -137,7 +153,7 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Chemistry"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#111827"
                         android:textSize="12sp"
                         android:maxLines="1"
                         android:ellipsize="end" />
@@ -146,7 +162,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="18d"
-                        android:textColor="#8B84FF"
+                        android:textColor="#2563EB"
                         android:textSize="11sp"
                         android:layout_marginStart="4dp" />
                 </LinearLayout>
@@ -161,7 +177,7 @@
             android:layout_height="match_parent"
             android:layout_marginTop="2dp"
             android:layout_marginBottom="2dp"
-            android:background="#33FFFFFF" />
+            android:background="#20000000" />
 
         <!-- Column Right: Focus Stats -->
         <LinearLayout
@@ -172,16 +188,32 @@
             android:layout_marginStart="10dp"
             android:gravity="center_vertical">
 
-            <TextView
-                android:id="@+id/widget_stats_title_label"
+            <!-- Stats Header with Stats Icon -->
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="📊 ISLAND STATS"
-                android:textColor="#9EA4B0"
-                android:textSize="9sp"
-                android:textStyle="bold"
-                android:letterSpacing="0.08"
-                android:layout_marginBottom="6dp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="6dp">
+
+                <ImageView
+                    android:id="@+id/widget_icon_stats_header"
+                    android:layout_width="13dp"
+                    android:layout_height="13dp"
+                    android:src="@drawable/ic_widget_stats"
+                    android:layout_marginEnd="5dp"
+                    android:contentDescription="Stats Header Icon" />
+
+                <TextView
+                    android:id="@+id/widget_stats_title_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="FOCUS STATS"
+                    android:textColor="#111827"
+                    android:textSize="9.5sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.08" />
+            </LinearLayout>
 
             <!-- Stat Row: Focus -->
             <LinearLayout
@@ -190,20 +222,29 @@
                 android:orientation="horizontal"
                 android:layout_marginBottom="3dp"
                 android:gravity="center_vertical">
+
+                <ImageView
+                    android:id="@+id/widget_icon_focus"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:src="@drawable/ic_widget_clock"
+                    android:layout_marginEnd="4dp"
+                    android:contentDescription="Focus Icon" />
+
                 <TextView
                     android:id="@+id/widget_stat_focus_label"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="⏱️ Focus"
-                    android:textColor="#9EA4B0"
+                    android:text="Focus"
+                    android:textColor="#64748B"
                     android:textSize="11sp" />
                 <TextView
                     android:id="@+id/widget_stat_focus_value"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="0h"
-                    android:textColor="#FFFFFF"
+                    android:textColor="#111827"
                     android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
@@ -215,20 +256,29 @@
                 android:orientation="horizontal"
                 android:layout_marginBottom="3dp"
                 android:gravity="center_vertical">
+
+                <ImageView
+                    android:id="@+id/widget_icon_points"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:src="@drawable/ic_widget_star"
+                    android:layout_marginEnd="4dp"
+                    android:contentDescription="Points Icon" />
+
                 <TextView
                     android:id="@+id/widget_stat_points_label"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="⭐ Points"
-                    android:textColor="#9EA4B0"
+                    android:text="Points"
+                    android:textColor="#64748B"
                     android:textSize="11sp" />
                 <TextView
                     android:id="@+id/widget_stat_points_value"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="0"
-                    android:textColor="#FFFFFF"
+                    android:textColor="#111827"
                     android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
@@ -240,20 +290,29 @@
                 android:orientation="horizontal"
                 android:layout_marginBottom="3dp"
                 android:gravity="center_vertical">
+
+                <ImageView
+                    android:id="@+id/widget_icon_sessions"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:src="@drawable/ic_widget_check"
+                    android:layout_marginEnd="4dp"
+                    android:contentDescription="Sessions Icon" />
+
                 <TextView
                     android:id="@+id/widget_stat_sessions_label"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="✅ Sessions"
-                    android:textColor="#9EA4B0"
+                    android:text="Sessions"
+                    android:textColor="#64748B"
                     android:textSize="11sp" />
                 <TextView
                     android:id="@+id/widget_stat_sessions_value"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="0"
-                    android:textColor="#FFFFFF"
+                    android:textColor="#111827"
                     android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
@@ -264,20 +323,29 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
+
+                <ImageView
+                    android:id="@+id/widget_icon_streak"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:src="@drawable/ic_widget_flame"
+                    android:layout_marginEnd="4dp"
+                    android:contentDescription="Streak Icon" />
+
                 <TextView
                     android:id="@+id/widget_stat_streak_label"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="🔥 Streak"
-                    android:textColor="#9EA4B0"
+                    android:text="Streak"
+                    android:textColor="#64748B"
                     android:textSize="11sp" />
                 <TextView
                     android:id="@+id/widget_stat_streak_value"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="0d"
-                    android:textColor="#FFFFFF"
+                    android:textColor="#111827"
                     android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>

@@ -8,12 +8,8 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.LinearGradient
 import android.graphics.Paint
-import android.graphics.Path
-import android.graphics.RadialGradient
 import android.graphics.RectF
-import android.graphics.Shader
 import android.graphics.Typeface
 import android.widget.RemoteViews
 import com.example.MainActivity
@@ -74,7 +70,6 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
             val upcomingExams = examDao.getUpcomingExams(todayCalendar.timeInMillis)
             val matrixBitmap = generateMatrixBitmap(todayCalendar, upcomingExams, isDay)
 
-            // Intent to open app on widget click
             val appIntent = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
@@ -104,32 +99,68 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
         val bitmap = Bitmap.createBitmap(width.toInt(), height.toInt(), Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
-        // 1. Draw Glassy Container Card for Matrix Grid (Background is transparent so launcher wallpaper shows through)
-        val cardBgColor = if (isDay) android.graphics.Color.parseColor("#40FFFFFF") else android.graphics.Color.parseColor("#48101A28")
-        val cardBorderColor = if (isDay) android.graphics.Color.parseColor("#80FFFFFF") else android.graphics.Color.parseColor("#608B84FF")
-        val cardShadowColor = if (isDay) android.graphics.Color.parseColor("#354A6B53") else android.graphics.Color.parseColor("#40FFFFFF")
+        // 1. Draw Neumorphic Translucent Card Background
+        val margin = 16f
+        val cardRect = RectF(margin, margin, width - margin, height - margin)
+        val corner = 32f
 
-        val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = cardBgColor
-            style = Paint.Style.FILL
-        }
-        val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = cardBorderColor
-            style = Paint.Style.STROKE
-            strokeWidth = 3f
-        }
-        val shadowBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = cardShadowColor
-            style = Paint.Style.STROKE
-            strokeWidth = 1.2f
-        }
+        if (isDay) {
+            // White / Light Mode Neumorphic Translucent Card
+            val darkShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.parseColor("#288C9BAE")
+                style = Paint.Style.FILL
+            }
+            val lightGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.parseColor("#F0FFFFFF")
+                style = Paint.Style.FILL
+            }
+            val bodyFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.parseColor("#EDF3F6F9") // Translucent clean white
+                style = Paint.Style.FILL
+            }
+            val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.parseColor("#90FFFFFF")
+                style = Paint.Style.STROKE
+                strokeWidth = 2.5f
+            }
 
-        val cardRect = RectF(12f, 12f, width - 12f, height - 12f)
-        val shadowRect = RectF(14f, 14f, width - 14f, height - 14f)
-        val innerRadius = 24f
-        canvas.drawRoundRect(cardRect, innerRadius, innerRadius, bgPaint)
-        canvas.drawRoundRect(cardRect, innerRadius, innerRadius, borderPaint)
-        canvas.drawRoundRect(shadowRect, innerRadius - 2f, innerRadius - 2f, shadowBorderPaint)
+            // Bottom-right shadow
+            canvas.drawRoundRect(RectF(margin + 6f, margin + 6f, width - margin + 6f, height - margin + 6f), corner, corner, darkShadowPaint)
+            // Top-left glow
+            canvas.drawRoundRect(RectF(margin - 4f, margin - 4f, width - margin - 4f, height - margin - 4f), corner, corner, lightGlowPaint)
+            // Body fill
+            canvas.drawRoundRect(cardRect, corner, corner, bodyFillPaint)
+            // Glassy rim border
+            canvas.drawRoundRect(cardRect, corner, corner, borderPaint)
+        } else {
+            // Dark / Black Mode Neumorphic Translucent Card
+            val darkShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.parseColor("#95000000")
+                style = Paint.Style.FILL
+            }
+            val lightGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.parseColor("#28FFFFFF")
+                style = Paint.Style.FILL
+            }
+            val bodyFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.parseColor("#ED0F131A") // Translucent clean black
+                style = Paint.Style.FILL
+            }
+            val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.parseColor("#22FFFFFF")
+                style = Paint.Style.STROKE
+                strokeWidth = 2.2f
+            }
+
+            // Bottom-right shadow
+            canvas.drawRoundRect(RectF(margin + 6f, margin + 6f, width - margin + 6f, height - margin + 6f), corner, corner, darkShadowPaint)
+            // Top-left glow
+            canvas.drawRoundRect(RectF(margin - 3f, margin - 3f, width - margin - 3f, height - margin - 3f), corner, corner, lightGlowPaint)
+            // Body fill
+            canvas.drawRoundRect(cardRect, corner, corner, bodyFillPaint)
+            // Glassy rim border
+            canvas.drawRoundRect(cardRect, corner, corner, borderPaint)
+        }
 
         // 2. Calculate Matrix Dates & Values
         val monthLabels = arrayOf("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")
@@ -166,9 +197,9 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
             if (it.get(Calendar.YEAR) == currentYear) it.get(Calendar.DAY_OF_YEAR) else null
         }
 
-        // 6. Color Schemes for Matrix Elements (Day vs Night)
-        val activeMonthColor = if (isDay) android.graphics.Color.parseColor("#1B4324") else android.graphics.Color.parseColor("#FFFFFF")
-        val dimMonthColor = if (isDay) android.graphics.Color.parseColor("#4A6B53") else android.graphics.Color.parseColor("#7A808E")
+        // 3. Color Schemes for Matrix Elements
+        val activeMonthColor = if (isDay) android.graphics.Color.parseColor("#111827") else android.graphics.Color.parseColor("#F9FAFB")
+        val dimMonthColor = if (isDay) android.graphics.Color.parseColor("#64748B") else android.graphics.Color.parseColor("#9CA3AF")
 
         val labelPaintActive = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = activeMonthColor
@@ -181,13 +212,13 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
         }
 
-        val passedColor = if (isDay) android.graphics.Color.parseColor("#286532") else android.graphics.Color.parseColor("#E0E4EC")
-        val todayRingColor = if (isDay) android.graphics.Color.parseColor("#00838F") else android.graphics.Color.parseColor("#00E5FF")
-        val todayInnerColor = if (isDay) android.graphics.Color.parseColor("#00838F") else android.graphics.Color.parseColor("#00E5FF")
-        val runupColor = if (isDay) android.graphics.Color.parseColor("#6750A4") else android.graphics.Color.parseColor("#8B84FF")
-        val examOuterColor = if (isDay) android.graphics.Color.parseColor("#D32F2F") else android.graphics.Color.parseColor("#FF5252")
-        val examInnerColor = if (isDay) android.graphics.Color.parseColor("#D32F2F") else android.graphics.Color.parseColor("#FF5252")
-        val futureColor = if (isDay) android.graphics.Color.parseColor("#A0B0A8") else android.graphics.Color.parseColor("#2C2F38")
+        val passedColor = if (isDay) android.graphics.Color.parseColor("#334155") else android.graphics.Color.parseColor("#E5E7EB")
+        val todayRingColor = if (isDay) android.graphics.Color.parseColor("#2563EB") else android.graphics.Color.parseColor("#60A5FA")
+        val todayInnerColor = if (isDay) android.graphics.Color.parseColor("#2563EB") else android.graphics.Color.parseColor("#60A5FA")
+        val runupColor = if (isDay) android.graphics.Color.parseColor("#7C3AED") else android.graphics.Color.parseColor("#A78BFA")
+        val examOuterColor = if (isDay) android.graphics.Color.parseColor("#DC2626") else android.graphics.Color.parseColor("#EF4444")
+        val examInnerColor = if (isDay) android.graphics.Color.parseColor("#DC2626") else android.graphics.Color.parseColor("#EF4444")
+        val futureColor = if (isDay) android.graphics.Color.parseColor("#CBD5E1") else android.graphics.Color.parseColor("#374151")
 
         val dotPassedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = passedColor
@@ -221,8 +252,8 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
         }
 
         // Layout Geometry
-        val gridTop = 40f
-        val gridHeight = 356f
+        val gridTop = 38f
+        val gridHeight = 358f
         val rowHeight = gridHeight / 12f
         val startX = 142f
         val endX = width - 42f
@@ -235,12 +266,10 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
             val rowY = gridTop + (m * rowHeight) + (rowHeight / 2f) + 4f
             val isCurrentMonth = (m == currentMonth)
 
-            // Draw Month Label
             val labelText = monthLabels[m]
             val lPaint = if (isCurrentMonth) labelPaintActive else labelPaintDim
             canvas.drawText(labelText, 42f, rowY + 6f, lPaint)
 
-            // Days in month m
             tempCal.set(currentYear, m, 1)
             val daysInMonth = tempCal.getActualMaximum(Calendar.DAY_OF_MONTH)
 
@@ -276,9 +305,9 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
             }
         }
 
-        // 7. Footer Divider & Action Label Text
+        // 4. Footer Divider & Action Label Text
         val footerLineY = 414f
-        val dividerColor = if (isDay) android.graphics.Color.parseColor("#301B4324") else android.graphics.Color.parseColor("#30FFFFFF")
+        val dividerColor = if (isDay) android.graphics.Color.parseColor("#20000000") else android.graphics.Color.parseColor("#1FFFFFFF")
         val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = dividerColor
             strokeWidth = 1.5f
@@ -286,8 +315,8 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
         canvas.drawLine(42f, footerLineY, endX, footerLineY, dividerPaint)
 
         val footerY = 450f
-        val footerLeftColor = if (isDay) android.graphics.Color.parseColor("#1B4324") else android.graphics.Color.parseColor("#FFFFFF")
-        val footerRightColor = if (isDay) android.graphics.Color.parseColor("#6750A4") else android.graphics.Color.parseColor("#8B84FF")
+        val footerLeftColor = if (isDay) android.graphics.Color.parseColor("#111827") else android.graphics.Color.parseColor("#F9FAFB")
+        val footerRightColor = if (isDay) android.graphics.Color.parseColor("#2563EB") else android.graphics.Color.parseColor("#60A5FA")
 
         val textLeftPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = footerLeftColor
