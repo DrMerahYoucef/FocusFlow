@@ -4,12 +4,13 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Neumorphic Translucent Rendered Background Image -->
+    <!-- Transparent Rendered Background Image -->
     <ImageView
         android:id="@+id/widget_background"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:scaleType="fitXY" />
+        android:scaleType="fitXY"
+        android:background="@android:color/transparent" />
 
     <!-- Overlay Content Container -->
     <LinearLayout

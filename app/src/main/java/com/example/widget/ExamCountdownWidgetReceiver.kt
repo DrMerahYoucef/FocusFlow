@@ -6,15 +6,12 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.PorterDuff
 import android.view.View
 import android.widget.RemoteViews
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Canvas
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.core.graphics.ColorUtils
 import com.example.R
 import com.example.data.db.AppDatabase
 import com.example.data.db.entity.SessionEntity
@@ -43,9 +40,14 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         scheduleDayNightAlarm(context)
-        val manager = AppWidgetManager.getInstance(context)
-        val ids = manager.getAppWidgetIds(ComponentName(context, ExamCountdownWidgetReceiver::class.java))
-        updateAllWidgets(context, manager, ids)
+        if (intent.action == Intent.ACTION_WALLPAPER_CHANGED ||
+            intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE ||
+            intent.action == "com.example.ACTION_WIDGET_AUTO_UPDATE"
+        ) {
+            val manager = AppWidgetManager.getInstance(context)
+            val ids = manager.getAppWidgetIds(ComponentName(context, ExamCountdownWidgetReceiver::class.java))
+            updateAllWidgets(context, manager, ids)
+        }
     }
 
     private fun updateAllWidgets(
@@ -77,94 +79,55 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
             val sessionsCount = completedSessions.size
             val currentStreak = calculateStreak(completedSessions)
 
-            val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-            val isDay = hour in 6..17
+            // Extract wallpaper palette
+            val palette = WallpaperColorExtractor.extract(context)
+            val textColor = palette.textColor
+            val secondaryTextColor = ColorUtils.setAlphaComponent(textColor, 0x99)
+            val accentColor = if (textColor == Color.WHITE) Color.parseColor("#60A5FA") else Color.parseColor("#2563EB")
 
-            // Render sleek professional Neumorphic translucent card bitmap
-            val neumorphicBitmap = getNeumorphicWidgetBitmap(context, isDay)
+            val transparentBitmap = getTransparentWidgetBitmap()
 
             for (i in 0 until appWidgetIds.size) {
                 val widgetId = appWidgetIds[i]
                 val views = RemoteViews(context.packageName, R.layout.widget_countdown_layout)
 
-                // Assign neumorphic bitmap to image background
-                views.setImageViewBitmap(R.id.widget_background, neumorphicBitmap)
+                // Assign transparent background bitmap
+                views.setImageViewBitmap(R.id.widget_background, transparentBitmap)
+                views.setInt(R.id.widget_overlay, "setBackgroundColor", Color.TRANSPARENT)
 
-                if (isDay) {
-                    views.setInt(R.id.widget_overlay, "setBackgroundColor", android.graphics.Color.TRANSPARENT)
-                    
-                    // Headers
-                    views.setTextColor(R.id.widget_title_label, android.graphics.Color.parseColor("#111827"))
-                    views.setTextColor(R.id.widget_stats_title_label, android.graphics.Color.parseColor("#111827"))
-                    views.setTextColor(R.id.widget_no_exams_text, android.graphics.Color.parseColor("#64748B"))
+                // Headers
+                views.setTextColor(R.id.widget_title_label, textColor)
+                views.setTextColor(R.id.widget_stats_title_label, textColor)
+                views.setTextColor(R.id.widget_no_exams_text, secondaryTextColor)
 
-                    // Left Column Exam Items
-                    views.setTextColor(R.id.widget_exam1_name, android.graphics.Color.parseColor("#111827"))
-                    views.setTextColor(R.id.widget_exam1_days, android.graphics.Color.parseColor("#2563EB"))
-                    views.setTextColor(R.id.widget_exam2_name, android.graphics.Color.parseColor("#374151"))
-                    views.setTextColor(R.id.widget_exam2_days, android.graphics.Color.parseColor("#2563EB"))
-                    views.setTextColor(R.id.widget_exam3_name, android.graphics.Color.parseColor("#374151"))
-                    views.setTextColor(R.id.widget_exam3_days, android.graphics.Color.parseColor("#2563EB"))
+                // Left Column Exam Items
+                views.setTextColor(R.id.widget_exam1_name, textColor)
+                views.setTextColor(R.id.widget_exam1_days, accentColor)
+                views.setTextColor(R.id.widget_exam2_name, secondaryTextColor)
+                views.setTextColor(R.id.widget_exam2_days, accentColor)
+                views.setTextColor(R.id.widget_exam3_name, secondaryTextColor)
+                views.setTextColor(R.id.widget_exam3_days, accentColor)
 
-                    // Stats Labels & Values
-                    views.setTextColor(R.id.widget_stat_focus_value, android.graphics.Color.parseColor("#111827"))
-                    views.setTextColor(R.id.widget_stat_focus_label, android.graphics.Color.parseColor("#64748B"))
-                    views.setTextColor(R.id.widget_stat_points_value, android.graphics.Color.parseColor("#111827"))
-                    views.setTextColor(R.id.widget_stat_points_label, android.graphics.Color.parseColor("#64748B"))
-                    views.setTextColor(R.id.widget_stat_sessions_value, android.graphics.Color.parseColor("#111827"))
-                    views.setTextColor(R.id.widget_stat_sessions_label, android.graphics.Color.parseColor("#64748B"))
-                    views.setTextColor(R.id.widget_stat_streak_value, android.graphics.Color.parseColor("#111827"))
-                    views.setTextColor(R.id.widget_stat_streak_label, android.graphics.Color.parseColor("#64748B"))
+                // Stats Labels & Values
+                views.setTextColor(R.id.widget_stat_focus_value, textColor)
+                views.setTextColor(R.id.widget_stat_focus_label, secondaryTextColor)
+                views.setTextColor(R.id.widget_stat_points_value, textColor)
+                views.setTextColor(R.id.widget_stat_points_label, secondaryTextColor)
+                views.setTextColor(R.id.widget_stat_sessions_value, textColor)
+                views.setTextColor(R.id.widget_stat_sessions_label, secondaryTextColor)
+                views.setTextColor(R.id.widget_stat_streak_value, textColor)
+                views.setTextColor(R.id.widget_stat_streak_label, secondaryTextColor)
 
-                    // Icon Tints (Dark Charcoal Slate)
-                    val iconColor = android.graphics.Color.parseColor("#334155")
-                    views.setInt(R.id.widget_icon_exams_header, "setColorFilter", iconColor)
-                    views.setInt(R.id.widget_icon_stats_header, "setColorFilter", iconColor)
-                    views.setInt(R.id.widget_icon_focus, "setColorFilter", iconColor)
-                    views.setInt(R.id.widget_icon_points, "setColorFilter", iconColor)
-                    views.setInt(R.id.widget_icon_sessions, "setColorFilter", iconColor)
-                    views.setInt(R.id.widget_icon_streak, "setColorFilter", iconColor)
+                // Icon Tints (Adaptive wallpaper text contrast)
+                views.setInt(R.id.widget_icon_exams_header, "setColorFilter", palette.iconTint)
+                views.setInt(R.id.widget_icon_stats_header, "setColorFilter", palette.iconTint)
+                views.setInt(R.id.widget_icon_focus, "setColorFilter", palette.iconTint)
+                views.setInt(R.id.widget_icon_points, "setColorFilter", palette.iconTint)
+                views.setInt(R.id.widget_icon_sessions, "setColorFilter", palette.iconTint)
+                views.setInt(R.id.widget_icon_streak, "setColorFilter", palette.iconTint)
 
-                    // Divider
-                    views.setInt(R.id.widget_vertical_divider, "setBackgroundColor", android.graphics.Color.parseColor("#20000000"))
-                } else {
-                    views.setInt(R.id.widget_overlay, "setBackgroundColor", android.graphics.Color.TRANSPARENT)
-
-                    // Headers
-                    views.setTextColor(R.id.widget_title_label, android.graphics.Color.parseColor("#F9FAFB"))
-                    views.setTextColor(R.id.widget_stats_title_label, android.graphics.Color.parseColor("#F9FAFB"))
-                    views.setTextColor(R.id.widget_no_exams_text, android.graphics.Color.parseColor("#9CA3AF"))
-
-                    // Left Column Exam Items
-                    views.setTextColor(R.id.widget_exam1_name, android.graphics.Color.parseColor("#F9FAFB"))
-                    views.setTextColor(R.id.widget_exam1_days, android.graphics.Color.parseColor("#60A5FA"))
-                    views.setTextColor(R.id.widget_exam2_name, android.graphics.Color.parseColor("#E5E7EB"))
-                    views.setTextColor(R.id.widget_exam2_days, android.graphics.Color.parseColor("#60A5FA"))
-                    views.setTextColor(R.id.widget_exam3_name, android.graphics.Color.parseColor("#E5E7EB"))
-                    views.setTextColor(R.id.widget_exam3_days, android.graphics.Color.parseColor("#60A5FA"))
-
-                    // Stats Labels & Values
-                    views.setTextColor(R.id.widget_stat_focus_value, android.graphics.Color.parseColor("#F9FAFB"))
-                    views.setTextColor(R.id.widget_stat_focus_label, android.graphics.Color.parseColor("#9CA3AF"))
-                    views.setTextColor(R.id.widget_stat_points_value, android.graphics.Color.parseColor("#F9FAFB"))
-                    views.setTextColor(R.id.widget_stat_points_label, android.graphics.Color.parseColor("#9CA3AF"))
-                    views.setTextColor(R.id.widget_stat_sessions_value, android.graphics.Color.parseColor("#F9FAFB"))
-                    views.setTextColor(R.id.widget_stat_sessions_label, android.graphics.Color.parseColor("#9CA3AF"))
-                    views.setTextColor(R.id.widget_stat_streak_value, android.graphics.Color.parseColor("#F9FAFB"))
-                    views.setTextColor(R.id.widget_stat_streak_label, android.graphics.Color.parseColor("#9CA3AF"))
-
-                    // Icon Tints (Off-White)
-                    val iconColor = android.graphics.Color.parseColor("#E2E8F0")
-                    views.setInt(R.id.widget_icon_exams_header, "setColorFilter", iconColor)
-                    views.setInt(R.id.widget_icon_stats_header, "setColorFilter", iconColor)
-                    views.setInt(R.id.widget_icon_focus, "setColorFilter", iconColor)
-                    views.setInt(R.id.widget_icon_points, "setColorFilter", iconColor)
-                    views.setInt(R.id.widget_icon_sessions, "setColorFilter", iconColor)
-                    views.setInt(R.id.widget_icon_streak, "setColorFilter", iconColor)
-
-                    // Divider
-                    views.setInt(R.id.widget_vertical_divider, "setBackgroundColor", android.graphics.Color.parseColor("#1FFFFFFF"))
-                }
+                // Divider
+                views.setInt(R.id.widget_vertical_divider, "setBackgroundColor", palette.dividerColor)
 
                 // Format and bind statistic numbers
                 val focusStr = if (totalFocusHours >= 10.0) {
@@ -306,103 +269,11 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
         return currentStreak
     }
 
-    private fun getNeumorphicWidgetBitmap(
-        context: Context,
-        isDay: Boolean
-    ): Bitmap {
-        val W = 600f
-        val H = 400f
-        try {
-            val imageBitmap = ImageBitmap(W.toInt(), H.toInt())
-            val composeCanvas = Canvas(imageBitmap)
-            val drawScope = CanvasDrawScope()
-
-            drawScope.draw(
-                density = androidx.compose.ui.unit.Density(context),
-                layoutDirection = androidx.compose.ui.unit.LayoutDirection.Ltr,
-                canvas = composeCanvas,
-                size = Size(W, H)
-            ) {
-                val margin = 12f
-                val cardRect = Offset(margin, margin)
-                val cardSize = Size(W - margin * 2, H - margin * 2)
-                val corner = androidx.compose.ui.geometry.CornerRadius(28f, 28f)
-
-                if (isDay) {
-                    // White/Light Mode Neumorphic Translucent Card
-                    // Soft dark drop shadow at bottom-right
-                    drawRoundRect(
-                        color = Color(0x288C9BAE),
-                        topLeft = Offset(margin + 5f, margin + 5f),
-                        size = cardSize,
-                        cornerRadius = corner
-                    )
-                    // Soft white glow highlight at top-left
-                    drawRoundRect(
-                        color = Color(0xF0FFFFFF),
-                        topLeft = Offset(margin - 3f, margin - 3f),
-                        size = cardSize,
-                        cornerRadius = corner
-                    )
-                    // Translucent clean white body (90% opacity)
-                    drawRoundRect(
-                        color = Color(0xEDF3F6F9),
-                        topLeft = cardRect,
-                        size = cardSize,
-                        cornerRadius = corner,
-                        style = androidx.compose.ui.graphics.drawscope.Fill
-                    )
-                    // Glassy rim border
-                    drawRoundRect(
-                        color = Color(0x90FFFFFF),
-                        topLeft = cardRect,
-                        size = cardSize,
-                        cornerRadius = corner,
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.2f)
-                    )
-                } else {
-                    // Dark/Black Mode Neumorphic Translucent Card
-                    // Soft deep dark drop shadow at bottom-right
-                    drawRoundRect(
-                        color = Color(0x95000000),
-                        topLeft = Offset(margin + 5f, margin + 5f),
-                        size = cardSize,
-                        cornerRadius = corner
-                    )
-                    // Soft light highlight glow at top-left
-                    drawRoundRect(
-                        color = Color(0x28FFFFFF),
-                        topLeft = Offset(margin - 2f, margin - 2f),
-                        size = cardSize,
-                        cornerRadius = corner
-                    )
-                    // Translucent clean black body (90% opacity)
-                    drawRoundRect(
-                        color = Color(0xED0F131A),
-                        topLeft = cardRect,
-                        size = cardSize,
-                        cornerRadius = corner,
-                        style = androidx.compose.ui.graphics.drawscope.Fill
-                    )
-                    // Glassy rim border
-                    drawRoundRect(
-                        color = Color(0x22FFFFFF),
-                        topLeft = cardRect,
-                        size = cardSize,
-                        cornerRadius = corner,
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.8f)
-                    )
-                }
-            }
-            return imageBitmap.asAndroidBitmap()
-        } catch (e: Exception) {
-            val fallback = Bitmap.createBitmap(W.toInt(), H.toInt(), Bitmap.Config.ARGB_8888)
-            val canvas = android.graphics.Canvas(fallback)
-            val paint = android.graphics.Paint()
-            paint.color = if (isDay) android.graphics.Color.parseColor("#EDF3F6F9") else android.graphics.Color.parseColor("#ED0F131A")
-            canvas.drawRoundRect(12f, 12f, W - 12f, H - 12f, 28f, 28f, paint)
-            return fallback
-        }
+    private fun getTransparentWidgetBitmap(): Bitmap {
+        val bitmap = Bitmap.createBitmap(600, 400, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+        return bitmap
     }
 
     companion object {
