@@ -19,8 +19,6 @@ data class WidgetPalette(
     @ColorInt val surface: Int,          // translucent
     @ColorInt val hueVeil: Int,          // translucent
     @ColorInt val rim: Int,
-    @ColorInt val specular: Int,
-    @ColorInt val shadow: Int,
     @ColorInt val onSurface: Int,
     @ColorInt val onSurfaceVariant: Int,
     @ColorInt val accent: Int,
@@ -68,8 +66,6 @@ object WidgetTheme {
                 c(R.color.wgt_hue_veil_base), if (night) 71 else 56
             ),
             rim = ColorUtils.setAlphaComponent(c(R.color.wgt_rim_base), if (night) 51 else 140),
-            specular = ColorUtils.setAlphaComponent(c(R.color.wgt_specular_base), if (night) 26 else 153),
-            shadow = ColorUtils.setAlphaComponent(c(R.color.wgt_shadow_base), if (night) 115 else 41),
             onSurface = guard(c(R.color.wgt_on_surface), MIN_CONTRAST_BODY),
             onSurfaceVariant = guard(c(R.color.wgt_on_surface_variant), MIN_CONTRAST_BODY),
             accent = guard(c(R.color.wgt_accent), MIN_CONTRAST_BODY),

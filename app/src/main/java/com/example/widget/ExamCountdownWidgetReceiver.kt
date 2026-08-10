@@ -48,6 +48,13 @@ class ExamCountdownWidgetReceiver : AppWidgetProvider() {
                 renderAll(context, appWidgetManager, appWidgetIds)
             } catch (t: Throwable) {
                 Log.e(TAG, "Widget render failed", t)
+                val fallback = RemoteViews(
+                    context.packageName,
+                    R.layout.widget_countdown_layout
+                )
+                appWidgetIds.forEach {
+                    appWidgetManager.updateAppWidget(it, fallback)
+                }
             } finally {
                 pending.finish()
             }

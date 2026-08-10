@@ -3,8 +3,6 @@
     <color name="wgt_surface_base">#0F131A</color>
     <color name="wgt_hue_veil_base">#1E3A8A</color>
     <color name="wgt_rim_base">#FFFFFF</color>
-    <color name="wgt_shadow_base">#000000</color>
-    <color name="wgt_specular_base">#FFFFFF</color>
 
     <color name="wgt_on_surface">#F9FAFB</color>
     <color name="wgt_on_surface_variant">#B6BFCC</color>

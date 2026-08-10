@@ -4,8 +4,6 @@
     <color name="wgt_surface_base">#F5F7FA</color>
     <color name="wgt_hue_veil_base">#DBE7FF</color>
     <color name="wgt_rim_base">#FFFFFF</color>
-    <color name="wgt_shadow_base">#8C9BAE</color>
-    <color name="wgt_specular_base">#FFFFFF</color>
 
     <!-- Foreground roles: fully opaque, consumed directly. -->
     <color name="wgt_on_surface">#111827</color>
