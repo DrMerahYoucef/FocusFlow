@@ -8,16 +8,18 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.PorterDuff
+import android.graphics.RectF
 import android.graphics.Typeface
+import android.os.Build
+import android.util.Log
+import android.util.TypedValue
 import android.widget.RemoteViews
-import androidx.core.graphics.ColorUtils
 import com.example.MainActivity
 import com.example.R
 import com.example.data.db.AppDatabase
 import com.example.data.db.entity.ExamEntity
+import com.example.widget.theme.WidgetTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -27,7 +29,12 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
 
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
-        ExamCountdownWidgetReceiver.scheduleDayNightAlarm(context)
+        WidgetRefreshScheduler.scheduleNextMidnight(context)
+    }
+
+    override fun onDisabled(context: Context) {
+        super.onDisabled(context)
+        WidgetRefreshScheduler.cancel(context)
     }
 
     override fun onUpdate(
@@ -35,31 +42,43 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        super.onUpdate(context, appWidgetManager, appWidgetIds)
-        ExamCountdownWidgetReceiver.scheduleDayNightAlarm(context)
-        updateAllWidgets(context, appWidgetManager, appWidgetIds)
+        if (appWidgetIds.isEmpty()) return
+        WidgetRefreshScheduler.scheduleNextMidnight(context)
+
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                updateAllWidgets(context, appWidgetManager, appWidgetIds)
+            } catch (t: Throwable) {
+                Log.e(TAG, "Matrix widget render failed", t)
+            } finally {
+                pending.finish()
+            }
+        }
     }
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        ExamCountdownWidgetReceiver.scheduleDayNightAlarm(context)
-        if (intent.action == Intent.ACTION_WALLPAPER_CHANGED ||
-            intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE ||
-            intent.action == "com.example.ACTION_WIDGET_AUTO_UPDATE"
-        ) {
-            val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(ComponentName(context, ExamMatrixWidgetReceiver::class.java))
-            updateAllWidgets(context, manager, ids)
+        when (intent.action) {
+            WidgetRefreshScheduler.ACTION_AUTO_UPDATE,
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_MY_PACKAGE_REPLACED,
+            Intent.ACTION_TIME_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED -> {
+                val mgr = AppWidgetManager.getInstance(context)
+                val ids = mgr.getAppWidgetIds(
+                    ComponentName(context, ExamMatrixWidgetReceiver::class.java)
+                )
+                onUpdate(context, mgr, ids)
+            }
         }
     }
 
-    private fun updateAllWidgets(
+    private suspend fun updateAllWidgets(
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        if (appWidgetIds.isEmpty()) return
-
         val database = AppDatabase.getDatabase(context)
         val examDao = database.examDao()
 
@@ -70,26 +89,45 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
             set(Calendar.MILLISECOND, 0)
         }
 
-        CoroutineScope(Dispatchers.IO).launch {
-            val upcomingExams = examDao.getUpcomingExams(todayCalendar.timeInMillis)
-            val matrixBitmap = generateMatrixBitmap(context, todayCalendar, upcomingExams)
+        val upcomingExams = examDao.getUpcomingExams(todayCalendar.timeInMillis)
+        val matrixBitmap = generateMatrixBitmap(context, todayCalendar, upcomingExams)
 
-            val appIntent = Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-            val pendingIntent = PendingIntent.getActivity(
-                context,
-                101,
-                appIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
+        val appIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            101,
+            appIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
-            for (widgetId in appWidgetIds) {
-                val views = RemoteViews(context.packageName, R.layout.widget_exam_matrix_layout)
-                views.setImageViewBitmap(R.id.widget_matrix_image, matrixBitmap)
-                views.setOnClickPendingIntent(R.id.widget_matrix_container, pendingIntent)
-                appWidgetManager.updateAppWidget(widgetId, views)
+        val nextExam = upcomingExams.firstOrNull()
+        val a11yText = if (nextExam != null) {
+            val examStart = Calendar.getInstance().apply {
+                timeInMillis = nextExam.examDate
+                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
             }
+            val daysLeft = ((examStart.timeInMillis - todayCalendar.timeInMillis) / (1000 * 60 * 60 * 24)).coerceAtLeast(0).toInt()
+            context.getString(R.string.wgt_countdown_a11y, nextExam.name, daysLeft)
+        } else {
+            context.getString(R.string.matrix_widget_label)
+        }
+
+        for (widgetId in appWidgetIds) {
+            val views = RemoteViews(context.packageName, R.layout.widget_exam_matrix_layout)
+            views.setImageViewBitmap(R.id.widget_matrix_image, matrixBitmap)
+            views.setOnClickPendingIntent(R.id.widget_matrix_container, pendingIntent)
+            views.setContentDescription(R.id.widget_matrix_container, a11yText)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                views.setViewOutlinePreferredRadius(
+                    R.id.widget_matrix_container, 24f, TypedValue.COMPLEX_UNIT_DIP
+                )
+            }
+
+            appWidgetManager.updateAppWidget(widgetId, views)
         }
     }
 
@@ -98,19 +136,24 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
         todayCal: Calendar,
         upcomingExams: List<ExamEntity>
     ): Bitmap {
-        val width = 880f
-        val height = 480f
-        val bitmap = Bitmap.createBitmap(width.toInt(), height.toInt(), Bitmap.Config.ARGB_8888)
+        val p = WidgetTheme.resolve(context)
+
+        val w = 1000f
+        val h = 560f
+        val bitmap = Bitmap.createBitmap(w.toInt(), h.toInt(), Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
-        // Fully transparent background canvas (no filled card panel)
-        canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+        val pad = w * 0.030f
+        val labelColW = w * 0.105f
+        val gridLeft = pad + labelColW
+        val gridRight = w - pad
+        val footerH = h * 0.135f
+        val gridTop = pad
+        val gridBottom = h - footerH
+        val rowH = (gridBottom - gridTop) / 12f
+        val dotStepX = (gridRight - gridLeft) / 31f
+        val unit = rowH * 0.34f
 
-        // Extract wallpaper adaptive color palette
-        val palette = WallpaperColorExtractor.extract(context)
-        val textColor = palette.textColor
-
-        // Calculate Matrix Dates & Values
         val monthLabels = arrayOf("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")
 
         val currentYear = todayCal.get(Calendar.YEAR)
@@ -120,9 +163,9 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
         val yearProgressPercent = ((todayDayOfYear / totalDaysInYear) * 100).toInt()
 
         val nextExam = upcomingExams.firstOrNull()
-        val nextExamCal = if (nextExam != null) {
-            Calendar.getInstance().apply { timeInMillis = nextExam.examDate }
-        } else null
+        val nextExamCal = nextExam?.let {
+            Calendar.getInstance().apply { timeInMillis = it.examDate }
+        }
 
         val daysUntilExam = if (nextExam != null) {
             val examStart = Calendar.getInstance().apply {
@@ -145,78 +188,59 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
             if (it.get(Calendar.YEAR) == currentYear) it.get(Calendar.DAY_OF_YEAR) else null
         }
 
-        // Color Schemes based on Wallpaper Palette
-        val activeMonthColor = textColor
-        val dimMonthColor = ColorUtils.setAlphaComponent(textColor, 0x99)
-
-        val labelPaintActive = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = activeMonthColor
-            textSize = 21f
+        // Paints
+        val monthActive = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = p.onSurface
+            textSize = rowH * 0.62f
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
         }
-        val labelPaintDim = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = dimMonthColor
-            textSize = 21f
+        val monthDim = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = p.onSurfaceVariant
+            textSize = rowH * 0.58f
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
         }
 
-        val passedColor = ColorUtils.setAlphaComponent(textColor, 0xAA)
-        val todayRingColor = if (textColor == Color.WHITE) Color.parseColor("#60A5FA") else Color.parseColor("#2563EB")
-        val todayInnerColor = todayRingColor
-        val runupColor = if (textColor == Color.WHITE) Color.parseColor("#A78BFA") else Color.parseColor("#7C3AED")
-        val examOuterColor = if (textColor == Color.WHITE) Color.parseColor("#EF4444") else Color.parseColor("#DC2626")
-        val examInnerColor = examOuterColor
-        val futureColor = ColorUtils.setAlphaComponent(textColor, 0x44)
-
-        val dotPassedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = passedColor
+        val dotPast = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = p.onSurfaceVariant
+            style = Paint.Style.FILL
+            alpha = 140
+        }
+        val dotFuture = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = p.track
             style = Paint.Style.FILL
         }
-        val dotTodayRingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = todayRingColor
+        val dotRunup = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = p.secondary
+            style = Paint.Style.FILL
+        }
+        val todayRing = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = p.accent
             style = Paint.Style.STROKE
-            strokeWidth = 2.5f
+            strokeWidth = unit * 0.28f
         }
-        val dotTodayInnerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = todayInnerColor
+        val todayCore = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = p.accent
             style = Paint.Style.FILL
         }
-        val dotExamRunupPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = runupColor
-            style = Paint.Style.FILL
-        }
-        val dotExamDayOuterPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = examOuterColor
+        val examRing = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = p.critical
             style = Paint.Style.STROKE
-            strokeWidth = 2.5f
+            strokeWidth = unit * 0.28f
         }
-        val dotExamDayInnerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = examInnerColor
+        val examCore = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = p.critical
             style = Paint.Style.FILL
         }
-        val dotFuturePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = futureColor
-            style = Paint.Style.FILL
-        }
-
-        // Layout Geometry
-        val gridTop = 38f
-        val gridHeight = 358f
-        val rowHeight = gridHeight / 12f
-        val startX = 142f
-        val endX = width - 42f
-        val availableWidth = endX - startX
-        val dotStepX = availableWidth / 31f
 
         val tempCal = Calendar.getInstance()
 
         for (m in 0..11) {
-            val rowY = gridTop + (m * rowHeight) + (rowHeight / 2f) + 4f
+            val rowY = gridTop + (m * rowH) + (rowH / 2f)
             val isCurrentMonth = (m == currentMonth)
 
             val labelText = monthLabels[m]
-            val lPaint = if (isCurrentMonth) labelPaintActive else labelPaintDim
-            canvas.drawText(labelText, 42f, rowY + 6f, lPaint)
+            val lPaint = if (isCurrentMonth) monthActive else monthDim
+            canvas.drawText(labelText, pad, rowY + (rowH * 0.22f), lPaint)
 
             tempCal.set(currentYear, m, 1)
             val daysInMonth = tempCal.getActualMaximum(Calendar.DAY_OF_MONTH)
@@ -224,7 +248,7 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
             for (d in 1..daysInMonth) {
                 tempCal.set(currentYear, m, d)
                 val dDayOfYear = tempCal.get(Calendar.DAY_OF_YEAR)
-                val dotX = startX + (d - 1) * dotStepX + (dotStepX / 2f)
+                val dotX = gridLeft + (d - 1) * dotStepX + (dotStepX / 2f)
 
                 val isToday = (dDayOfYear == todayDayOfYear)
                 val isExamDay = examDayOfYears.contains(dDayOfYear)
@@ -233,46 +257,51 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
 
                 when {
                     isExamDay -> {
-                        canvas.drawCircle(dotX, rowY, 6.5f, dotExamDayOuterPaint)
-                        canvas.drawCircle(dotX, rowY, 3.8f, dotExamDayInnerPaint)
+                        canvas.drawCircle(dotX, rowY, unit * 1.30f, examRing)
+                        canvas.drawCircle(dotX, rowY, unit * 0.75f, examCore)
                     }
                     isToday -> {
-                        canvas.drawCircle(dotX, rowY, 5.5f, dotTodayRingPaint)
-                        canvas.drawCircle(dotX, rowY, 2.2f, dotTodayInnerPaint)
+                        canvas.drawCircle(dotX, rowY, unit * 1.10f, todayRing)
+                        canvas.drawCircle(dotX, rowY, unit * 0.44f, todayCore)
                     }
                     isExamRunup -> {
-                        canvas.drawCircle(dotX, rowY, 4.2f, dotExamRunupPaint)
+                        canvas.drawCircle(dotX, rowY, unit * 0.84f, dotRunup)
                     }
                     isPast -> {
-                        canvas.drawCircle(dotX, rowY, 4.0f, dotPassedPaint)
+                        canvas.drawCircle(dotX, rowY, unit * 0.80f, dotPast)
                     }
                     else -> {
-                        canvas.drawCircle(dotX, rowY, 3.6f, dotFuturePaint)
+                        canvas.drawCircle(dotX, rowY, unit * 0.72f, dotFuture)
                     }
                 }
             }
         }
 
-        // Footer Divider & Action Label Text
-        val footerLineY = 414f
-        val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = palette.dividerColor
-            strokeWidth = 1.5f
-        }
-        canvas.drawLine(42f, footerLineY, endX, footerLineY, dividerPaint)
+        // Year Progress Track in Footer
+        val trackY = gridBottom + footerH * 0.22f
+        val trackH = h * 0.011f
+        val trackRect = RectF(pad, trackY, w - pad, trackY + trackH)
+        canvas.drawRoundRect(
+            trackRect, trackH / 2f, trackH / 2f,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = p.track; alpha = 120 }
+        )
 
-        val footerY = 450f
-        val footerLeftColor = textColor
-        val footerRightColor = todayRingColor
+        val filled = pad + (w - pad * 2f) * (yearProgressPercent / 100f)
+        canvas.drawRoundRect(
+            RectF(pad, trackY, filled, trackY + trackH), trackH / 2f, trackH / 2f,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = p.accent }
+        )
 
+        // Footer Text
+        val footerY = gridBottom + footerH * 0.78f
         val textLeftPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = footerLeftColor
-            textSize = 21f
+            color = p.onSurface
+            textSize = footerH * 0.34f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         }
         val textRightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = footerRightColor
-            textSize = 20f
+            color = p.accent
+            textSize = footerH * 0.34f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         }
 
@@ -288,19 +317,19 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
             footerRightText = "NO UPCOMING EXAMS"
         }
 
-        canvas.drawText(footerLeftText, 42f, footerY, textLeftPaint)
+        canvas.drawText(footerLeftText, pad, footerY, textLeftPaint)
         val rightWidth = textRightPaint.measureText(footerRightText)
-        canvas.drawText(footerRightText, endX - rightWidth, footerY, textRightPaint)
+        canvas.drawText(footerRightText, (w - pad) - rightWidth, footerY, textRightPaint)
 
         return bitmap
     }
 
     companion object {
+        private const val TAG = "ExamMatrixWidget"
+
+        @JvmStatic
         fun triggerWidgetUpdate(context: Context) {
-            val intent = Intent(context, ExamMatrixWidgetReceiver::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-            }
-            context.sendBroadcast(intent)
+            WidgetRefreshScheduler.refreshNow(context)
         }
     }
 }

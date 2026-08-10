@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Opaque base tones. Alpha is applied by the res/color/ selectors. -->
+    <color name="wgt_surface_base">#F5F7FA</color>
+    <color name="wgt_hue_veil_base">#DBE7FF</color>
+    <color name="wgt_rim_base">#FFFFFF</color>
+    <color name="wgt_shadow_base">#8C9BAE</color>
+    <color name="wgt_specular_base">#FFFFFF</color>
+
+    <!-- Foreground roles: fully opaque, consumed directly. -->
+    <color name="wgt_on_surface">#111827</color>
+    <color name="wgt_on_surface_variant">#4B5563</color>
+    <color name="wgt_accent">#2563EB</color>
+    <color name="wgt_accent_soft">#60A5FA</color>
+    <color name="wgt_secondary">#7C3AED</color>
+    <color name="wgt_critical">#DC2626</color>
+    <color name="wgt_track">#CBD5E1</color>
+</resources>

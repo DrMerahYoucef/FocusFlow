@@ -5,6 +5,11 @@
     <string name="matrix_widget_label">Exam Matrix Calendar</string>
     <string name="matrix_widget_description">Displays a dot-matrix calendar lighting up days until your next exam.</string>
 
+    <string name="wgt_upcoming_exams">UPCOMING EXAMS</string>
+    <string name="wgt_focus_stats">FOCUS STATS</string>
+    <string name="wgt_no_exams">No upcoming exams. Good time to get ahead.</string>
+    <string name="wgt_countdown_a11y">Next exam %1$s in %2$d days. Open FocusFlow.</string>
+
     <string name="revisions_title">Review</string>
     <string name="scan_text">Scan a text</string>
     <string name="add_manually">Add manually</string>

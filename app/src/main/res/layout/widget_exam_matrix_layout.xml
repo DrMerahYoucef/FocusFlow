@@ -3,14 +3,15 @@
     android:id="@+id/widget_matrix_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/transparent">
+    android:background="@drawable/widget_card_glass"
+    android:padding="@dimen/wgt_content_padding">
 
     <ImageView
         android:id="@+id/widget_matrix_image"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:scaleType="fitXY"
-        android:background="@android:color/transparent"
-        android:contentDescription="Exam Matrix Calendar" />
+        android:adjustViewBounds="true"
+        android:scaleType="fitCenter"
+        android:contentDescription="@null" />
 
 </FrameLayout>

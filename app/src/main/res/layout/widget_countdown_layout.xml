@@ -2,24 +2,17 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_container"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
-
-    <!-- Transparent Rendered Background Image -->
-    <ImageView
-        android:id="@+id/widget_background"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:scaleType="fitXY"
-        android:background="@android:color/transparent" />
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_card_glass">
 
     <!-- Overlay Content Container -->
     <LinearLayout
         android:id="@+id/widget_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@android:color/transparent"
         android:orientation="horizontal"
-        android:padding="16dp">
+        android:padding="@dimen/wgt_content_padding"
+        android:baselineAligned="false">
 
         <!-- Column Left: Upcoming Exams -->
         <LinearLayout
@@ -42,14 +35,14 @@
                     android:layout_height="13dp"
                     android:src="@drawable/ic_widget_calendar"
                     android:layout_marginEnd="5dp"
-                    android:contentDescription="Exams Header Icon" />
+                    android:contentDescription="@null" />
 
                 <TextView
                     android:id="@+id/widget_title_label"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="UPCOMING EXAMS"
-                    android:textColor="#111827"
+                    android:text="@string/wgt_upcoming_exams"
+                    android:textColor="@color/wgt_on_surface"
                     android:textSize="9.5sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.08" />
@@ -61,8 +54,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:gravity="center_vertical"
-                android:text="No upcoming exams listed. Great time to study!"
-                android:textColor="#64748B"
+                android:text="@string/wgt_no_exams"
+                android:textColor="@color/wgt_on_surface_variant"
                 android:textSize="11.5sp"
                 android:textStyle="italic"
                 android:visibility="gone" />
@@ -92,7 +85,7 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Math 101"
-                        android:textColor="#111827"
+                        android:textColor="@color/wgt_on_surface"
                         android:textSize="14sp"
                         android:textStyle="bold"
                         android:maxLines="1"
@@ -102,7 +95,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="3 Days"
-                        android:textColor="#2563EB"
+                        android:textColor="@color/wgt_accent"
                         android:textSize="12.5sp"
                         android:textStyle="bold"
                         android:layout_marginStart="4dp" />
@@ -124,7 +117,7 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Physics II"
-                        android:textColor="#111827"
+                        android:textColor="@color/wgt_on_surface_variant"
                         android:textSize="12sp"
                         android:maxLines="1"
                         android:ellipsize="end" />
@@ -133,7 +126,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="12d"
-                        android:textColor="#2563EB"
+                        android:textColor="@color/wgt_accent"
                         android:textSize="11sp"
                         android:layout_marginStart="4dp" />
                 </LinearLayout>
@@ -154,7 +147,7 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Chemistry"
-                        android:textColor="#111827"
+                        android:textColor="@color/wgt_on_surface_variant"
                         android:textSize="12sp"
                         android:maxLines="1"
                         android:ellipsize="end" />
@@ -163,7 +156,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="18d"
-                        android:textColor="#2563EB"
+                        android:textColor="@color/wgt_accent"
                         android:textSize="11sp"
                         android:layout_marginStart="4dp" />
                 </LinearLayout>
@@ -178,7 +171,7 @@
             android:layout_height="match_parent"
             android:layout_marginTop="2dp"
             android:layout_marginBottom="2dp"
-            android:background="#20000000" />
+            android:background="@color/wgt_rim" />
 
         <!-- Column Right: Focus Stats -->
         <LinearLayout
@@ -203,14 +196,14 @@
                     android:layout_height="13dp"
                     android:src="@drawable/ic_widget_stats"
                     android:layout_marginEnd="5dp"
-                    android:contentDescription="Stats Header Icon" />
+                    android:contentDescription="@null" />
 
                 <TextView
                     android:id="@+id/widget_stats_title_label"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="FOCUS STATS"
-                    android:textColor="#111827"
+                    android:text="@string/wgt_focus_stats"
+                    android:textColor="@color/wgt_on_surface"
                     android:textSize="9.5sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.08" />
@@ -230,7 +223,7 @@
                     android:layout_height="12dp"
                     android:src="@drawable/ic_widget_clock"
                     android:layout_marginEnd="4dp"
-                    android:contentDescription="Focus Icon" />
+                    android:contentDescription="@null" />
 
                 <TextView
                     android:id="@+id/widget_stat_focus_label"
@@ -238,14 +231,14 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Focus"
-                    android:textColor="#64748B"
+                    android:textColor="@color/wgt_on_surface_variant"
                     android:textSize="11sp" />
                 <TextView
                     android:id="@+id/widget_stat_focus_value"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="0h"
-                    android:textColor="#111827"
+                    android:textColor="@color/wgt_on_surface"
                     android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
@@ -264,7 +257,7 @@
                     android:layout_height="12dp"
                     android:src="@drawable/ic_widget_star"
                     android:layout_marginEnd="4dp"
-                    android:contentDescription="Points Icon" />
+                    android:contentDescription="@null" />
 
                 <TextView
                     android:id="@+id/widget_stat_points_label"
@@ -272,14 +265,14 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Points"
-                    android:textColor="#64748B"
+                    android:textColor="@color/wgt_on_surface_variant"
                     android:textSize="11sp" />
                 <TextView
                     android:id="@+id/widget_stat_points_value"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="0"
-                    android:textColor="#111827"
+                    android:textColor="@color/wgt_on_surface"
                     android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
@@ -298,7 +291,7 @@
                     android:layout_height="12dp"
                     android:src="@drawable/ic_widget_check"
                     android:layout_marginEnd="4dp"
-                    android:contentDescription="Sessions Icon" />
+                    android:contentDescription="@null" />
 
                 <TextView
                     android:id="@+id/widget_stat_sessions_label"
@@ -306,14 +299,14 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Sessions"
-                    android:textColor="#64748B"
+                    android:textColor="@color/wgt_on_surface_variant"
                     android:textSize="11sp" />
                 <TextView
                     android:id="@+id/widget_stat_sessions_value"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="0"
-                    android:textColor="#111827"
+                    android:textColor="@color/wgt_on_surface"
                     android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
@@ -331,7 +324,7 @@
                     android:layout_height="12dp"
                     android:src="@drawable/ic_widget_flame"
                     android:layout_marginEnd="4dp"
-                    android:contentDescription="Streak Icon" />
+                    android:contentDescription="@null" />
 
                 <TextView
                     android:id="@+id/widget_stat_streak_label"
@@ -339,14 +332,14 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Streak"
-                    android:textColor="#64748B"
+                    android:textColor="@color/wgt_on_surface_variant"
                     android:textSize="11sp" />
                 <TextView
                     android:id="@+id/widget_stat_streak_value"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="0d"
-                    android:textColor="#111827"
+                    android:textColor="@color/wgt_on_surface"
                     android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
