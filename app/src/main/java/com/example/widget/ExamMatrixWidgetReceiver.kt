@@ -71,7 +71,8 @@ class ExamMatrixWidgetReceiver : AppWidgetProvider() {
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_MY_PACKAGE_REPLACED,
             Intent.ACTION_TIME_CHANGED,
-            Intent.ACTION_TIMEZONE_CHANGED -> {
+            Intent.ACTION_TIMEZONE_CHANGED,
+            Intent.ACTION_WALLPAPER_CHANGED -> {
                 val mgr = AppWidgetManager.getInstance(context)
                 val ids = mgr.getAppWidgetIds(
                     ComponentName(context, ExamMatrixWidgetReceiver::class.java)

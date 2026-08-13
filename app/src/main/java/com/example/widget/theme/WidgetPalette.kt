@@ -33,8 +33,8 @@ object WidgetTheme {
 
     /** Body opacity of the glass card. Lower = more wallpaper shows through.
      *  Keep in sync with res/color/wgt_surface.xml. Range 0.75f–1.0f. */
-    const val SURFACE_OPACITY_DAY = 0.80f
-    const val SURFACE_OPACITY_NIGHT = 0.84f
+    const val SURFACE_OPACITY_DAY = 0.55f
+    const val SURFACE_OPACITY_NIGHT = 0.60f
 
     private const val MIN_CONTRAST_BODY = 4.5   // WCAG AA, normal text
     private const val MIN_CONTRAST_LARGE = 3.0  // WCAG AA, >=18sp bold / graphics
