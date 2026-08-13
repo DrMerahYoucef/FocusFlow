@@ -149,9 +149,9 @@ fun RevisionsHomeScreen(
                     )
                 }
 
-                if (selectedDeck != null && activeDeckNotes.isNotEmpty()) {
+                if (activeDeckNotes.isNotEmpty()) {
                     Button(
-                        onClick = { onStartSessionClick(selectedDeck.id) },
+                        onClick = { onStartSessionClick(uiState.selectedDeckId) },
                         colors = ButtonDefaults.buttonColors(containerColor = NeumorphicColors.Primary)
                     ) {
                         Icon(
@@ -227,35 +227,84 @@ fun RevisionsHomeScreen(
 
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(top = 4.dp, end = 8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 item {
-                    FilterChip(
-                        selected = uiState.selectedDeckId == "ALL",
-                        onClick = { viewModel.setSelectedDeck("ALL") },
-                        label = { Text("All (${uiState.totalCount})") },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = NeumorphicColors.Primary,
-                            selectedLabelColor = Color.White,
-                            containerColor = NeumorphicColors.SurfaceLight.copy(alpha = 0.4f),
-                            labelColor = NeumorphicColors.TextPrimary
+                    val allDueCount = uiState.dueNotes.size
+                    val isAllSelected = uiState.selectedDeckId == "ALL"
+                    Box(
+                        modifier = Modifier.padding(top = 4.dp, end = 6.dp)
+                    ) {
+                        FilterChip(
+                            selected = isAllSelected,
+                            onClick = { viewModel.setSelectedDeck("ALL") },
+                            label = { Text("All (${uiState.totalCount})") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = NeumorphicColors.Primary,
+                                selectedLabelColor = Color.White,
+                                containerColor = NeumorphicColors.SurfaceLight.copy(alpha = 0.4f),
+                                labelColor = NeumorphicColors.TextPrimary
+                            )
                         )
-                    )
+
+                        if (allDueCount > 0) {
+                            Surface(
+                                shape = CircleShape,
+                                color = Color(0xFFDC2626),
+                                contentColor = Color.White,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = 6.dp, y = (-4).dp)
+                            ) {
+                                Text(
+                                    text = if (allDueCount > 99) "99+" else "$allDueCount",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
+                    }
                 }
 
                 items(uiState.decks, key = { it.id }) { deck ->
+                    val deckDueCount = uiState.dueNotes.count { it.deckId == deck.id }
                     val noteCount = uiState.allNotes.count { it.deckId == deck.id }
-                    FilterChip(
-                        selected = uiState.selectedDeckId == deck.id,
-                        onClick = { viewModel.setSelectedDeck(deck.id) },
-                        label = { Text("${deck.name} ($noteCount)") },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = NeumorphicColors.Primary,
-                            selectedLabelColor = Color.White,
-                            containerColor = NeumorphicColors.SurfaceLight.copy(alpha = 0.4f),
-                            labelColor = NeumorphicColors.TextPrimary
+                    val isSelected = uiState.selectedDeckId == deck.id
+                    Box(
+                        modifier = Modifier.padding(top = 4.dp, end = 6.dp)
+                    ) {
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { viewModel.setSelectedDeck(deck.id) },
+                            label = { Text("${deck.name} ($noteCount)") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = NeumorphicColors.Primary,
+                                selectedLabelColor = Color.White,
+                                containerColor = NeumorphicColors.SurfaceLight.copy(alpha = 0.4f),
+                                labelColor = NeumorphicColors.TextPrimary
+                            )
                         )
-                    )
+
+                        if (deckDueCount > 0) {
+                            Surface(
+                                shape = CircleShape,
+                                color = Color(0xFFDC2626),
+                                contentColor = Color.White,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = 6.dp, y = (-4).dp)
+                            ) {
+                                Text(
+                                    text = if (deckDueCount > 99) "99+" else "$deckDueCount",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
 

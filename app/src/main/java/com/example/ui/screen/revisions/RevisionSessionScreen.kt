@@ -47,11 +47,20 @@ fun RevisionSessionScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
 
-    val dueNotes = remember(state.dueNotes, deckId) {
-        if (deckId.isBlank() || deckId == "default_deck") {
+    val dueNotes = remember(state.dueNotes, deckId, state.allNotes) {
+        val filtered = if (deckId.isBlank() || deckId == "default_deck" || deckId == "ALL") {
             state.dueNotes
         } else {
             state.dueNotes.filter { it.deckId == deckId }
+        }
+        if (filtered.isEmpty()) {
+            if (deckId.isBlank() || deckId == "default_deck" || deckId == "ALL") {
+                state.allNotes
+            } else {
+                state.allNotes.filter { it.deckId == deckId }
+            }
+        } else {
+            filtered
         }
     }
 
@@ -138,7 +147,7 @@ fun RevisionSessionScreen(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "You've reviewed every card scheduled for this deck.",
+                                text = if (deckId == "ALL") "You've reviewed every card scheduled across all decks." else "You've reviewed every card scheduled for this deck.",
                                 fontSize = 14.sp,
                                 color = NeumorphicColors.TextSecondary,
                                 textAlign = TextAlign.Center
