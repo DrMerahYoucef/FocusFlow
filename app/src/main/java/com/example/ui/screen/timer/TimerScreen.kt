@@ -25,9 +25,13 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
+import android.content.pm.ActivityInfo
+import android.view.OrientationEventListener
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.material3.Text
@@ -952,6 +956,7 @@ fun LandscapeBatterySaverLayout(
     onSelectNoAudio: () -> Unit,
     onShowAudioPopup: () -> Unit,
     onInteraction: () -> Unit,
+    onToggleOrientation: () -> Unit,
     view: android.view.View
 ) {
     Row(
@@ -1059,13 +1064,35 @@ fun LandscapeBatterySaverLayout(
                     letterSpacing = 0.5.sp,
                     modifier = Modifier.alpha(textAlphaMultiplier)
                 )
-                Text(
-                    text = "Battery: $batteryLevel%",
-                    color = Color(0x40FFFFFF),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Normal,
-                    modifier = Modifier.alpha(textAlphaMultiplier)
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "$batteryLevel%",
+                        color = Color(0x80FFFFFF),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.alpha(textAlphaMultiplier)
+                    )
+                    androidx.compose.material3.IconButton(
+                        onClick = {
+                            onInteraction()
+                            onToggleOrientation()
+                            try {
+                                view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+                            } catch (e: Exception) {}
+                        },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ScreenRotation,
+                            contentDescription = "Switch to Portrait",
+                            tint = Color(0x80FFFFFF),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
             }
 
             Row(
@@ -1258,7 +1285,7 @@ fun LandscapeBatterySaverLayout(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Double tap to return",
+                    text = "Double tap to return • Auto-rotates on tilt",
                     color = Color(0x25FFFFFF),
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Normal,
@@ -1294,6 +1321,7 @@ fun PortraitBatterySaverLayout(
     onSelectNoAudio: () -> Unit,
     onShowAudioPopup: () -> Unit,
     onInteraction: () -> Unit,
+    onToggleOrientation: () -> Unit,
     view: android.view.View
 ) {
     Column(
@@ -1316,14 +1344,36 @@ fun PortraitBatterySaverLayout(
                 letterSpacing = 1.sp,
                 modifier = Modifier.alpha(textAlphaMultiplier)
             )
-            Text(
-                text = "$batteryLevel%",
-                color = Color(0x80FFFFFF),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.5.sp,
-                modifier = Modifier.alpha(textAlphaMultiplier)
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = "$batteryLevel%",
+                    color = Color(0x80FFFFFF),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp,
+                    modifier = Modifier.alpha(textAlphaMultiplier)
+                )
+                androidx.compose.material3.IconButton(
+                    onClick = {
+                        onInteraction()
+                        onToggleOrientation()
+                        try {
+                            view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+                        } catch (e: Exception) {}
+                    },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ScreenRotation,
+                        contentDescription = "Switch to Landscape",
+                        tint = Color(0x80FFFFFF),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
         }
 
         Box(
@@ -1832,6 +1882,46 @@ fun BatterySaverOverlay(
         windowProvider?.window ?: (context as? android.app.Activity)?.window
     }
 
+    val activity = context as? android.app.Activity
+    var userManualLandscape by remember { mutableStateOf<Boolean?>(null) }
+    var sensorIsLandscape by remember { mutableStateOf<Boolean?>(null) }
+
+    DisposableEffect(activity, context) {
+        val originalOrientation = activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        try {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+        } catch (e: Exception) {}
+
+        val orientationListener = object : OrientationEventListener(context) {
+            override fun onOrientationChanged(orientation: Int) {
+                if (orientation == ORIENTATION_UNKNOWN) return
+                // Check tilt angle: 60..120 or 240..300 = landscape
+                if ((orientation in 60..120) || (orientation in 240..300)) {
+                    if (sensorIsLandscape != true) {
+                        sensorIsLandscape = true
+                        userManualLandscape = null
+                    }
+                } else if ((orientation in 330..360) || (orientation in 0..30) || (orientation in 150..210)) {
+                    // 330..360, 0..30 (portrait) or 150..210 (reverse portrait)
+                    if (sensorIsLandscape != false) {
+                        sensorIsLandscape = false
+                        userManualLandscape = null
+                    }
+                }
+            }
+        }
+        if (orientationListener.canDetectOrientation()) {
+            orientationListener.enable()
+        }
+
+        onDispose {
+            try {
+                orientationListener.disable()
+                activity?.requestedOrientation = originalOrientation
+            } catch (e: Exception) {}
+        }
+    }
+
     // Keep screen on, hide status/nav bars, hide them with transient gestures
     DisposableEffect(window, view) {
         window?.let { win ->
@@ -2096,62 +2186,93 @@ fun BatterySaverOverlay(
         )
 
         val configuration = LocalConfiguration.current
-        val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val configIsLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val effectiveIsLandscape = userManualLandscape ?: (sensorIsLandscape ?: configIsLandscape)
 
-        if (isLandscape) {
-            LandscapeBatterySaverLayout(
-                batteryLevel = batteryLevel,
-                textAlphaMultiplier = textAlphaMultiplier,
-                remainingTimeFormatted = remainingTimeFormatted,
-                phaseLabel = phaseLabel,
-                arcColor = arcColor,
-                animatedProgress = animatedProgress,
-                radioIsPlaying = radioIsPlaying,
-                radioStationName = radioStationName,
-                currentAmbientId = currentAmbientId,
-                currentAmbientLabel = currentAmbientLabel,
-                isSystemPowerSaveMode = isSystemPowerSaveMode,
-                sessionCount = sessionCount,
-                totalFocusSecs = totalFocusSecs,
-                isPlaying = isPlaying,
-                ambientIds = ambientIds,
-                onPlayPauseClick = onPlayPauseClick,
-                onStopClick = onStopClick,
-                onSkipClick = onSkipClick,
-                onSelectRadio = onSelectRadio,
-                onSelectAmbient = onSelectAmbient,
-                onSelectNoAudio = onSelectNoAudio,
-                onShowAudioPopup = { showAudioPopup = true },
-                onInteraction = { lastInteractionTime = System.currentTimeMillis() },
-                view = view
-            )
-        } else {
-            PortraitBatterySaverLayout(
-                batteryLevel = batteryLevel,
-                textAlphaMultiplier = textAlphaMultiplier,
-                remainingTimeFormatted = remainingTimeFormatted,
-                phaseLabel = phaseLabel,
-                arcColor = arcColor,
-                animatedProgress = animatedProgress,
-                radioIsPlaying = radioIsPlaying,
-                radioStationName = radioStationName,
-                currentAmbientId = currentAmbientId,
-                currentAmbientLabel = currentAmbientLabel,
-                isSystemPowerSaveMode = isSystemPowerSaveMode,
-                sessionCount = sessionCount,
-                totalFocusSecs = totalFocusSecs,
-                isPlaying = isPlaying,
-                ambientIds = ambientIds,
-                onPlayPauseClick = onPlayPauseClick,
-                onStopClick = onStopClick,
-                onSkipClick = onSkipClick,
-                onSelectRadio = onSelectRadio,
-                onSelectAmbient = onSelectAmbient,
-                onSelectNoAudio = onSelectNoAudio,
-                onShowAudioPopup = { showAudioPopup = true },
-                onInteraction = { lastInteractionTime = System.currentTimeMillis() },
-                view = view
-            )
+        AnimatedContent(
+            targetState = effectiveIsLandscape,
+            transitionSpec = {
+                fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+            },
+            label = "BatterySaverOrientationTransition"
+        ) { isLandscapeMode ->
+            if (isLandscapeMode) {
+                LandscapeBatterySaverLayout(
+                    batteryLevel = batteryLevel,
+                    textAlphaMultiplier = textAlphaMultiplier,
+                    remainingTimeFormatted = remainingTimeFormatted,
+                    phaseLabel = phaseLabel,
+                    arcColor = arcColor,
+                    animatedProgress = animatedProgress,
+                    radioIsPlaying = radioIsPlaying,
+                    radioStationName = radioStationName,
+                    currentAmbientId = currentAmbientId,
+                    currentAmbientLabel = currentAmbientLabel,
+                    isSystemPowerSaveMode = isSystemPowerSaveMode,
+                    sessionCount = sessionCount,
+                    totalFocusSecs = totalFocusSecs,
+                    isPlaying = isPlaying,
+                    ambientIds = ambientIds,
+                    onPlayPauseClick = onPlayPauseClick,
+                    onStopClick = onStopClick,
+                    onSkipClick = onSkipClick,
+                    onSelectRadio = onSelectRadio,
+                    onSelectAmbient = onSelectAmbient,
+                    onSelectNoAudio = onSelectNoAudio,
+                    onShowAudioPopup = { showAudioPopup = true },
+                    onInteraction = { lastInteractionTime = System.currentTimeMillis() },
+                    onToggleOrientation = {
+                        val next = !effectiveIsLandscape
+                        userManualLandscape = next
+                        try {
+                            activity?.requestedOrientation = if (next) {
+                                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                            } else {
+                                ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                            }
+                        } catch (e: Exception) {}
+                    },
+                    view = view
+                )
+            } else {
+                PortraitBatterySaverLayout(
+                    batteryLevel = batteryLevel,
+                    textAlphaMultiplier = textAlphaMultiplier,
+                    remainingTimeFormatted = remainingTimeFormatted,
+                    phaseLabel = phaseLabel,
+                    arcColor = arcColor,
+                    animatedProgress = animatedProgress,
+                    radioIsPlaying = radioIsPlaying,
+                    radioStationName = radioStationName,
+                    currentAmbientId = currentAmbientId,
+                    currentAmbientLabel = currentAmbientLabel,
+                    isSystemPowerSaveMode = isSystemPowerSaveMode,
+                    sessionCount = sessionCount,
+                    totalFocusSecs = totalFocusSecs,
+                    isPlaying = isPlaying,
+                    ambientIds = ambientIds,
+                    onPlayPauseClick = onPlayPauseClick,
+                    onStopClick = onStopClick,
+                    onSkipClick = onSkipClick,
+                    onSelectRadio = onSelectRadio,
+                    onSelectAmbient = onSelectAmbient,
+                    onSelectNoAudio = onSelectNoAudio,
+                    onShowAudioPopup = { showAudioPopup = true },
+                    onInteraction = { lastInteractionTime = System.currentTimeMillis() },
+                    onToggleOrientation = {
+                        val next = !effectiveIsLandscape
+                        userManualLandscape = next
+                        try {
+                            activity?.requestedOrientation = if (next) {
+                                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                            } else {
+                                ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                            }
+                        } catch (e: Exception) {}
+                    },
+                    view = view
+                )
+            }
         }
 
         // --- Brightness Dim Slider (Bar on the right side) ---
