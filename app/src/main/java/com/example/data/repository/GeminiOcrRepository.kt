@@ -410,20 +410,32 @@ Rules:
     }
 }
 
-// --- Strictly Gemini — no on-device/ML Kit fallback anymore ---------------------------------
-// If no valid key is configured, capture must fail with a clear message pointing to Settings
-// rather than silently switching to a lower-quality engine.
+// --- OCR Engine Provider: Supports Google ML Kit on-device and Gemini AI Cloud ---
 class OcrEngineProvider(
     private val apiKeyProvider: () -> String,
     private val selectedModelProvider: () -> String? = { null }
 ) {
-    fun get(): OcrEngine {
-        val key = apiKeyProvider().trim()
-        val isValidKey = key.isNotBlank() && key != "MY_GEMINI_API_KEY" && key != "null" && key != "DEFAULT_KEY"
-        if (!isValidKey) {
-            throw IllegalStateException("A Gemini API key is required to scan text. Add one in Settings.")
+    private val mlKitEngine by lazy { MlKitOcrEngine() }
+
+    fun get(choice: OcrEngineChoice = OcrEngineChoice.ML_KIT): OcrEngine {
+        return when (choice) {
+            OcrEngineChoice.ML_KIT -> mlKitEngine
+            OcrEngineChoice.GEMINI -> {
+                val key = apiKeyProvider().trim()
+                val isValidKey = key.isNotBlank() && key != "MY_GEMINI_API_KEY" && key != "null" && key != "DEFAULT_KEY"
+                if (!isValidKey) {
+                    // Fall back cleanly to ML Kit on-device if Gemini key is missing
+                    mlKitEngine
+                } else {
+                    GeminiOcrEngine(apiKeyProvider = { key }, selectedModelProvider = selectedModelProvider)
+                }
+            }
         }
-        return GeminiOcrEngine(apiKeyProvider = { key }, selectedModelProvider = selectedModelProvider)
+    }
+
+    fun hasValidGeminiKey(): Boolean {
+        val key = apiKeyProvider().trim()
+        return key.isNotBlank() && key != "MY_GEMINI_API_KEY" && key != "null" && key != "DEFAULT_KEY"
     }
 }
 

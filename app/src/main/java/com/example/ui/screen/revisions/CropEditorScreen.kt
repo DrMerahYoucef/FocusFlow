@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.NeumorphicColors
+import com.example.data.repository.OcrEngineChoice
 import com.example.data.repository.toSingleNote
 import java.io.File
 
@@ -455,7 +456,7 @@ fun CropEditorScreen(
         if (showModeDialog && pendingCroppedBitmap != null) {
             var selectedDeckId by remember { mutableStateOf(state.selectedDeckId) }
             var temporaryPromptAddendum by remember { mutableStateOf("") }
-            var cardCreationType by remember { mutableStateOf(if (state.hasApiKey) "OCR" else "LOCAL_IMAGE") }
+            var cardCreationType by remember { mutableStateOf(if (state.hasApiKey) "ML_KIT" else "ML_KIT") }
             var isDeckDropdownExpanded by remember { mutableStateOf(false) }
 
             var showCreateDeckInlineDialog by remember { mutableStateOf(false) }
@@ -483,7 +484,7 @@ fun CropEditorScreen(
                         shadowElevation = 12.dp,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 640.dp)
+                            .heightIn(max = 660.dp)
                     ) {
                         Column(
                             modifier = Modifier
@@ -535,7 +536,7 @@ fun CropEditorScreen(
                                     border = androidx.compose.foundation.BorderStroke(1.dp, NeumorphicColors.Primary.copy(alpha = 0.25f)),
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .heightIn(min = 140.dp, max = 220.dp)
+                                        .heightIn(min = 130.dp, max = 200.dp)
                                 ) {
                                     Box(
                                         modifier = Modifier
@@ -598,28 +599,104 @@ fun CropEditorScreen(
                                 }
 
                                 // Card Creation Type Options
-                                Text("Card Type:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    FilterChip(
-                                        selected = cardCreationType == "OCR",
-                                        onClick = {
-                                            if (state.hasApiKey) {
-                                                cardCreationType = "OCR"
-                                            } else {
-                                                Toast.makeText(context, "Gemini API key is required for AI OCR text extraction.", Toast.LENGTH_SHORT).show()
+                                Text("Extraction & Card Type:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeumorphicColors.TextPrimary)
+                                
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        FilterChip(
+                                            selected = cardCreationType == "ML_KIT",
+                                            onClick = { cardCreationType = "ML_KIT" },
+                                            label = { Text("OCR (ML Kit On-Device)") },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Default.DocumentScanner,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = NeumorphicColors.Primary.copy(alpha = 0.15f),
+                                                selectedLabelColor = NeumorphicColors.Primary
+                                            )
+                                        )
+
+                                        FilterChip(
+                                            selected = cardCreationType == "GEMINI",
+                                            onClick = {
+                                                if (state.hasApiKey) {
+                                                    cardCreationType = "GEMINI"
+                                                } else {
+                                                    Toast.makeText(context, "Clé Gemini API requise pour le Cloud IA. Utilisez ML Kit (gratuit & hors-ligne) !", Toast.LENGTH_LONG).show()
+                                                }
+                                            },
+                                            label = { Text(if (state.hasApiKey) "OCR (Gemini IA)" else "OCR Gemini (Clé requise)") },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Default.AutoAwesome,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
                                             }
-                                        },
-                                        enabled = state.hasApiKey,
-                                        label = { Text(if (state.hasApiKey) "OCR (AI Text)" else "OCR (AI Key Required)") }
-                                    )
-                                    FilterChip(
-                                        selected = cardCreationType == "LOCAL_IMAGE",
-                                        onClick = { cardCreationType = "LOCAL_IMAGE" },
-                                        label = { Text("Local Photo Card") }
-                                    )
+                                        )
+                                    }
+
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        FilterChip(
+                                            selected = cardCreationType == "LOCAL_IMAGE",
+                                            onClick = { cardCreationType = "LOCAL_IMAGE" },
+                                            label = { Text("Photo Card (Image pure)") },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Default.Image,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        )
+                                    }
                                 }
 
-                                if (cardCreationType == "OCR") {
+                                if (cardCreationType == "ML_KIT") {
+                                    Surface(
+                                        color = NeumorphicColors.Primary.copy(alpha = 0.08f),
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.CheckCircle,
+                                                contentDescription = null,
+                                                tint = NeumorphicColors.Primary,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Text(
+                                                text = "Google ML Kit (Modèle sur appareil) : Numérisation instantanée hors-ligne, optimisée pour les cartes en français (accents, listes, définitions).",
+                                                fontSize = 12.sp,
+                                                color = NeumorphicColors.TextPrimary,
+                                                lineHeight = 16.sp
+                                            )
+                                        }
+                                    }
+
+                                    OutlinedTextField(
+                                        value = temporaryPromptAddendum,
+                                        onValueChange = { temporaryPromptAddendum = it },
+                                        label = { Text("Titre de la carte (Optionnel)") },
+                                        placeholder = { Text("Laisser vide pour détecter le titre sur l'image") },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                } else if (cardCreationType == "GEMINI") {
                                     OutlinedTextField(
                                         value = temporaryPromptAddendum,
                                         onValueChange = { temporaryPromptAddendum = it },
@@ -682,41 +759,67 @@ fun CropEditorScreen(
                                         showModeDialog = false
                                         pendingCroppedBitmap = null
 
-                                        if (cardCreationType == "OCR") {
-                                            viewModel.processCapturedImageWithCustomPrompt(
-                                                croppedBitmap = bitmapToProcess,
-                                                temporaryPromptAddendum = promptAddendumVal,
-                                                explainMode = selectedExplainMode,
-                                                targetDeckId = targetDeck
-                                            ) { result, err ->
-                                                try {
-                                                    if (sourceFile.exists()) sourceFile.delete()
-                                                } catch (e: Exception) {}
+                                        when (cardCreationType) {
+                                            "ML_KIT" -> {
+                                                viewModel.processCapturedImageWithCustomPrompt(
+                                                    croppedBitmap = bitmapToProcess,
+                                                    temporaryPromptAddendum = promptAddendumVal,
+                                                    explainMode = false,
+                                                    targetDeckId = targetDeck,
+                                                    engineChoice = OcrEngineChoice.ML_KIT
+                                                ) { result, err ->
+                                                    try {
+                                                        if (sourceFile.exists()) sourceFile.delete()
+                                                    } catch (e: Exception) {}
 
-                                                if (result != null) {
-                                                    val note = result.toSingleNote(targetDeck, viewModel.uiState.value.srsSettings.startingEaseFactor)
-                                                    viewModel.updateNote(note)
-                                                    Toast.makeText(context, "Carte créée avec succès ! ✨", Toast.LENGTH_SHORT).show()
-                                                    onCropConfirmed()
-                                                } else {
-                                                    errorMessageToShow = err ?: "Échec de l'extraction. Veuillez vérifier l'image ou la clé API."
+                                                    if (result != null) {
+                                                        val note = result.toSingleNote(targetDeck, viewModel.uiState.value.srsSettings.startingEaseFactor)
+                                                        viewModel.updateNote(note)
+                                                        Toast.makeText(context, "Carte créée avec Google ML Kit ! ✨", Toast.LENGTH_SHORT).show()
+                                                        onCropConfirmed()
+                                                    } else {
+                                                        errorMessageToShow = err ?: "Échec de l'extraction ML Kit. Veuillez vérifier l'image."
+                                                    }
                                                 }
                                             }
-                                        } else {
-                                            viewModel.createLocalImageCard(
-                                                bitmap = bitmapToProcess,
-                                                userTitle = promptAddendumVal,
-                                                deckId = targetDeck
-                                            ) { success, err ->
-                                                try {
-                                                    if (sourceFile.exists()) sourceFile.delete()
-                                                } catch (e: Exception) {}
+                                            "GEMINI" -> {
+                                                viewModel.processCapturedImageWithCustomPrompt(
+                                                    croppedBitmap = bitmapToProcess,
+                                                    temporaryPromptAddendum = promptAddendumVal,
+                                                    explainMode = selectedExplainMode,
+                                                    targetDeckId = targetDeck,
+                                                    engineChoice = OcrEngineChoice.GEMINI
+                                                ) { result, err ->
+                                                    try {
+                                                        if (sourceFile.exists()) sourceFile.delete()
+                                                    } catch (e: Exception) {}
 
-                                                if (success) {
-                                                    Toast.makeText(context, "Photo Card créée avec succès ! 📷", Toast.LENGTH_SHORT).show()
-                                                    onCropConfirmed()
-                                                } else {
-                                                    errorMessageToShow = err ?: "Failed to save photo card."
+                                                    if (result != null) {
+                                                        val note = result.toSingleNote(targetDeck, viewModel.uiState.value.srsSettings.startingEaseFactor)
+                                                        viewModel.updateNote(note)
+                                                        Toast.makeText(context, "Carte créée avec succès via Gemini ! ✨", Toast.LENGTH_SHORT).show()
+                                                        onCropConfirmed()
+                                                    } else {
+                                                        errorMessageToShow = err ?: "Échec de l'extraction Gemini. Veuillez vérifier l'image ou la clé API."
+                                                    }
+                                                }
+                                            }
+                                            else -> {
+                                                viewModel.createLocalImageCard(
+                                                    bitmap = bitmapToProcess,
+                                                    userTitle = promptAddendumVal,
+                                                    deckId = targetDeck
+                                                ) { success, err ->
+                                                    try {
+                                                        if (sourceFile.exists()) sourceFile.delete()
+                                                    } catch (e: Exception) {}
+
+                                                    if (success) {
+                                                        Toast.makeText(context, "Photo Card créée avec succès ! 📷", Toast.LENGTH_SHORT).show()
+                                                        onCropConfirmed()
+                                                    } else {
+                                                        errorMessageToShow = err ?: "Failed to save photo card."
+                                                    }
                                                 }
                                             }
                                         }

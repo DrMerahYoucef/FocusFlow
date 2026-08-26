@@ -10,6 +10,7 @@ import com.example.data.db.entity.RevisionDeckEntity
 import com.example.data.db.entity.RevisionNoteEntity
 import com.example.data.repository.GeminiOcrRepository
 import com.example.data.repository.ImportMode
+import com.example.data.repository.OcrEngineChoice
 import com.example.data.repository.OcrEngineProvider
 import com.example.data.repository.toSingleNote
 import com.example.data.srs.ReviewGrade
@@ -261,6 +262,7 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
     fun processCapturedImage(
         croppedBitmap: Bitmap,
         explainMode: Boolean = false,
+        engineChoice: OcrEngineChoice = if (hasApiKey()) OcrEngineChoice.GEMINI else OcrEngineChoice.ML_KIT,
         onComplete: (Boolean) -> Unit
     ) {
         processCapturedImageWithCustomPrompt(
@@ -268,6 +270,7 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
             temporaryPromptAddendum = null,
             explainMode = explainMode,
             targetDeckId = _uiState.value.selectedDeckId,
+            engineChoice = engineChoice,
             onResult = { noteResult, error ->
                 if (noteResult != null) {
                     val singleNote = noteResult.toSingleNote(_uiState.value.selectedDeckId, _uiState.value.srsSettings.startingEaseFactor)
@@ -283,18 +286,21 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
         )
     }
 
+    fun hasApiKey(): Boolean = getEffectiveApiKey().isNotBlank()
+
     fun processCapturedImageWithCustomPrompt(
         croppedBitmap: Bitmap,
         temporaryPromptAddendum: String?,
         explainMode: Boolean = false,
         targetDeckId: String,
+        engineChoice: OcrEngineChoice = OcrEngineChoice.ML_KIT,
         onResult: (com.example.data.repository.GeminiNoteResult?, String?) -> Unit
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isProcessingOcr = true, ocrError = null) }
             try {
                 val mode = if (explainMode) com.example.data.repository.ExtractionMode.EXPLAIN else com.example.data.repository.ExtractionMode.VERBATIM
-                val engine = ocrEngineProvider.get()
+                val engine = ocrEngineProvider.get(engineChoice)
                 val result = engine.extractStructuredContent(
                     bitmap = croppedBitmap,
                     mode = mode,
@@ -305,7 +311,7 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
                 _uiState.update { it.copy(isProcessingOcr = false) }
                 onResult(result, null)
             } catch (e: Exception) {
-                android.util.Log.e("RevisionsViewModel", "OCR process failed", e)
+                android.util.Log.e("RevisionsViewModel", "OCR process failed with $engineChoice", e)
                 val errorMessage = when {
                     !e.message.isNullOrBlank() -> e.message!!
                     !e.localizedMessage.isNullOrBlank() -> e.localizedMessage!!
@@ -360,11 +366,17 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
 
                 if (titleToUse.isBlank()) {
                     try {
-                        val bos = java.io.ByteArrayOutputStream()
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 80, bos)
-                        val titleEngine = com.example.data.repository.GeminiTitleEngine { getEffectiveApiKey() }
-                        val res = titleEngine.generateTitle(bos.toByteArray(), "image/jpeg")
-                        titleToUse = res.title
+                        if (hasApiKey()) {
+                            val bos = java.io.ByteArrayOutputStream()
+                            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, bos)
+                            val titleEngine = com.example.data.repository.GeminiTitleEngine { getEffectiveApiKey() }
+                            val res = titleEngine.generateTitle(bos.toByteArray(), "image/jpeg")
+                            titleToUse = res.title
+                        } else {
+                            val mlKit = ocrEngineProvider.get(OcrEngineChoice.ML_KIT)
+                            val res = mlKit.extractStructuredContent(bitmap, com.example.data.repository.ExtractionMode.VERBATIM)
+                            titleToUse = res.title
+                        }
                     } catch (e: Exception) {
                         titleToUse = "Photo Card"
                     }
