@@ -57,12 +57,13 @@ fun GeminiNoteResult.toSingleNote(deckId: String, easeFactorDefault: Float = 2.5
             )
             else -> {
                 val content = block.content.orEmpty()
-                // Only attach highlights that actually occur in THIS block's text — a highlight
-                // referencing text from a different block is silently dropped rather than
-                // wrongly attached or string-replaced somewhere it doesn't belong.
+                val cleanContent = content.replace(Regex("""[*_`#~]"""), "")
                 val relevantHighlights = highlights
-                    .filter { it.text.isNotBlank() && content.contains(it.text) }
-                    .map { NoteHighlight(it.text, it.color.ifBlank { "amber" }) }
+                    .filter {
+                        val cleanTerm = it.text.replace(Regex("""[*_`#~]"""), "").trim()
+                        cleanTerm.isNotBlank() && cleanContent.contains(cleanTerm, ignoreCase = true)
+                    }
+                    .map { NoteHighlight(it.text.replace(Regex("""[*_`#~]"""), "").trim(), it.color.ifBlank { "amber" }) }
                 NoteBlock.TextBlock(content = content, highlights = relevantHighlights)
             }
         }

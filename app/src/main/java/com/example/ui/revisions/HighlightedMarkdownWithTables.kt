@@ -181,8 +181,8 @@ fun HighlightedMarkdownWithTables(
             when (segment) {
                 is ContentSegment.MarkdownText ->
                     if (segment.content.isNotBlank()) {
-                        HighlightedMarkdownText(
-                            markdown = segment.content,
+                        RichTextBlockRenderer(
+                            content = segment.content,
                             fontSize = fontSize,
                             modifier = Modifier.fillMaxWidth()
                         )

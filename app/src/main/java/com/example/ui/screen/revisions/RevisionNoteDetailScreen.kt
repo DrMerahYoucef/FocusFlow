@@ -382,7 +382,10 @@ fun RevisionNoteDetailScreen(
                 val updatedNote = note.copy(
                     title = updatedTitle,
                     plainTextPreview = updatedContent,
-                    contentMarkdown = updatedContent
+                    contentMarkdown = updatedContent,
+                    contentBlocksJson = com.example.data.repository.NoteBlocksSerializer.toJson(
+                        listOf(com.example.data.repository.NoteBlock.TextBlock(content = updatedContent))
+                    )
                 )
                 viewModel.updateNote(updatedNote)
                 showEditDialog = false

@@ -75,3 +75,23 @@ object NeumorphicColors {
         @Composable
         get() = if (LocalIsDarkTheme.current) WarningDark else WarningLight
 }
+
+object RevisionHeadingColors {
+    @Composable
+    fun getHeadingColor(level: Int, isDark: Boolean = LocalIsDarkTheme.current): Color {
+        return when (level) {
+            1 -> if (isDark) Color(0xFF60A5FA) else Color(0xFF1565C0) // Royal Blue / Sky Blue
+            2 -> if (isDark) Color(0xFF34D399) else Color(0xFF00796B) // Mint Teal / Deep Teal
+            3 -> if (isDark) Color(0xFFA78BFA) else Color(0xFF7B1FA2) // Lavender / Purple
+            4 -> if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706) // Gold / Amber Orange
+            5 -> if (isDark) Color(0xFFFB7185) else Color(0xFFC2185B) // Rose / Berry
+            else -> if (isDark) Color(0xFF38BDF8) else Color(0xFF00838F) // Cyan / Slate Blue
+        }
+    }
+
+    @Composable
+    fun getHeadingBgColor(level: Int, isDark: Boolean = LocalIsDarkTheme.current): Color {
+        val color = getHeadingColor(level, isDark)
+        return color.copy(alpha = if (isDark) 0.16f else 0.08f)
+    }
+}
