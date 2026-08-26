@@ -48,4 +48,10 @@
     <string name="due_today">Due today</string>
     <string name="due_in_days">Due in %d days</string>
     <string name="due_date">Due: %s</string>
+    <string name="full_screen">Full Screen</string>
+    <string name="exit_full_screen">Exit Full Screen</string>
+    <string name="zoom_in">Zoom In</string>
+    <string name="zoom_out">Zoom Out</string>
+    <string name="reset_zoom">Reset Zoom</string>
+    <string name="pinch_to_zoom_hint">Pinch with two fingers to zoom text</string>
 </resources>

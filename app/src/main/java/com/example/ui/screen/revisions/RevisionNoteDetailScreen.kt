@@ -35,6 +35,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextRange
@@ -47,6 +48,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import com.example.R
 import com.example.ui.components.ConfirmDeleteDialog
+import com.example.ui.revisions.FullScreenNoteReaderDialog
 import com.example.ui.revisions.HighlightedMarkdownWithTables
 import com.example.ui.revisions.NoteBlocksRenderer
 import com.example.ui.theme.NeumorphicColors
@@ -68,6 +70,8 @@ fun RevisionNoteDetailScreen(
     var showEditDialog by remember { mutableStateOf(false) }
     var showMoveDeckDialog by remember { mutableStateOf(false) }
     var showZoomImageDialog by remember { mutableStateOf(false) }
+    var showFullScreenReader by remember { mutableStateOf(false) }
+    var cardTextScale by remember { mutableFloatStateOf(1.0f) }
 
     if (showDeleteCardDialog && note != null) {
         ConfirmDeleteDialog(
@@ -123,6 +127,16 @@ fun RevisionNoteDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = { showFullScreenReader = true },
+                        modifier = Modifier.testTag("detail_fullscreen_action")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Fullscreen,
+                            contentDescription = stringResource(R.string.full_screen),
+                            tint = NeumorphicColors.Primary
+                        )
+                    }
                     IconButton(onClick = { showEditDialog = true }) {
                         Icon(
                             imageVector = Icons.Outlined.Edit,
@@ -173,19 +187,39 @@ fun RevisionNoteDetailScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         val deckName = state.decks.find { it.id == note.deckId }?.name ?: "Deck"
-                        Text(
-                            text = deckName.uppercase(),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Black,
-                            color = NeumorphicColors.Primary,
-                            letterSpacing = 1.sp
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = deckName.uppercase(),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
+                                color = NeumorphicColors.Primary,
+                                letterSpacing = 1.sp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "• " + formatDueIn(note.dueDate),
+                                fontSize = 12.sp,
+                                color = NeumorphicColors.TextSecondary
+                            )
+                        }
 
-                        Text(
-                            text = formatDueIn(note.dueDate),
-                            fontSize = 12.sp,
-                            color = NeumorphicColors.TextSecondary
-                        )
+                        // Card Full Screen Button
+                        FilledTonalIconButton(
+                            onClick = { showFullScreenReader = true },
+                            modifier = Modifier
+                                .size(36.dp)
+                                .testTag("card_fullscreen_button"),
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = NeumorphicColors.Primary.copy(alpha = 0.12f),
+                                contentColor = NeumorphicColors.Primary
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Fullscreen,
+                                contentDescription = stringResource(R.string.full_screen),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -268,19 +302,55 @@ fun RevisionNoteDetailScreen(
                             context = context
                         )
                     } else {
-                        // TEXT Card View
-                        if (note.contentBlocksJson.isBlank() || note.contentBlocksJson == "[]") {
-                            HighlightedMarkdownWithTables(
-                                markdown = note.plainTextPreview.ifBlank { note.contentMarkdown },
-                                fontSize = 16.sp,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        } else {
-                            NoteBlocksRenderer(
-                                blocksJson = note.contentBlocksJson,
-                                fontSize = 16.sp,
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                        // TEXT Card View with 2-finger pinch zoom
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .pointerInput(Unit) {
+                                    detectTransformGestures { _, _, zoom, _ ->
+                                        if (zoom != 1.0f) {
+                                            cardTextScale = (cardTextScale * zoom).coerceIn(0.7f, 3.5f)
+                                        }
+                                    }
+                                }
+                        ) {
+                            val currentFontSize = (16 * cardTextScale).sp
+                            if (note.contentBlocksJson.isBlank() || note.contentBlocksJson == "[]") {
+                                HighlightedMarkdownWithTables(
+                                    markdown = note.plainTextPreview.ifBlank { note.contentMarkdown },
+                                    fontSize = currentFontSize,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            } else {
+                                NoteBlocksRenderer(
+                                    blocksJson = note.contentBlocksJson,
+                                    fontSize = currentFontSize,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+
+                        if (cardTextScale != 1.0f) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Zoom: ${(cardTextScale * 100).toInt()}%",
+                                    fontSize = 11.sp,
+                                    color = NeumorphicColors.TextSecondary
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                TextButton(
+                                    onClick = { cardTextScale = 1.0f },
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                    modifier = Modifier.height(26.dp)
+                                ) {
+                                    Text("Reset", fontSize = 11.sp, color = NeumorphicColors.Primary)
+                                }
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -371,6 +441,16 @@ fun RevisionNoteDetailScreen(
                 }
             }
         }
+    }
+
+    // Fullscreen Zoomable Note Reader Dialog
+    if (showFullScreenReader && note != null) {
+        val deckName = state.decks.find { it.id == note.deckId }?.name ?: ""
+        FullScreenNoteReaderDialog(
+            note = note,
+            deckName = deckName,
+            onDismiss = { showFullScreenReader = false }
+        )
     }
 
     // Edit Card Dialog with Rich Text Highlighting & Underline

@@ -7,6 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Flip
+import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,16 +25,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.R
 import com.example.data.db.entity.RevisionNoteEntity
 import com.example.data.srs.ReviewGrade
 import com.example.ui.components.NeumorphicCard
+import com.example.ui.revisions.FullScreenNoteReaderDialog
 import com.example.ui.revisions.HighlightedMarkdownWithTables
 import com.example.ui.revisions.NoteBlocksRenderer
 import com.example.ui.theme.NeumorphicColors
@@ -68,6 +75,8 @@ fun RevisionSessionScreen(
     var currentIndex by remember { mutableStateOf(0) }
     var isFlipped by remember { mutableStateOf(false) }
     var zoomImageFile by remember { mutableStateOf<File?>(null) }
+    var showFullScreenReader by remember { mutableStateOf(false) }
+    var sessionTextScale by remember { mutableFloatStateOf(1.0f) }
     val context = LocalContext.current
 
     val currentNote = dueNotes.getOrNull(currentIndex)
@@ -198,17 +207,39 @@ fun RevisionSessionScreen(
                                 // Front Side
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center,
+                                    verticalArrangement = Arrangement.SpaceBetween,
                                     modifier = Modifier.fillMaxSize()
                                 ) {
-                                    Text(
-                                        text = "QUESTION",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Black,
-                                        letterSpacing = 2.sp,
-                                        color = NeumorphicColors.Primary
-                                    )
-                                    Spacer(modifier = Modifier.height(20.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "QUESTION",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Black,
+                                            letterSpacing = 2.sp,
+                                            color = NeumorphicColors.Primary
+                                        )
+
+                                        IconButton(
+                                            onClick = { showFullScreenReader = true },
+                                            modifier = Modifier
+                                                .size(32.dp)
+                                                .testTag("session_question_fullscreen_btn")
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Fullscreen,
+                                                contentDescription = stringResource(R.string.full_screen),
+                                                tint = NeumorphicColors.Primary,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
                                     Text(
                                         text = currentNote.title,
                                         fontSize = 22.sp,
@@ -216,7 +247,9 @@ fun RevisionSessionScreen(
                                         color = NeumorphicColors.TextPrimary,
                                         textAlign = TextAlign.Center
                                     )
-                                    Spacer(modifier = Modifier.height(32.dp))
+
+                                    Spacer(modifier = Modifier.height(20.dp))
+
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.Center,
@@ -240,21 +273,49 @@ fun RevisionSessionScreen(
                                     }
                                 }
                             } else {
-                                // Back Side (Rendered flipped back)
+                                // Back Side (Rendered flipped back with 2-finger pinch zoom)
                                 Column(
                                     modifier = Modifier
                                         .fillMaxSize()
+                                        .pointerInput(Unit) {
+                                            detectTransformGestures { _, _, zoom, _ ->
+                                                if (zoom != 1.0f) {
+                                                    sessionTextScale = (sessionTextScale * zoom).coerceIn(0.7f, 3.5f)
+                                                }
+                                            }
+                                        }
                                         .verticalScroll(rememberScrollState())
                                         .graphicsLayer { rotationY = 180f },
                                     horizontalAlignment = Alignment.Start
                                 ) {
-                                    Text(
-                                        text = "ANSWER",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Black,
-                                        letterSpacing = 2.sp,
-                                        color = NeumorphicColors.Accent
-                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "ANSWER",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Black,
+                                            letterSpacing = 2.sp,
+                                            color = NeumorphicColors.Accent
+                                        )
+
+                                        IconButton(
+                                            onClick = { showFullScreenReader = true },
+                                            modifier = Modifier
+                                                .size(32.dp)
+                                                .testTag("session_answer_fullscreen_btn")
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Fullscreen,
+                                                contentDescription = stringResource(R.string.full_screen),
+                                                tint = NeumorphicColors.Primary,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
+                                    }
+
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text(
                                         text = currentNote.title,
@@ -323,16 +384,18 @@ fun RevisionSessionScreen(
                                             !plainText.equals("Photo Card", ignoreCase = true) &&
                                             !plainText.equals("Voice Note Card", ignoreCase = true)
 
+                                    val currentFontSize = (15 * sessionTextScale).sp
+
                                     if (hasBlocks) {
                                         NoteBlocksRenderer(
                                             blocksJson = currentNote.contentBlocksJson,
-                                            fontSize = 15.sp,
+                                            fontSize = currentFontSize,
                                             modifier = Modifier.fillMaxWidth()
                                         )
                                     } else if (showPlainText) {
                                         HighlightedMarkdownWithTables(
                                             markdown = plainText,
-                                            fontSize = 15.sp,
+                                            fontSize = currentFontSize,
                                             modifier = Modifier.fillMaxWidth()
                                         )
                                     }
@@ -434,6 +497,15 @@ fun RevisionSessionScreen(
                     }
                 }
             }
+        }
+
+        if (showFullScreenReader && currentNote != null) {
+            val deckName = state.decks.find { it.id == currentNote.deckId }?.name ?: ""
+            FullScreenNoteReaderDialog(
+                note = currentNote,
+                deckName = deckName,
+                onDismiss = { showFullScreenReader = false }
+            )
         }
     }
 }
