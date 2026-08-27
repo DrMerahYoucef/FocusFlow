@@ -182,7 +182,12 @@ fun RevisionNoteDetailScreen(
                             .heightIn(min = 400.dp, max = 800.dp)
                     )
                 } else {
-                    Column(modifier = Modifier.padding(20.dp)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showFullScreenReader = true }
+                            .padding(20.dp)
+                    ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -327,17 +332,9 @@ fun RevisionNoteDetailScreen(
                                 context = context
                             )
                         } else {
-                            // TEXT Card View with 2-finger pinch zoom
+                            // TEXT Card View
                             Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .pointerInput(Unit) {
-                                        detectTransformGestures { _, _, zoom, _ ->
-                                            if (zoom != 1.0f) {
-                                                cardTextScale = (cardTextScale * zoom).coerceIn(0.7f, 3.5f)
-                                            }
-                                        }
-                                    }
+                                modifier = Modifier.fillMaxWidth()
                             ) {
                                 val currentFontSize = (16 * cardTextScale).sp
                                 if (note.contentBlocksJson.isBlank() || note.contentBlocksJson == "[]") {

@@ -155,7 +155,7 @@ fun CardInlineEditor(
 
                     // Mode Tabs (Édition vs Aperçu)
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Surface(
@@ -165,11 +165,11 @@ fun CardInlineEditor(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable { selectedTab = 0 }
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
                         ) {
                             Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Edit,
@@ -193,11 +193,11 @@ fun CardInlineEditor(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable { selectedTab = 1 }
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
                         ) {
                             Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Visibility,
@@ -224,6 +224,9 @@ fun CardInlineEditor(
                 currentText = contentTextFieldValue.text,
                 currentSelection = contentTextFieldValue.selection,
                 activeHeadingLevel = activeHeadingLevel,
+                bolds = bolds,
+                italics = italics,
+                highlights = highlights,
                 onApplyHeading = { level ->
                     lineHeadings = RichTextEditorEngine.toggleHeadingOnLine(
                         text = contentTextFieldValue.text,
@@ -397,7 +400,7 @@ fun CardInlineEditor(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(80.dp))
                 }
             } else {
                 // LIVE CARD PREVIEW TAB
@@ -446,56 +449,40 @@ fun CardInlineEditor(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(80.dp))
                 }
             }
-        }
 
-        // --- Bottom Actions Bar (X Annuler & Check Confirmer) ---
-        Surface(
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp,
-            shadowElevation = 8.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
+            // --- Floating Action Buttons (X Annuler & Check Confirmer) ---
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Cancel Button (X / Annuler)
-                OutlinedButton(
+                // Floating Cancel Action Button (Annuler)
+                FloatingActionButton(
                     onClick = onCancel,
                     modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
+                        .size(48.dp)
                         .testTag("card_editor_cancel_button"),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    ),
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp,
-                        MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.error,
+                    elevation = FloatingActionButtonDefaults.elevation(
+                        defaultElevation = 6.dp,
+                        pressedElevation = 10.dp
                     )
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Annuler",
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Annuler",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 
-                // Confirm / Save Button (Check / Confirmer)
-                Button(
+                // Floating Confirm Action Button (Confirmer)
+                ExtendedFloatingActionButton(
                     onClick = {
                         val finalMarkdown = RichTextEditorEngine.serializeToMarkdown(
                             cleanText = contentTextFieldValue.text,
@@ -511,27 +498,28 @@ fun CardInlineEditor(
                         )
                         onSave(updated)
                     },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .testTag("card_editor_save_button"),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = NeumorphicColors.Primary
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    text = {
+                        Text(
+                            text = "Confirmer",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    },
+                    containerColor = NeumorphicColors.Primary,
+                    contentColor = Color.White,
+                    modifier = Modifier.testTag("card_editor_save_button"),
+                    elevation = FloatingActionButtonDefaults.elevation(
+                        defaultElevation = 6.dp,
+                        pressedElevation = 10.dp
                     )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "Confirmer",
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Confirmer",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                )
             }
         }
     }
@@ -547,6 +535,9 @@ fun WordStyleFormattingRibbon(
     currentText: String,
     currentSelection: TextRange,
     activeHeadingLevel: Int,
+    bolds: List<RichStyleSpan>,
+    italics: List<RichStyleSpan>,
+    highlights: List<RichHighlight>,
     onApplyHeading: (Int) -> Unit,
     onApplyHighlight: (String?) -> Unit,
     onToggleBold: () -> Unit,
@@ -558,13 +549,45 @@ fun WordStyleFormattingRibbon(
     val isDark = LocalIsDarkTheme.current
     val rowScrollState = rememberScrollState()
 
+    // Determine active styles based on current selection / cursor position
+    val selStart = currentSelection.min.coerceIn(0, currentText.length)
+    val selEnd = currentSelection.max.coerceIn(0, currentText.length)
+
+    val isBoldActive = if (selStart == selEnd) {
+        bolds.any { selStart >= it.start && selStart <= it.end }
+    } else {
+        bolds.any { it.start < selEnd && it.end > selStart }
+    }
+
+    val isItalicActive = if (selStart == selEnd) {
+        italics.any { selStart >= it.start && selStart <= it.end }
+    } else {
+        italics.any { it.start < selEnd && it.end > selStart }
+    }
+
+    // Determine current line bullet / numbered state
+    val lines = currentText.split('\n')
+    var offset = 0
+    var lineIndex = 0
+    for (i in lines.indices) {
+        val nextOffset = offset + lines[i].length + 1
+        if (selStart in offset..nextOffset || i == lines.size - 1) {
+            lineIndex = i
+            break
+        }
+        offset = nextOffset
+    }
+    val currentLineText = lines.getOrNull(lineIndex)?.trimStart() ?: ""
+    val isBulletActive = currentLineText.startsWith("•") || currentLineText.startsWith("- ") || currentLineText.startsWith("* ")
+    val isNumberedActive = currentLineText.matches(Regex("""^\d+[\.\)]\s+.*"""))
+
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (isDark) 0.65f else 0.90f),
         tonalElevation = 3.dp,
         modifier = modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Row 1: Headings & Hierarchy Styles
+            // Row 1: Headings & Hierarchy Styles + Style Buttons
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -608,53 +631,90 @@ fun WordStyleFormattingRibbon(
                 // Normal Paragraph
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = if (activeHeadingLevel == 0) NeumorphicColors.Primary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
-                    border = if (activeHeadingLevel == 0) androidx.compose.foundation.BorderStroke(1.dp, NeumorphicColors.Primary) else null,
+                    color = if (activeHeadingLevel == 0) NeumorphicColors.Primary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                    border = if (activeHeadingLevel == 0) androidx.compose.foundation.BorderStroke(1.dp, NeumorphicColors.Primary) else androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .clickable { onApplyHeading(0) }
-                        .padding(horizontal = 8.dp, vertical = 5.dp)
                 ) {
-                    Text(
-                        text = "¶ Normal",
-                        fontSize = 12.sp,
-                        fontWeight = if (activeHeadingLevel == 0) FontWeight.Bold else FontWeight.Medium,
-                        color = NeumorphicColors.TextPrimary
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "¶ Normal",
+                            fontSize = 12.sp,
+                            fontWeight = if (activeHeadingLevel == 0) FontWeight.Bold else FontWeight.Medium,
+                            color = if (activeHeadingLevel == 0) NeumorphicColors.Primary else NeumorphicColors.TextPrimary
+                        )
+                    }
                 }
 
                 VerticalDivider(
                     modifier = Modifier
-                        .height(22.dp)
+                        .height(24.dp)
                         .padding(horizontal = 4.dp),
                     color = MaterialTheme.colorScheme.outlineVariant
                 )
 
-                // Bold (B)
+                // Bold (B) - Adapts to Dark/Light theme with active underline
                 FormatIconButton(
-                    icon = { Text("B", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp) },
+                    icon = { isActive ->
+                        Text(
+                            text = "B",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 15.sp,
+                            color = if (isActive) NeumorphicColors.Primary else NeumorphicColors.TextPrimary
+                        )
+                    },
                     contentDescription = "Gras",
+                    isActive = isBoldActive,
                     onClick = onToggleBold
                 )
 
-                // Italic (I)
+                // Italic (I) - Adapts to Dark/Light theme with active underline
                 FormatIconButton(
-                    icon = { Text("I", fontStyle = FontStyle.Italic, fontWeight = FontWeight.Bold, fontSize = 14.sp) },
+                    icon = { isActive ->
+                        Text(
+                            text = "I",
+                            fontStyle = FontStyle.Italic,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            color = if (isActive) NeumorphicColors.Primary else NeumorphicColors.TextPrimary
+                        )
+                    },
                     contentDescription = "Italique",
+                    isActive = isItalicActive,
                     onClick = onToggleItalic
                 )
 
-                // Bullet List (•)
+                // Bullet List (•) - Adapts to Dark/Light theme with active underline
                 FormatIconButton(
-                    icon = { Icon(Icons.AutoMirrored.Filled.FormatListBulleted, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                    icon = { isActive ->
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.FormatListBulleted,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = if (isActive) NeumorphicColors.Primary else NeumorphicColors.TextPrimary
+                        )
+                    },
                     contentDescription = "Puces",
+                    isActive = isBulletActive,
                     onClick = onInsertBullet
                 )
 
-                // Numbered List (1.)
+                // Numbered List (1.) - Adapts to Dark/Light theme with active underline
                 FormatIconButton(
-                    icon = { Text("1.", fontWeight = FontWeight.Bold, fontSize = 13.sp) },
+                    icon = { isActive ->
+                        Text(
+                            text = "1.",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = if (isActive) NeumorphicColors.Primary else NeumorphicColors.TextPrimary
+                        )
+                    },
                     contentDescription = "Numéroté",
+                    isActive = isNumberedActive,
                     onClick = onInsertNumbered
                 )
             }
@@ -731,11 +791,11 @@ fun WordStyleFormattingRibbon(
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
                         .clickable { onApplyHighlight(null) }
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.FormatClear,
@@ -764,7 +824,7 @@ private fun WordHierarchyChip(
 
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = if (isActive) barColor.copy(alpha = 0.25f) else bgColor,
+        color = if (isActive) barColor.copy(alpha = 0.22f) else bgColor,
         border = androidx.compose.foundation.BorderStroke(
             width = if (isActive) 1.5.dp else 1.dp,
             color = if (isActive) barColor else barColor.copy(alpha = 0.4f)
@@ -772,16 +832,16 @@ private fun WordHierarchyChip(
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
             .clickable { onClick() }
-            .padding(horizontal = 8.dp, vertical = 5.dp)
     ) {
         Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Box(
                 modifier = Modifier
                     .width(3.5.dp)
-                    .height(12.dp)
+                    .height(13.dp)
                     .background(barColor, RoundedCornerShape(1.dp))
             )
             Text(
@@ -808,9 +868,9 @@ private fun WordHighlightChip(
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
@@ -831,21 +891,43 @@ private fun WordHighlightChip(
 
 @Composable
 private fun FormatIconButton(
-    icon: @Composable () -> Unit,
+    icon: @Composable (isActive: Boolean) -> Unit,
     contentDescription: String,
+    isActive: Boolean = false,
     onClick: () -> Unit
 ) {
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        color = if (isActive) NeumorphicColors.Primary.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
+        border = androidx.compose.foundation.BorderStroke(
+            width = if (isActive) 1.5.dp else 1.dp,
+            color = if (isActive) NeumorphicColors.Primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+        ),
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
             .clickable { onClick() }
-            .padding(horizontal = 8.dp, vertical = 5.dp)
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            icon()
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.size(18.dp)
+            ) {
+                icon(isActive)
+            }
+            Spacer(modifier = Modifier.height(2.dp))
+            Box(
+                modifier = Modifier
+                    .width(14.dp)
+                    .height(2.5.dp)
+                    .background(
+                        if (isActive) NeumorphicColors.Primary else Color.Transparent,
+                        RoundedCornerShape(1.dp)
+                    )
+            )
         }
     }
 }
