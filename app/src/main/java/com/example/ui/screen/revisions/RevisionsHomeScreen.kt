@@ -310,6 +310,12 @@ fun RevisionsHomeScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Background OCR processing indicator
+            BackgroundOcrTasksSection(
+                tasks = uiState.activeOcrTasks,
+                onDismissTask = { taskId -> viewModel.dismissOcrTask(taskId) }
+            )
+
             // Notes list
             if (activeDeckNotes.isEmpty()) {
                 Box(
@@ -1222,6 +1228,144 @@ fun NoteListItem(
                 tint = NeumorphicColors.TextSecondary,
                 modifier = Modifier.size(22.dp)
             )
+        }
+    }
+}
+
+@Composable
+fun BackgroundOcrTasksSection(
+    tasks: List<BackgroundOcrTask>,
+    onDismissTask: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (tasks.isEmpty()) return
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp)
+    ) {
+        tasks.forEach { task ->
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = if (task.isError) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
+                        else NeumorphicColors.SurfaceLight.copy(alpha = 0.9f),
+                border = androidx.compose.foundation.BorderStroke(
+                    width = 1.dp,
+                    color = if (task.isError) MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+                            else NeumorphicColors.Primary.copy(alpha = 0.4f)
+                ),
+                shadowElevation = 4.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            if (task.isError) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.Warning,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            } else {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = NeumorphicColors.Primary.copy(alpha = 0.15f),
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.AutoAwesome,
+                                            contentDescription = null,
+                                            tint = NeumorphicColors.Primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = if (task.isError) "Erreur de numérisation" else task.statusMessage,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = if (task.isError) MaterialTheme.colorScheme.error else NeumorphicColors.TextPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "Moteur: ${task.engineName} • Deck: ${task.deckName}",
+                                    fontSize = 12.sp,
+                                    color = NeumorphicColors.TextSecondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        if (task.isError) {
+                            IconButton(
+                                onClick = { onDismissTask(task.id) },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Dismiss",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    if (task.isError) {
+                        task.errorMessage?.let { msg ->
+                            Text(
+                                text = msg,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            LinearProgressIndicator(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(4.dp)
+                                    .clip(RoundedCornerShape(2.dp)),
+                                color = NeumorphicColors.Primary,
+                                trackColor = NeumorphicColors.Primary.copy(alpha = 0.2f)
+                            )
+                            Text(
+                                text = "La carte apparaîtra automatiquement dès la fin du traitement.",
+                                fontSize = 11.sp,
+                                color = NeumorphicColors.TextSecondary
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

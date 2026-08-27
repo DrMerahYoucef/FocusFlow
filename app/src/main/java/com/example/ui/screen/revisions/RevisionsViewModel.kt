@@ -21,6 +21,18 @@ import com.example.service.RevisionSyncWorker
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
+data class BackgroundOcrTask(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val deckId: String,
+    val deckName: String,
+    val engineName: String,
+    val promptAddendum: String? = null,
+    val statusMessage: String = "Numérisation OCR en cours...",
+    val isError: Boolean = false,
+    val errorMessage: String? = null,
+    val startTime: Long = System.currentTimeMillis()
+)
+
 data class RevisionsUiState(
     val decks: List<RevisionDeckEntity> = emptyList(),
     val dueNotes: List<RevisionNoteEntity> = emptyList(),
@@ -29,6 +41,7 @@ data class RevisionsUiState(
     val dueCount: Int = 0,
     val totalCount: Int = 0,
     val isProcessingOcr: Boolean = false,
+    val activeOcrTasks: List<BackgroundOcrTask> = emptyList(),
     val ocrError: String? = null,
     val srsSettings: SrsSettings = SrsSettings(),
     val lastExportSummary: String? = null,
@@ -287,6 +300,158 @@ class RevisionsViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun hasApiKey(): Boolean = getEffectiveApiKey().isNotBlank()
+
+    fun launchBackgroundOcrCardCreation(
+        croppedBitmap: Bitmap,
+        temporaryPromptAddendum: String?,
+        explainMode: Boolean = false,
+        targetDeckId: String,
+        engineChoice: OcrEngineChoice = OcrEngineChoice.ML_KIT
+    ) {
+        val taskId = java.util.UUID.randomUUID().toString()
+        val deckName = _uiState.value.decks.find { it.id == targetDeckId }?.name ?: "Général"
+        val engineLabel = when (engineChoice) {
+            OcrEngineChoice.ML_KIT -> "Google ML Kit"
+            OcrEngineChoice.GEMINI -> "Gemini IA"
+        }
+
+        val task = BackgroundOcrTask(
+            id = taskId,
+            deckId = targetDeckId,
+            deckName = deckName,
+            engineName = engineLabel,
+            promptAddendum = temporaryPromptAddendum,
+            statusMessage = "Extraction OCR du texte en cours..."
+        )
+
+        _uiState.update { state ->
+            state.copy(
+                activeOcrTasks = state.activeOcrTasks + task,
+                isProcessingOcr = true
+            )
+        }
+
+        viewModelScope.launch {
+            try {
+                val mode = if (explainMode) com.example.data.repository.ExtractionMode.EXPLAIN else com.example.data.repository.ExtractionMode.VERBATIM
+                val engine = ocrEngineProvider.get(engineChoice)
+                val result = engine.extractStructuredContent(
+                    bitmap = croppedBitmap,
+                    mode = mode,
+                    promptOverride = _uiState.value.srsSettings.customPromptOverride,
+                    temporaryPromptAddendum = temporaryPromptAddendum
+                )
+
+                val singleNote = result.toSingleNote(targetDeckId, _uiState.value.srsSettings.startingEaseFactor)
+                repository.upsertNote(singleNote)
+                RevisionSyncWorker.scheduleSyncWork(getApplication())
+
+                _uiState.update { state ->
+                    val remaining = state.activeOcrTasks.filterNot { it.id == taskId }
+                    state.copy(
+                        activeOcrTasks = remaining,
+                        isProcessingOcr = remaining.isNotEmpty()
+                    )
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("RevisionsViewModel", "Background OCR failed with $engineChoice", e)
+                val errMsg = when {
+                    !e.message.isNullOrBlank() -> e.message!!
+                    !e.localizedMessage.isNullOrBlank() -> e.localizedMessage!!
+                    else -> "Échec de l'extraction OCR"
+                }
+                _uiState.update { state ->
+                    val updated = state.activeOcrTasks.map {
+                        if (it.id == taskId) it.copy(isError = true, errorMessage = errMsg, statusMessage = "Erreur de numérisation")
+                        else it
+                    }
+                    state.copy(
+                        activeOcrTasks = updated,
+                        isProcessingOcr = updated.any { !it.isError },
+                        ocrError = errMsg
+                    )
+                }
+            }
+        }
+    }
+
+    fun launchBackgroundLocalImageCardCreation(
+        bitmap: Bitmap,
+        userTitle: String?,
+        deckId: String
+    ) {
+        val taskId = java.util.UUID.randomUUID().toString()
+        val deckName = _uiState.value.decks.find { it.id == deckId }?.name ?: "Général"
+        val task = BackgroundOcrTask(
+            id = taskId,
+            deckId = deckId,
+            deckName = deckName,
+            engineName = "Photo Card",
+            promptAddendum = userTitle,
+            statusMessage = "Enregistrement de la photo..."
+        )
+
+        _uiState.update { state ->
+            state.copy(activeOcrTasks = state.activeOcrTasks + task, isProcessingOcr = true)
+        }
+
+        viewModelScope.launch {
+            try {
+                val savedPath = localMediaStore.savePhoto(bitmap)
+                var titleToUse = userTitle?.trim().orEmpty()
+
+                if (titleToUse.isBlank()) {
+                    try {
+                        if (hasApiKey()) {
+                            val bos = java.io.ByteArrayOutputStream()
+                            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, bos)
+                            val titleEngine = com.example.data.repository.GeminiTitleEngine { getEffectiveApiKey() }
+                            val res = titleEngine.generateTitle(bos.toByteArray(), "image/jpeg")
+                            titleToUse = res.title
+                        } else {
+                            val mlKit = ocrEngineProvider.get(OcrEngineChoice.ML_KIT)
+                            val res = mlKit.extractStructuredContent(bitmap, com.example.data.repository.ExtractionMode.VERBATIM)
+                            titleToUse = res.title
+                        }
+                    } catch (e: Exception) {
+                        titleToUse = "Photo Card"
+                    }
+                }
+
+                val note = RevisionNoteEntity(
+                    deckId = deckId,
+                    title = titleToUse.ifBlank { "Photo Card" },
+                    contentBlocksJson = "",
+                    plainTextPreview = "Photo Card",
+                    contentMarkdown = "",
+                    mediaType = "IMAGE",
+                    mediaFilePath = savedPath,
+                    easeFactor = _uiState.value.srsSettings.startingEaseFactor
+                )
+                repository.upsertNote(note)
+                _uiState.update { state ->
+                    val remaining = state.activeOcrTasks.filterNot { it.id == taskId }
+                    state.copy(activeOcrTasks = remaining, isProcessingOcr = remaining.isNotEmpty())
+                }
+            } catch (e: Exception) {
+                val errMsg = e.localizedMessage ?: e.message ?: "Échec de sauvegarde"
+                _uiState.update { state ->
+                    val updated = state.activeOcrTasks.map {
+                        if (it.id == taskId) it.copy(isError = true, errorMessage = errMsg, statusMessage = "Erreur")
+                        else it
+                    }
+                    state.copy(activeOcrTasks = updated, isProcessingOcr = updated.any { !it.isError })
+                }
+            }
+        }
+    }
+
+    fun dismissOcrTask(taskId: String) {
+        _uiState.update { state ->
+            val remaining = state.activeOcrTasks.filterNot { it.id == taskId }
+            state.copy(activeOcrTasks = remaining, isProcessingOcr = remaining.isNotEmpty())
+        }
+    }
 
     fun processCapturedImageWithCustomPrompt(
         croppedBitmap: Bitmap,

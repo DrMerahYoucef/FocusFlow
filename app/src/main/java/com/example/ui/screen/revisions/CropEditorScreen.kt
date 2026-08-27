@@ -761,66 +761,44 @@ fun CropEditorScreen(
 
                                         when (cardCreationType) {
                                             "ML_KIT" -> {
-                                                viewModel.processCapturedImageWithCustomPrompt(
+                                                viewModel.launchBackgroundOcrCardCreation(
                                                     croppedBitmap = bitmapToProcess,
                                                     temporaryPromptAddendum = promptAddendumVal,
                                                     explainMode = false,
                                                     targetDeckId = targetDeck,
                                                     engineChoice = OcrEngineChoice.ML_KIT
-                                                ) { result, err ->
-                                                    try {
-                                                        if (sourceFile.exists()) sourceFile.delete()
-                                                    } catch (e: Exception) {}
-
-                                                    if (result != null) {
-                                                        val note = result.toSingleNote(targetDeck, viewModel.uiState.value.srsSettings.startingEaseFactor)
-                                                        viewModel.updateNote(note)
-                                                        Toast.makeText(context, "Carte créée avec Google ML Kit ! ✨", Toast.LENGTH_SHORT).show()
-                                                        onCropConfirmed()
-                                                    } else {
-                                                        errorMessageToShow = err ?: "Échec de l'extraction ML Kit. Veuillez vérifier l'image."
-                                                    }
-                                                }
+                                                )
+                                                try {
+                                                    if (sourceFile.exists()) sourceFile.delete()
+                                                } catch (e: Exception) {}
+                                                Toast.makeText(context, "Numérisation OCR lancée en arrière-plan ✨", Toast.LENGTH_SHORT).show()
+                                                onCropConfirmed()
                                             }
                                             "GEMINI" -> {
-                                                viewModel.processCapturedImageWithCustomPrompt(
+                                                viewModel.launchBackgroundOcrCardCreation(
                                                     croppedBitmap = bitmapToProcess,
                                                     temporaryPromptAddendum = promptAddendumVal,
                                                     explainMode = selectedExplainMode,
                                                     targetDeckId = targetDeck,
                                                     engineChoice = OcrEngineChoice.GEMINI
-                                                ) { result, err ->
-                                                    try {
-                                                        if (sourceFile.exists()) sourceFile.delete()
-                                                    } catch (e: Exception) {}
-
-                                                    if (result != null) {
-                                                        val note = result.toSingleNote(targetDeck, viewModel.uiState.value.srsSettings.startingEaseFactor)
-                                                        viewModel.updateNote(note)
-                                                        Toast.makeText(context, "Carte créée avec succès via Gemini ! ✨", Toast.LENGTH_SHORT).show()
-                                                        onCropConfirmed()
-                                                    } else {
-                                                        errorMessageToShow = err ?: "Échec de l'extraction Gemini. Veuillez vérifier l'image ou la clé API."
-                                                    }
-                                                }
+                                                )
+                                                try {
+                                                    if (sourceFile.exists()) sourceFile.delete()
+                                                } catch (e: Exception) {}
+                                                Toast.makeText(context, "Analyse Gemini lancée en arrière-plan ✨", Toast.LENGTH_SHORT).show()
+                                                onCropConfirmed()
                                             }
                                             else -> {
-                                                viewModel.createLocalImageCard(
+                                                viewModel.launchBackgroundLocalImageCardCreation(
                                                     bitmap = bitmapToProcess,
                                                     userTitle = promptAddendumVal,
                                                     deckId = targetDeck
-                                                ) { success, err ->
-                                                    try {
-                                                        if (sourceFile.exists()) sourceFile.delete()
-                                                    } catch (e: Exception) {}
-
-                                                    if (success) {
-                                                        Toast.makeText(context, "Photo Card créée avec succès ! 📷", Toast.LENGTH_SHORT).show()
-                                                        onCropConfirmed()
-                                                    } else {
-                                                        errorMessageToShow = err ?: "Failed to save photo card."
-                                                    }
-                                                }
+                                                )
+                                                try {
+                                                    if (sourceFile.exists()) sourceFile.delete()
+                                                } catch (e: Exception) {}
+                                                Toast.makeText(context, "Enregistrement de la photo en arrière-plan 📷", Toast.LENGTH_SHORT).show()
+                                                onCropConfirmed()
                                             }
                                         }
                                     },
@@ -919,34 +897,6 @@ fun CropEditorScreen(
             )
         }
 
-        // Loading Overlay
-        if (state.isProcessingOcr) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.8f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = NeumorphicColors.SurfaceLight),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.padding(32.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        CircularProgressIndicator(color = NeumorphicColors.Primary)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Processing OCR...",
-                            fontWeight = FontWeight.Bold,
-                            color = NeumorphicColors.TextPrimary
-                        )
-                    }
-                }
-            }
-        }
     }
 }
 
