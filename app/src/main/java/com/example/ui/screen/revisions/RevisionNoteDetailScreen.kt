@@ -48,6 +48,8 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import com.example.R
 import com.example.ui.components.ConfirmDeleteDialog
+import com.example.ui.revisions.CardInlineEditor
+import com.example.ui.revisions.CardMarkdownEditorUtils
 import com.example.ui.revisions.FullScreenNoteReaderDialog
 import com.example.ui.revisions.HighlightedMarkdownWithTables
 import com.example.ui.revisions.NoteBlocksRenderer
@@ -72,6 +74,7 @@ fun RevisionNoteDetailScreen(
     var showZoomImageDialog by remember { mutableStateOf(false) }
     var showFullScreenReader by remember { mutableStateOf(false) }
     var cardTextScale by remember { mutableFloatStateOf(1.0f) }
+    var isCardEditing by remember { mutableStateOf(false) }
 
     if (showDeleteCardDialog && note != null) {
         ConfirmDeleteDialog(
@@ -108,12 +111,14 @@ fun RevisionNoteDetailScreen(
         return
     }
 
+    val deckName = state.decks.find { it.id == note.deckId }?.name ?: "Deck"
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = note.title,
+                        text = deckName,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1
                     )
@@ -127,23 +132,6 @@ fun RevisionNoteDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = { showFullScreenReader = true },
-                        modifier = Modifier.testTag("detail_fullscreen_action")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Fullscreen,
-                            contentDescription = stringResource(R.string.full_screen),
-                            tint = NeumorphicColors.Primary
-                        )
-                    }
-                    IconButton(onClick = { showEditDialog = true }) {
-                        Icon(
-                            imageVector = Icons.Outlined.Edit,
-                            contentDescription = "Edit Card",
-                            tint = NeumorphicColors.Primary
-                        )
-                    }
                     IconButton(onClick = { showMoveDeckDialog = true }) {
                         Icon(
                             imageVector = Icons.Outlined.Folder,
@@ -180,192 +168,230 @@ fun RevisionNoteDetailScreen(
                 cornerRadius = 20.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val deckName = state.decks.find { it.id == note.deckId }?.name ?: "Deck"
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = deckName.uppercase(),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                color = NeumorphicColors.Primary,
-                                letterSpacing = 1.sp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "• " + formatDueIn(note.dueDate),
-                                fontSize = 12.sp,
-                                color = NeumorphicColors.TextSecondary
-                            )
-                        }
-
-                        // Card Full Screen Button
-                        FilledTonalIconButton(
-                            onClick = { showFullScreenReader = true },
-                            modifier = Modifier
-                                .size(36.dp)
-                                .testTag("card_fullscreen_button"),
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = NeumorphicColors.Primary.copy(alpha = 0.12f),
-                                contentColor = NeumorphicColors.Primary
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Fullscreen,
-                                contentDescription = stringResource(R.string.full_screen),
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = note.title,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = NeumorphicColors.TextPrimary
+                if (isCardEditing) {
+                    CardInlineEditor(
+                        note = note,
+                        onSave = { updatedNote ->
+                            viewModel.updateNote(updatedNote)
+                            isCardEditing = false
+                            Toast.makeText(context, "Carte enregistrée avec succès ! ✨", Toast.LENGTH_SHORT).show()
+                        },
+                        onCancel = { isCardEditing = false },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 400.dp, max = 800.dp)
                     )
+                } else {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val deckName = state.decks.find { it.id == note.deckId }?.name ?: "Deck"
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = deckName.uppercase(),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = NeumorphicColors.Primary,
+                                    letterSpacing = 1.sp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "• " + formatDueIn(note.dueDate),
+                                    fontSize = 12.sp,
+                                    color = NeumorphicColors.TextSecondary
+                                )
+                            }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-                    HorizontalDivider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // IMAGE Card View
-                    val imageFile = note.mediaFilePath?.let { File(it) }
-                    if (note.mediaType == "IMAGE" && imageFile != null && imageFile.exists()) {
-                        val bitmap = remember(note.mediaFilePath) {
-                            BitmapFactory.decodeFile(imageFile.absolutePath)
-                        }
-
-                        if (bitmap != null) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.fillMaxWidth()
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
+                                // Card Edit Toggle Button
+                                FilledTonalIconButton(
+                                    onClick = { isCardEditing = true },
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(240.dp)
-                                        .clickable { showZoomImageDialog = true }
+                                        .size(36.dp)
+                                        .testTag("card_inline_edit_toggle_button"),
+                                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                        containerColor = NeumorphicColors.Primary.copy(alpha = 0.12f),
+                                        contentColor = NeumorphicColors.Primary
+                                    )
                                 ) {
-                                    Image(
-                                        bitmap = bitmap.asImageBitmap(),
-                                        contentDescription = "Card Photo",
-                                        contentScale = ContentScale.Fit,
-                                        modifier = Modifier.fillMaxSize()
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Éditer la carte",
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Tap photo to zoom",
-                                    fontSize = 11.sp,
-                                    color = NeumorphicColors.TextSecondary
-                                )
-
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                    modifier = Modifier.fillMaxWidth()
+                                // Card Full Screen Button
+                                FilledTonalIconButton(
+                                    onClick = { showFullScreenReader = true },
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .testTag("card_fullscreen_button"),
+                                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                        containerColor = NeumorphicColors.Primary.copy(alpha = 0.12f),
+                                        contentColor = NeumorphicColors.Primary
+                                    )
                                 ) {
-                                    OutlinedButton(
-                                        onClick = { saveImageToGallery(context, imageFile) },
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Save", fontSize = 12.sp)
-                                    }
-
-                                    Button(
-                                        onClick = { shareMediaFile(context, imageFile, "image/jpeg") },
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Send", fontSize = 12.sp)
-                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.Fullscreen,
+                                        contentDescription = stringResource(R.string.full_screen),
+                                        modifier = Modifier.size(22.dp)
+                                    )
                                 }
                             }
                         }
-                    } else if (note.mediaType == "AUDIO" && imageFile != null && imageFile.exists()) {
-                        // AUDIO Card View
-                        AudioCardPlayerView(
-                            audioFile = imageFile,
-                            context = context
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = note.title,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = NeumorphicColors.TextPrimary
                         )
-                    } else {
-                        // TEXT Card View with 2-finger pinch zoom
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .pointerInput(Unit) {
-                                    detectTransformGestures { _, _, zoom, _ ->
-                                        if (zoom != 1.0f) {
-                                            cardTextScale = (cardTextScale * zoom).coerceIn(0.7f, 3.5f)
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HorizontalDivider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // IMAGE Card View
+                        val imageFile = note.mediaFilePath?.let { File(it) }
+                        if (note.mediaType == "IMAGE" && imageFile != null && imageFile.exists()) {
+                            val bitmap = remember(note.mediaFilePath) {
+                                BitmapFactory.decodeFile(imageFile.absolutePath)
+                            }
+
+                            if (bitmap != null) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(240.dp)
+                                            .clickable { showZoomImageDialog = true }
+                                    ) {
+                                        Image(
+                                            bitmap = bitmap.asImageBitmap(),
+                                            contentDescription = "Card Photo",
+                                            contentScale = ContentScale.Fit,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Tap photo to zoom",
+                                        fontSize = 11.sp,
+                                        color = NeumorphicColors.TextSecondary
+                                    )
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        OutlinedButton(
+                                            onClick = { saveImageToGallery(context, imageFile) },
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Save", fontSize = 12.sp)
+                                        }
+
+                                        Button(
+                                            onClick = { shareMediaFile(context, imageFile, "image/jpeg") },
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Send", fontSize = 12.sp)
                                         }
                                     }
                                 }
-                        ) {
-                            val currentFontSize = (16 * cardTextScale).sp
-                            if (note.contentBlocksJson.isBlank() || note.contentBlocksJson == "[]") {
-                                HighlightedMarkdownWithTables(
-                                    markdown = note.plainTextPreview.ifBlank { note.contentMarkdown },
-                                    fontSize = currentFontSize,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            } else {
-                                NoteBlocksRenderer(
-                                    blocksJson = note.contentBlocksJson,
-                                    fontSize = currentFontSize,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
                             }
-                        }
-
-                        if (cardTextScale != 1.0f) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End,
-                                verticalAlignment = Alignment.CenterVertically
+                        } else if (note.mediaType == "AUDIO" && imageFile != null && imageFile.exists()) {
+                            // AUDIO Card View
+                            AudioCardPlayerView(
+                                audioFile = imageFile,
+                                context = context
+                            )
+                        } else {
+                            // TEXT Card View with 2-finger pinch zoom
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .pointerInput(Unit) {
+                                        detectTransformGestures { _, _, zoom, _ ->
+                                            if (zoom != 1.0f) {
+                                                cardTextScale = (cardTextScale * zoom).coerceIn(0.7f, 3.5f)
+                                            }
+                                        }
+                                    }
                             ) {
-                                Text(
-                                    text = "Zoom: ${(cardTextScale * 100).toInt()}%",
-                                    fontSize = 11.sp,
-                                    color = NeumorphicColors.TextSecondary
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                TextButton(
-                                    onClick = { cardTextScale = 1.0f },
-                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                                    modifier = Modifier.height(26.dp)
-                                ) {
-                                    Text("Reset", fontSize = 11.sp, color = NeumorphicColors.Primary)
+                                val currentFontSize = (16 * cardTextScale).sp
+                                if (note.contentBlocksJson.isBlank() || note.contentBlocksJson == "[]") {
+                                    HighlightedMarkdownWithTables(
+                                        markdown = note.plainTextPreview.ifBlank { note.contentMarkdown },
+                                        fontSize = currentFontSize,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                } else {
+                                    NoteBlocksRenderer(
+                                        blocksJson = note.contentBlocksJson,
+                                        fontSize = currentFontSize,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
                                 }
                             }
-                        }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                            if (cardTextScale != 1.0f) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Zoom: ${(cardTextScale * 100).toInt()}%",
+                                        fontSize = 11.sp,
+                                        color = NeumorphicColors.TextSecondary
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    TextButton(
+                                        onClick = { cardTextScale = 1.0f },
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                        modifier = Modifier.height(26.dp)
+                                    ) {
+                                        Text("Reset", fontSize = 11.sp, color = NeumorphicColors.Primary)
+                                    }
+                                }
+                            }
 
-                        OutlinedButton(
-                            onClick = {
-                                val textToCopy = note.plainTextPreview.ifBlank { note.contentMarkdown }
-                                clipboardManager.setText(AnnotatedString(textToCopy))
-                                Toast.makeText(context, "Text copied to clipboard! 📋", Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Copy Text")
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            OutlinedButton(
+                                onClick = {
+                                    val textToCopy = note.plainTextPreview.ifBlank { note.contentMarkdown }
+                                    clipboardManager.setText(AnnotatedString(textToCopy))
+                                    Toast.makeText(context, "Text copied to clipboard! 📋", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Copy Text")
+                            }
                         }
                     }
                 }
@@ -449,29 +475,30 @@ fun RevisionNoteDetailScreen(
         FullScreenNoteReaderDialog(
             note = note,
             deckName = deckName,
-            onDismiss = { showFullScreenReader = false }
+            onDismiss = { showFullScreenReader = false },
+            onSaveNote = { updatedNote ->
+                viewModel.updateNote(updatedNote)
+            }
         )
     }
 
     // Edit Card Dialog with Rich Text Highlighting & Underline
     if (showEditDialog && note != null) {
-        EditCardDialog(
-            note = note,
-            onDismiss = { showEditDialog = false },
-            onSave = { updatedTitle, updatedContent ->
-                val updatedNote = note.copy(
-                    title = updatedTitle,
-                    plainTextPreview = updatedContent,
-                    contentMarkdown = updatedContent,
-                    contentBlocksJson = com.example.data.repository.NoteBlocksSerializer.toJson(
-                        listOf(com.example.data.repository.NoteBlock.TextBlock(content = updatedContent))
-                    )
-                )
-                viewModel.updateNote(updatedNote)
-                showEditDialog = false
-                Toast.makeText(context, "Card updated!", Toast.LENGTH_SHORT).show()
-            }
-        )
+        Dialog(
+            onDismissRequest = { showEditDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            CardInlineEditor(
+                note = note,
+                onSave = { updatedNote ->
+                    viewModel.updateNote(updatedNote)
+                    showEditDialog = false
+                    Toast.makeText(context, "Carte enregistrée avec succès ! ✨", Toast.LENGTH_SHORT).show()
+                },
+                onCancel = { showEditDialog = false },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
     }
 
     // Move to Deck Dialog with Inline Deck Creation

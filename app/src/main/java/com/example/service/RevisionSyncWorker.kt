@@ -24,7 +24,11 @@ class RevisionSyncWorker(
 
     override suspend fun doWork(): Result {
         return try {
-            val uid = Firebase.auth.currentUser?.uid ?: return Result.success()
+            val user = Firebase.auth.currentUser
+            if (user == null || user.isAnonymous) {
+                return Result.success()
+            }
+            val uid = user.uid
             val db = Firebase.firestore
             val repository = FocusFlowApplication.instance.revisionRepository
 
@@ -68,9 +72,12 @@ class RevisionSyncWorker(
                 }
             }
             Result.success()
+        } catch (e: com.google.firebase.firestore.FirebaseFirestoreException) {
+            android.util.Log.w("RevisionSyncWorker", "Firestore sync skipped (permission or offline): ${e.message}")
+            Result.success()
         } catch (e: Exception) {
-            android.util.Log.e("RevisionSyncWorker", "Sync failed", e)
-            Result.retry()
+            android.util.Log.w("RevisionSyncWorker", "Revision sync exception handled gracefully: ${e.message}")
+            Result.success()
         }
     }
 

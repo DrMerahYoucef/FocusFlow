@@ -504,7 +504,10 @@ fun RevisionSessionScreen(
             FullScreenNoteReaderDialog(
                 note = currentNote,
                 deckName = deckName,
-                onDismiss = { showFullScreenReader = false }
+                onDismiss = { showFullScreenReader = false },
+                onSaveNote = { updatedNote ->
+                    viewModel.updateNote(updatedNote)
+                }
             )
         }
     }

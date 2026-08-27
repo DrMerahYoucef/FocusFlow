@@ -60,7 +60,7 @@ fun parseMarkdownWithHighlights(
     val allHighlights = mutableListOf<NoteHighlight>()
     allHighlights.addAll(highlights.filter { it.text.isNotBlank() })
 
-    val mdHighlightRegex = Regex("==(?:color:(amber|green|blue|red)==)?(.*?)==", RegexOption.DOT_MATCHES_ALL)
+    val mdHighlightRegex = Regex("==(?:color:(amber|green|blue|red|purple|pink|yellow|emerald|violet|cyan)==)?(.*?)==", RegexOption.DOT_MATCHES_ALL)
     mdHighlightRegex.findAll(input).forEach { match ->
         val colorName = match.groupValues.getOrNull(1)?.lowercase()?.ifBlank { "amber" } ?: "amber"
         val term = match.groupValues.getOrNull(2) ?: ""
@@ -95,6 +95,9 @@ fun parseMarkdownWithHighlights(
     val greenBg = if (isDark) Color(0xFF059669).copy(alpha = 0.55f) else Color(0xFFBBF7D0).copy(alpha = 0.90f)
     val blueBg = if (isDark) Color(0xFF2563EB).copy(alpha = 0.55f) else Color(0xFFBFDBFE).copy(alpha = 0.90f)
     val redBg = if (isDark) Color(0xFFDC2626).copy(alpha = 0.55f) else Color(0xFFFECDD3).copy(alpha = 0.90f)
+    val purpleBg = if (isDark) Color(0xFF7C3AED).copy(alpha = 0.55f) else Color(0xFFE9D5FF).copy(alpha = 0.90f)
+    val pinkBg = if (isDark) Color(0xFFDB2777).copy(alpha = 0.55f) else Color(0xFFFCE7F3).copy(alpha = 0.90f)
+    val cyanBg = if (isDark) Color(0xFF0284C7).copy(alpha = 0.55f) else Color(0xFFBAE6FD).copy(alpha = 0.90f)
     val highlightTextColor = if (isDark) Color(0xFFFFFFFF) else Color(0xFF0F172A)
 
     data class SpanMatch(val start: Int, val end: Int, val color: String)
@@ -118,10 +121,13 @@ fun parseMarkdownWithHighlights(
     }
 
     matchedSpans.forEach { span ->
-        val bgColor = when (span.color) {
-            "green" -> greenBg
+        val bgColor = when (span.color.lowercase()) {
+            "green", "emerald" -> greenBg
             "blue" -> blueBg
             "red" -> redBg
+            "purple", "violet" -> purpleBg
+            "pink" -> pinkBg
+            "cyan" -> cyanBg
             else -> amberBg
         }
         builder.addStyle(
