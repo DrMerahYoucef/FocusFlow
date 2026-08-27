@@ -92,32 +92,44 @@ fun RevisionDeckDetailScreen(
         },
         containerColor = androidx.compose.ui.graphics.Color.Transparent
     ) { padding ->
-        if (deckNotes.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "No cards in this deck yet",
-                    color = NeumorphicColors.TextSecondary,
-                    fontSize = 14.sp
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(deckNotes, key = { it.id }) { note ->
-                    DeckNoteListItem(
-                        note = note,
-                        onClick = { onNoteClick(note.id) }
+        val deckOcrTasks = state.activeOcrTasks.filter { it.deckId == deckId || deckId == "default_deck" }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            BackgroundOcrTasksSection(
+                tasks = deckOcrTasks,
+                onDismissTask = { taskId -> viewModel.dismissOcrTask(taskId) }
+            )
+
+            if (deckNotes.isEmpty() && deckOcrTasks.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No cards in this deck yet",
+                        color = NeumorphicColors.TextSecondary,
+                        fontSize = 14.sp
                     )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(deckNotes, key = { it.id }) { note ->
+                        DeckNoteListItem(
+                            note = note,
+                            onClick = { onNoteClick(note.id) }
+                        )
+                    }
                 }
             }
         }

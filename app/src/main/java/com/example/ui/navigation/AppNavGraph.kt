@@ -82,6 +82,7 @@ fun MainPagerScreen(
     timerViewModel: TimerViewModel,
     analyticsViewModel: AnalyticsViewModel,
     examsViewModel: ExamsViewModel,
+    revisionsViewModel: RevisionsViewModel = viewModel(),
     items: List<Screen>,
     initialPage: Int = 0
 ) {
@@ -119,7 +120,6 @@ fun MainPagerScreen(
                     )
                 }
                 Screen.Revisions -> {
-                    val revisionsViewModel: RevisionsViewModel = viewModel()
                     RevisionsHomeScreen(
                         viewModel = revisionsViewModel,
                         onAddClick = { navController.navigate("revisions/capture") },
@@ -574,6 +574,7 @@ fun AppNavGraph(
                     timerViewModel = timerViewModel,
                     analyticsViewModel = analyticsViewModel,
                     examsViewModel = examsViewModel,
+                    revisionsViewModel = revisionsViewModel,
                     items = items,
                     initialPage = 0
                 )
@@ -585,6 +586,7 @@ fun AppNavGraph(
                     timerViewModel = timerViewModel,
                     analyticsViewModel = analyticsViewModel,
                     examsViewModel = examsViewModel,
+                    revisionsViewModel = revisionsViewModel,
                     items = items,
                     initialPage = 1
                 )
@@ -596,6 +598,7 @@ fun AppNavGraph(
                     timerViewModel = timerViewModel,
                     analyticsViewModel = analyticsViewModel,
                     examsViewModel = examsViewModel,
+                    revisionsViewModel = revisionsViewModel,
                     items = items,
                     initialPage = 2
                 )
@@ -607,6 +610,7 @@ fun AppNavGraph(
                     timerViewModel = timerViewModel,
                     analyticsViewModel = analyticsViewModel,
                     examsViewModel = examsViewModel,
+                    revisionsViewModel = revisionsViewModel,
                     items = items,
                     initialPage = 3
                 )
@@ -618,6 +622,7 @@ fun AppNavGraph(
                     timerViewModel = timerViewModel,
                     analyticsViewModel = analyticsViewModel,
                     examsViewModel = examsViewModel,
+                    revisionsViewModel = revisionsViewModel,
                     items = items,
                     initialPage = 4
                 )

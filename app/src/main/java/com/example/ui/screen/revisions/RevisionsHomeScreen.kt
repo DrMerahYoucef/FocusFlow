@@ -166,6 +166,21 @@ fun RevisionsHomeScreen(
                 }
             }
 
+            // Background OCR processing indicator (Top priority position)
+            AnimatedVisibility(
+                visible = uiState.activeOcrTasks.isNotEmpty(),
+                enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(),
+                exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically()
+            ) {
+                Column {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    BackgroundOcrTasksSection(
+                        tasks = uiState.activeOcrTasks,
+                        onDismissTask = { taskId -> viewModel.dismissOcrTask(taskId) }
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             // Search bar
@@ -309,12 +324,6 @@ fun RevisionsHomeScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-
-            // Background OCR processing indicator
-            BackgroundOcrTasksSection(
-                tasks = uiState.activeOcrTasks,
-                onDismissTask = { taskId -> viewModel.dismissOcrTask(taskId) }
-            )
 
             // Notes list
             if (activeDeckNotes.isEmpty()) {
