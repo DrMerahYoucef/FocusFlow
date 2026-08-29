@@ -17,14 +17,24 @@ import com.example.ui.theme.AppThemeColors
 import com.example.ui.theme.LocalAppThemeColors
 import com.example.ui.theme.LocalIsDarkTheme
 
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.LaunchedEffect
+import com.example.ui.theme.WallpaperTheme
+
 @Composable
 fun ForestScaffold(
     forestViewModel: ForestViewModel = viewModel(),
     bottomBar: @Composable () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit
 ) {
+    val systemDark = isSystemInDarkTheme()
+    LaunchedEffect(systemDark) {
+        forestViewModel.updateSystemDarkTheme(systemDark)
+    }
+
     val forestState by forestViewModel.forestState.collectAsState()
-    val isDay = forestState.isDayTime
+    val isDark = if (forestState.followSystemTheme) systemDark else (forestState.manualTheme == WallpaperTheme.DARK)
+    val isDay = !isDark
 
     val surfaceColor by animateColorAsState(
         targetValue = if (isDay) Color(0xFFFFFFFF).copy(alpha = 0.82f) else Color(0xFF1C2128).copy(alpha = 0.82f),

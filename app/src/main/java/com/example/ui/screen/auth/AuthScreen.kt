@@ -49,9 +49,9 @@ fun AuthScreen(
         }
     }
 
-    // Adapt to true dynamic clock time to match the rest of the application's day/night rules
-    val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-    val isDay = hour in 6..17
+    // React to system Light/Dark theme
+    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val isDay = !isDark
 
     val themeColors = if (isDay) {
         com.example.ui.theme.AppThemeColors(
@@ -77,11 +77,11 @@ fun AuthScreen(
 
     CompositionLocalProvider(
         com.example.ui.theme.LocalAppThemeColors provides themeColors,
-        com.example.ui.theme.LocalIsDarkTheme provides !isDay
+        com.example.ui.theme.LocalIsDarkTheme provides isDark
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             ForestBackground(
-                forestState = ForestState(treeCount = 5, isDayTime = isDay),
+                forestState = ForestState(treeCount = 5, isDarkTheme = isDark),
                 modifier = Modifier.fillMaxSize()
             )
             Column(

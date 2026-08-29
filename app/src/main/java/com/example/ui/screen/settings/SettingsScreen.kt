@@ -3,8 +3,6 @@ package com.example.ui.screen.settings
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -12,6 +10,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -125,7 +124,6 @@ fun ExpandableSection(
     }
 }
 
-@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
@@ -1762,12 +1760,145 @@ fun SettingsScreen(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(
-                    text = "Generate and apply your actual Focus Forest as a beautiful high-resolution wallpaper!",
+                    text = "Generate and apply your fantasy Forest environment as a high-resolution wallpaper that synchronizes with your Android system theme!",
                     fontSize = 12.sp,
                     color = NeumorphicColors.TextSecondary,
                     lineHeight = 16.sp
                 )
 
+                // ── Follow System Theme Switch ──
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Follow System Theme 🌓",
+                            fontWeight = FontWeight.Bold,
+                            color = NeumorphicColors.TextPrimary,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "Automatically use Light Forest in Day mode and Dark Moonlit Forest in Night mode.",
+                            fontSize = 11.sp,
+                            color = NeumorphicColors.TextSecondary
+                        )
+                    }
+                    Switch(
+                        checked = state.followSystemTheme,
+                        onCheckedChange = { viewModel.updateFollowSystemTheme(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = NeumorphicColors.Primary,
+                            checkedTrackColor = NeumorphicColors.Primary.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+
+                // ── Manual Theme Selector (When Follow System Theme is OFF) ──
+                AnimatedVisibility(
+                    visible = !state.followSystemTheme,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+                    ) {
+                        Text(
+                            text = "Manual Theme Selection",
+                            fontWeight = FontWeight.SemiBold,
+                            color = NeumorphicColors.TextPrimary,
+                            fontSize = 13.sp
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            // Light Option
+                            val isLightSelected = state.wallpaperTheme == com.example.ui.theme.WallpaperTheme.LIGHT
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .background(
+                                        color = if (isLightSelected) NeumorphicColors.Primary.copy(alpha = 0.15f) else NeumorphicColors.SurfaceLight,
+                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                                    )
+                                    .then(
+                                        if (isLightSelected) Modifier.border(
+                                            2.dp,
+                                            NeumorphicColors.Primary,
+                                            androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                                        ) else Modifier
+                                    )
+                                    .clickable {
+                                        viewModel.updateWallpaperTheme(com.example.ui.theme.WallpaperTheme.LIGHT)
+                                    }
+                                    .padding(12.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("☀️", fontSize = 22.sp)
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        "Light Forest",
+                                        fontWeight = if (isLightSelected) FontWeight.Bold else FontWeight.Medium,
+                                        fontSize = 12.sp,
+                                        color = if (isLightSelected) NeumorphicColors.Primary else NeumorphicColors.TextPrimary
+                                    )
+                                    Text(
+                                        "Golden sunlight vista",
+                                        fontSize = 9.sp,
+                                        color = NeumorphicColors.TextSecondary
+                                    )
+                                }
+                            }
+
+                            // Dark Option
+                            val isDarkSelected = state.wallpaperTheme == com.example.ui.theme.WallpaperTheme.DARK
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .background(
+                                        color = if (isDarkSelected) NeumorphicColors.Primary.copy(alpha = 0.15f) else NeumorphicColors.SurfaceLight,
+                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                                    )
+                                    .then(
+                                        if (isDarkSelected) Modifier.border(
+                                            2.dp,
+                                            NeumorphicColors.Primary,
+                                            androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                                        ) else Modifier
+                                    )
+                                    .clickable {
+                                        viewModel.updateWallpaperTheme(com.example.ui.theme.WallpaperTheme.DARK)
+                                    }
+                                    .padding(12.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("🌙", fontSize = 22.sp)
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        "Dark Forest",
+                                        fontWeight = if (isDarkSelected) FontWeight.Bold else FontWeight.Medium,
+                                        fontSize = 12.sp,
+                                        color = if (isDarkSelected) NeumorphicColors.Primary else NeumorphicColors.TextPrimary
+                                    )
+                                    Text(
+                                        "Moonlit fireflies vista",
+                                        fontSize = 9.sp,
+                                        color = NeumorphicColors.TextSecondary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
+
+                // ── Home Screen Switch ──
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1798,6 +1929,7 @@ fun SettingsScreen(
 
                 Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
 
+                // ── Lock Screen Switch ──
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1828,6 +1960,7 @@ fun SettingsScreen(
 
                 Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
 
+                // ── Auto-Sync Switch ──
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1835,43 +1968,40 @@ fun SettingsScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Auto-Sync Wallpaper ☀️/🌙",
+                            text = "Auto-Sync Wallpaper",
                             fontWeight = FontWeight.Bold,
                             color = NeumorphicColors.TextPrimary,
                             fontSize = 14.sp
                         )
                         Text(
-                            text = "Automatically adjust to day/night theme and grow with your tree count!",
+                            text = "Automatically update device wallpaper when theme changes.",
                             fontSize = 11.sp,
                             color = NeumorphicColors.TextSecondary
                         )
                     }
-                    var isWallpaperApplying by remember { mutableStateOf(false) }
                     Switch(
                         checked = state.autoSyncWallpaper,
                         onCheckedChange = { checked ->
                             viewModel.updateAutoSyncWallpaper(checked)
                             if (checked) {
-                                isWallpaperApplying = true
-                                val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-                                val isDaytimeSetting = hour in 6..17
+                                val isDarkTheme = if (state.followSystemTheme) {
+                                    (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+                                } else {
+                                    state.wallpaperTheme == com.example.ui.theme.WallpaperTheme.DARK
+                                }
+                                val effectiveTheme = if (isDarkTheme) com.example.ui.theme.WallpaperTheme.DARK else com.example.ui.theme.WallpaperTheme.LIGHT
+
                                 com.example.ui.components.WallpaperHelper.setForestWallpaper(
                                     context = context,
-                                    isDay = isDaytimeSetting,
-                                    treeCount = dbSessionCount,
+                                    theme = effectiveTheme,
                                     setHomeScreen = state.wallpaperHomeScreen,
-                                    setLockScreen = state.wallpaperLockScreen
+                                    setLockScreen = state.wallpaperLockScreen,
+                                    treeCount = dbSessionCount
                                 ) { success, error ->
-                                    isWallpaperApplying = false
                                     if (success) {
-                                        context.getSharedPreferences("focusflow_prefs", android.content.Context.MODE_PRIVATE)
-                                            .edit()
-                                            .putBoolean("last_synced_daytime", isDaytimeSetting)
-                                            .putInt("last_synced_tree_count", dbSessionCount)
-                                            .apply()
                                         Toast.makeText(context, "Auto-Sync Enabled & Wallpaper applied! 🌲", Toast.LENGTH_SHORT).show()
                                     } else {
-                                        Toast.makeText(context, "Auto-Sync Enabled: failed to apply initial wallpaper: $error", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, "Auto-Sync Enabled: $error", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             }
@@ -1881,92 +2011,6 @@ fun SettingsScreen(
                             checkedTrackColor = NeumorphicColors.Primary.copy(alpha = 0.5f)
                         )
                     )
-                }
-
-                Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Location-Based Day/Night 🌍",
-                            fontWeight = FontWeight.Bold,
-                            color = NeumorphicColors.TextPrimary,
-                            fontSize = 14.sp
-                        )
-                        Text(
-                            text = if (state.useLocationForDayNight && state.latitude != 0.0) {
-                                "Active: Sunrise/Sunset calculated for lat: ${"%.2f".format(state.latitude)}, lng: ${"%.2f".format(state.longitude)}"
-                            } else {
-                                "Automatically switch day/night theme based on your current local sunrise and sunset times."
-                            },
-                            fontSize = 11.sp,
-                            color = NeumorphicColors.TextSecondary
-                        )
-                    }
-                    
-                    val locationPermissionsState = rememberMultiplePermissionsState(
-                        permissions = listOf(
-                            android.Manifest.permission.ACCESS_COARSE_LOCATION,
-                            android.Manifest.permission.ACCESS_FINE_LOCATION
-                        )
-                    )
-
-                    var isFetchingLocation by remember { mutableStateOf(false) }
-
-                    LaunchedEffect(locationPermissionsState.allPermissionsGranted) {
-                        if (state.useLocationForDayNight && locationPermissionsState.allPermissionsGranted) {
-                            isFetchingLocation = true
-                            viewModel.fetchAndSaveLocation { success ->
-                                isFetchingLocation = false
-                                if (success) {
-                                    Toast.makeText(context, "Location updated successfully! 🌲", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    Toast.makeText(context, "Failed to get current location. Using fallback schedule.", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        }
-                    }
-
-                    if (isFetchingLocation) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp,
-                            color = NeumorphicColors.Primary
-                        )
-                    } else {
-                        Switch(
-                            checked = state.useLocationForDayNight,
-                            onCheckedChange = { checked ->
-                                if (checked) {
-                                    if (locationPermissionsState.allPermissionsGranted) {
-                                        viewModel.updateUseLocationForDayNight(true)
-                                        isFetchingLocation = true
-                                        viewModel.fetchAndSaveLocation { success ->
-                                            isFetchingLocation = false
-                                            if (success) {
-                                                Toast.makeText(context, "Location-based day/night activated! ☀️🌙", Toast.LENGTH_SHORT).show()
-                                            } else {
-                                                Toast.makeText(context, "Activated with fallback schedule (could not fetch location).", Toast.LENGTH_SHORT).show()
-                                            }
-                                        }
-                                    } else {
-                                        locationPermissionsState.launchMultiplePermissionRequest()
-                                        viewModel.updateUseLocationForDayNight(true)
-                                    }
-                                } else {
-                                    viewModel.updateUseLocationForDayNight(false)
-                                }
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = NeumorphicColors.Primary,
-                                checkedTrackColor = NeumorphicColors.Primary.copy(alpha = 0.5f)
-                            )
-                        )
-                    }
                 }
 
                 Divider(color = NeumorphicColors.SurfaceDark.copy(alpha = 0.1f))
@@ -1981,7 +2025,7 @@ fun SettingsScreen(
                     }
                 } else {
                     NeumorphicButton(
-                        label = "Apply Current Forest Now",
+                        label = "Apply Current Forest Wallpaper Now",
                         icon = Icons.Default.Eco,
                         accentColor = NeumorphicColors.Accent,
                         onClick = {
@@ -1990,23 +2034,22 @@ fun SettingsScreen(
                                 return@NeumorphicButton
                             }
                             isWallpaperApplyingNow = true
-                            val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-                            val isDaytimeSetting = hour in 6..17
+                            val isDarkTheme = if (state.followSystemTheme) {
+                                (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+                            } else {
+                                state.wallpaperTheme == com.example.ui.theme.WallpaperTheme.DARK
+                            }
+                            val effectiveTheme = if (isDarkTheme) com.example.ui.theme.WallpaperTheme.DARK else com.example.ui.theme.WallpaperTheme.LIGHT
 
                             com.example.ui.components.WallpaperHelper.setForestWallpaper(
                                 context = context,
-                                isDay = isDaytimeSetting,
-                                treeCount = dbSessionCount,
+                                theme = effectiveTheme,
                                 setHomeScreen = state.wallpaperHomeScreen,
-                                setLockScreen = state.wallpaperLockScreen
+                                setLockScreen = state.wallpaperLockScreen,
+                                treeCount = dbSessionCount
                             ) { success, error ->
                                 isWallpaperApplyingNow = false
                                 if (success) {
-                                    context.getSharedPreferences("focusflow_prefs", android.content.Context.MODE_PRIVATE)
-                                        .edit()
-                                        .putBoolean("last_synced_daytime", isDaytimeSetting)
-                                        .putInt("last_synced_tree_count", dbSessionCount)
-                                        .apply()
                                     Toast.makeText(context, "Forest Wallpaper Applied Successfully! 🌲", Toast.LENGTH_LONG).show()
                                 } else {
                                     Toast.makeText(context, "Failed to apply wallpaper: $error", Toast.LENGTH_LONG).show()
@@ -2042,7 +2085,7 @@ fun SettingsScreen(
                 ) {
                     Icon(imageVector = Icons.Default.Wallpaper, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Set Live Auto Day/Night Wallpaper Service", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Set Live System-Theme Forest Wallpaper", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
         }

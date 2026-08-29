@@ -5,18 +5,15 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.res.Configuration
 import android.graphics.Canvas
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.service.wallpaper.WallpaperService
 import android.view.SurfaceHolder
-import com.example.data.db.AppDatabase
 import com.example.ui.components.WallpaperHelper
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import java.util.Calendar
+import com.example.ui.theme.WallpaperTheme
 
 class DayNightLiveWallpaperService : WallpaperService() {
 
@@ -29,43 +26,40 @@ class DayNightLiveWallpaperService : WallpaperService() {
         private var visible = false
         private var surfaceWidth = 1080
         private var surfaceHeight = 2400
-        private var grownTreeCount = 0
 
         private val updateReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                fetchTreeCountAndDraw()
+                drawFrame()
             }
         }
 
-        private val drawRunnable = object : Runnable {
-            override fun run() {
+        private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "follow_system_theme" || key == "wallpaper_theme") {
                 drawFrame()
-                if (visible) {
-                    // Refresh frame every minute to update sun/moon position & day/night mode seamlessly
-                    handler.postDelayed(this, 60_000L)
-                }
             }
         }
 
         override fun onCreate(surfaceHolder: SurfaceHolder?) {
             super.onCreate(surfaceHolder)
+            val sharedPrefs = getSharedPreferences("focusflow_prefs", Context.MODE_PRIVATE)
+            sharedPrefs.registerOnSharedPreferenceChangeListener(prefListener)
+
             val filter = IntentFilter().apply {
                 addAction("com.example.ACTION_WIDGET_AUTO_UPDATE")
                 addAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
-                addAction(Intent.ACTION_TIME_TICK)
-                addAction(Intent.ACTION_TIME_CHANGED)
-                addAction(Intent.ACTION_TIMEZONE_CHANGED)
+                addAction(Intent.ACTION_CONFIGURATION_CHANGED)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 registerReceiver(updateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
             } else {
                 registerReceiver(updateReceiver, filter)
             }
-            fetchTreeCountAndDraw()
         }
 
         override fun onDestroy() {
             super.onDestroy()
+            val sharedPrefs = getSharedPreferences("focusflow_prefs", Context.MODE_PRIVATE)
+            sharedPrefs.unregisterOnSharedPreferenceChangeListener(prefListener)
             try {
                 unregisterReceiver(updateReceiver)
             } catch (e: Exception) {
@@ -76,11 +70,7 @@ class DayNightLiveWallpaperService : WallpaperService() {
         override fun onVisibilityChanged(visible: Boolean) {
             this.visible = visible
             if (visible) {
-                fetchTreeCountAndDraw()
-                handler.removeCallbacks(drawRunnable)
-                handler.post(drawRunnable)
-            } else {
-                handler.removeCallbacks(drawRunnable)
+                drawFrame()
             }
         }
 
@@ -94,20 +84,6 @@ class DayNightLiveWallpaperService : WallpaperService() {
         override fun onSurfaceDestroyed(holder: SurfaceHolder) {
             super.onSurfaceDestroyed(holder)
             visible = false
-            handler.removeCallbacks(drawRunnable)
-        }
-
-        private fun fetchTreeCountAndDraw() {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val db = AppDatabase.getDatabase(applicationContext)
-                    val completed = db.sessionDao().getAllSessionsList().filter { it.completed }
-                    grownTreeCount = completed.size
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-                handler.post { drawFrame() }
-            }
         }
 
         private fun drawFrame() {
@@ -132,16 +108,27 @@ class DayNightLiveWallpaperService : WallpaperService() {
         }
 
         private fun renderWallpaper(canvas: Canvas, width: Int, height: Int) {
-            val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-            val isDay = hour in 6..17
+            val sharedPrefs = getSharedPreferences("focusflow_prefs", Context.MODE_PRIVATE)
+            val followSystem = sharedPrefs.getBoolean("follow_system_theme", true)
 
-            // Draw exact shared forest bitmap rendered via WallpaperHelper
+            val isSystemDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+
+            val theme = if (followSystem) {
+                if (isSystemDark) WallpaperTheme.DARK else WallpaperTheme.LIGHT
+            } else {
+                val manualThemeStr = sharedPrefs.getString("wallpaper_theme", "LIGHT") ?: "LIGHT"
+                try {
+                    WallpaperTheme.valueOf(manualThemeStr)
+                } catch (e: Exception) {
+                    WallpaperTheme.LIGHT
+                }
+            }
+
             val bitmap = WallpaperHelper.renderForestBitmap(
                 context = applicationContext,
                 width = width,
                 height = height,
-                isDay = isDay,
-                treeCount = grownTreeCount
+                theme = theme
             )
 
             canvas.drawBitmap(bitmap, 0f, 0f, null)

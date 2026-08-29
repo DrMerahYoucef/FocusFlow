@@ -213,8 +213,11 @@ class SessionRepository(private val sessionDao: SessionDao) {
                     ExamCountdownWidgetReceiver.triggerWidgetUpdate(app)
                 }
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Normal coroutine cancellation - do not treat as error
+            throw e
         } catch (e: Exception) {
-            android.util.Log.e("SessionRepository", "Firestore bidirectional statistics sync bypass/fail (offline): ${e.localizedMessage}")
+            android.util.Log.d("SessionRepository", "Firestore bidirectional statistics sync offline or skipped: ${e.message}")
         }
     }
 

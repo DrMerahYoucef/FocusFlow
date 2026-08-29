@@ -52,8 +52,10 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 FocusFlowApplication.instance.sessionRepository.syncWithFirestore()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // Ignore lifecycle scope cancellation
             } catch (e: Exception) {
-                android.util.Log.e("MainActivity", "Initial Firestore sync failed/offline", e)
+                android.util.Log.d("MainActivity", "Initial Firestore sync skipped (offline)")
             }
         }
 

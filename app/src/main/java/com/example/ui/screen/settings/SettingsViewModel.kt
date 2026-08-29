@@ -19,12 +19,7 @@ import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import android.Manifest
-import android.content.pm.PackageManager
-import androidx.core.content.ContextCompat
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
-import com.google.android.gms.tasks.CancellationTokenSource
+import com.example.ui.theme.WallpaperTheme
 
 data class SettingsState(
     val focusMin: Int = 25,
@@ -34,13 +29,12 @@ data class SettingsState(
     val blockNotifications: Boolean = false,
     val vibrateOnComplete: Boolean = true,
     val themeMode: String = "system",
+    val followSystemTheme: Boolean = true,
+    val wallpaperTheme: WallpaperTheme = WallpaperTheme.LIGHT,
     val autoSyncWallpaper: Boolean = false,
     val wallpaperHomeScreen: Boolean = true,
     val wallpaperLockScreen: Boolean = false,
     val ambientRotationMin: Int = 5,
-    val useLocationForDayNight: Boolean = false,
-    val latitude: Double = 0.0,
-    val longitude: Double = 0.0,
     val swipeToNavigate: Boolean = true
 )
 
@@ -58,6 +52,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun loadSettings() {
+        val savedThemeStr = sharedPrefs.getString("wallpaper_theme", "LIGHT") ?: "LIGHT"
+        val savedTheme = try {
+            WallpaperTheme.valueOf(savedThemeStr)
+        } catch (e: Exception) {
+            WallpaperTheme.LIGHT
+        }
+
         _state.update {
             SettingsState(
                 focusMin = sharedPrefs.getInt("focus_duration_min", 25),
@@ -67,13 +68,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 blockNotifications = sharedPrefs.getBoolean("block_notifications", false),
                 vibrateOnComplete = sharedPrefs.getBoolean("vibrate_on_complete", true),
                 themeMode = sharedPrefs.getString("theme_mode", "system") ?: "system",
+                followSystemTheme = sharedPrefs.getBoolean("follow_system_theme", true),
+                wallpaperTheme = savedTheme,
                 autoSyncWallpaper = sharedPrefs.getBoolean("auto_sync_wallpaper", false),
                 wallpaperHomeScreen = sharedPrefs.getBoolean("wallpaper_home_screen", true),
                 wallpaperLockScreen = sharedPrefs.getBoolean("wallpaper_lock_screen", false),
                 ambientRotationMin = sharedPrefs.getInt("ambient_rotation_min", 5),
-                useLocationForDayNight = sharedPrefs.getBoolean("use_location_for_daynight", false),
-                latitude = sharedPrefs.getFloat("last_known_latitude", 0.0f).toDouble(),
-                longitude = sharedPrefs.getFloat("last_known_longitude", 0.0f).toDouble(),
                 swipeToNavigate = sharedPrefs.getBoolean("swipe_to_navigate", true)
             )
         }
@@ -89,6 +89,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _state.update { it.copy(themeMode = value) }
         // Let's also trigger an app widget update so the widget theme matches the app selection immediately
         com.example.widget.ExamCountdownWidgetReceiver.triggerWidgetUpdate(getApplication())
+    }
+
+    fun updateFollowSystemTheme(value: Boolean) {
+        sharedPrefs.edit().putBoolean("follow_system_theme", value).apply()
+        _state.update { it.copy(followSystemTheme = value) }
+    }
+
+    fun updateWallpaperTheme(value: WallpaperTheme) {
+        sharedPrefs.edit().putString("wallpaper_theme", value.name).apply()
+        _state.update { it.copy(wallpaperTheme = value) }
     }
 
     fun updateFocusMin(value: Int) {
@@ -136,66 +146,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _state.update { it.copy(wallpaperLockScreen = value) }
     }
 
-    fun updateUseLocationForDayNight(value: Boolean) {
-        sharedPrefs.edit().putBoolean("use_location_for_daynight", value).apply()
-        _state.update { it.copy(useLocationForDayNight = value) }
-    }
-
     fun updateSwipeToNavigate(value: Boolean) {
         sharedPrefs.edit().putBoolean("swipe_to_navigate", value).apply()
         _state.update { it.copy(swipeToNavigate = value) }
-    }
-
-    fun fetchAndSaveLocation(onComplete: (Boolean) -> Unit) {
-        if (ContextCompat.checkSelfPermission(
-                getApplication(),
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(
-                getApplication(),
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            val fusedLocationClient = LocationServices.getFusedLocationProviderClient(getApplication<Application>())
-            fusedLocationClient.getCurrentLocation(
-                Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-                CancellationTokenSource().token
-            ).addOnSuccessListener { location ->
-                if (location != null) {
-                    sharedPrefs.edit()
-                        .putFloat("last_known_latitude", location.latitude.toFloat())
-                        .putFloat("last_known_longitude", location.longitude.toFloat())
-                        .apply()
-                    _state.update { it.copy(
-                        latitude = location.latitude,
-                        longitude = location.longitude
-                    ) }
-                    onComplete(true)
-                } else {
-                    fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
-                        if (lastLoc != null) {
-                            sharedPrefs.edit()
-                                .putFloat("last_known_latitude", lastLoc.latitude.toFloat())
-                                .putFloat("last_known_longitude", lastLoc.longitude.toFloat())
-                                .apply()
-                            _state.update { it.copy(
-                                latitude = lastLoc.latitude,
-                                longitude = lastLoc.longitude
-                            ) }
-                            onComplete(true)
-                        } else {
-                            onComplete(false)
-                        }
-                    }.addOnFailureListener {
-                        onComplete(false)
-                    }
-                }
-            }.addOnFailureListener {
-                onComplete(false)
-            }
-        } else {
-            onComplete(false)
-        }
     }
 
 
