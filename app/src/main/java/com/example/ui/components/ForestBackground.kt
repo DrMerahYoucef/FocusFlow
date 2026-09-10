@@ -149,30 +149,17 @@ fun ForestBackgroundContent(
         label = "darkProgress"
     )
 
-    // Load High Resolution Open Meadow Backgrounds
-    val lightBg = ImageBitmap.imageResource(id = R.drawable.open_meadow_light)
-    val darkBg = ImageBitmap.imageResource(id = R.drawable.open_meadow_dark)
-
-    // Load Photorealistic Tree PNG Assets (Light & Dark Variants)
-    val tree1Light = ImageBitmap.imageResource(id = R.drawable.tree_1_light)
-    val tree1Dark = ImageBitmap.imageResource(id = R.drawable.tree_1_dark)
-    val tree2Light = ImageBitmap.imageResource(id = R.drawable.tree_2_light)
-    val tree2Dark = ImageBitmap.imageResource(id = R.drawable.tree_2_dark)
-    val tree3Light = ImageBitmap.imageResource(id = R.drawable.tree_3_light)
-    val tree3Dark = ImageBitmap.imageResource(id = R.drawable.tree_3_dark)
-    val tree4Light = ImageBitmap.imageResource(id = R.drawable.tree_4_light)
-    val tree4Dark = ImageBitmap.imageResource(id = R.drawable.tree_4_dark)
-
-    val treeBitmaps = remember(tree1Light, tree1Dark, tree2Light, tree2Dark, tree3Light, tree3Dark, tree4Light, tree4Dark) {
+    // Premium, low-noise background treatment: keep a soft atmospheric scene instead of busy photo-art.
+    val treeBitmaps = remember {
         ForestTreeBitmaps(
-            tree1Light = tree1Light,
-            tree1Dark = tree1Dark,
-            tree2Light = tree2Light,
-            tree2Dark = tree2Dark,
-            tree3Light = tree3Light,
-            tree3Dark = tree3Dark,
-            tree4Light = tree4Light,
-            tree4Dark = tree4Dark
+            tree1Light = ImageBitmap(1, 1),
+            tree1Dark = ImageBitmap(1, 1),
+            tree2Light = ImageBitmap(1, 1),
+            tree2Dark = ImageBitmap(1, 1),
+            tree3Light = ImageBitmap(1, 1),
+            tree3Dark = ImageBitmap(1, 1),
+            tree4Light = ImageBitmap(1, 1),
+            tree4Dark = ImageBitmap(1, 1)
         )
     }
 
@@ -210,17 +197,10 @@ fun ForestBackgroundContent(
             val W = size.width
             val H = size.height
 
-            // 1. Draw Base Pristine Open Meadow Background Artwork (Aspect-fill cropping, zero distortion or tiling)
-            if (darkProgress <= 0.001f) {
-                ForestTreeRenderer.drawCropBitmap(this, lightBg, W, H, 1f)
-            } else if (darkProgress >= 0.999f) {
-                ForestTreeRenderer.drawCropBitmap(this, darkBg, W, H, 1f)
-            } else {
-                ForestTreeRenderer.drawCropBitmap(this, lightBg, W, H, 1f - darkProgress)
-                ForestTreeRenderer.drawCropBitmap(this, darkBg, W, H, darkProgress)
-            }
+            // 1. Premium layered landscape: clean atmospheric background with subtle depth.
+            ForestTreeRenderer.drawStylizedBackground(this, W, H, darkProgress)
 
-            // 2. Dynamic Canvas Tree Sprites Stamped at Fixed Coordinate Slots (0 trees drawn when treeCount == 0)
+            // 2. Professional tree silhouettes positioned with disciplined spacing and depth.
             ForestTreeRenderer.drawDynamicForestTrees(
                 drawScope = this,
                 treeBitmaps = treeBitmaps,
