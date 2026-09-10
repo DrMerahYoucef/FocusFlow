@@ -48,6 +48,98 @@ data class TreeSlot(
 
 object ForestTreeRenderer {
 
+    fun drawStylizedBackground(
+        drawScope: DrawScope,
+        W: Float,
+        H: Float,
+        darkProgress: Float
+    ) {
+        val dayTop = Color(0xFFEAF3F0)
+        val dayBottom = Color(0xFFB7D4C7)
+        val nightTop = Color(0xFF101A2B)
+        val nightBottom = Color(0xFF243E4A)
+        val top = lerp(dayTop, nightTop, darkProgress)
+        val bottom = lerp(dayBottom, nightBottom, darkProgress)
+
+        drawScope.drawRect(brush = Brush.verticalGradient(listOf(top, bottom), 0f, H))
+
+        val horizon = H * 0.56f
+        drawScope.drawCircle(
+            color = lerp(Color(0xFFFFD98A), Color(0xFFB8D7DE), darkProgress).copy(alpha = 0.8f),
+            radius = W * 0.075f,
+            center = Offset(W * 0.78f, H * 0.18f)
+        )
+        drawScope.drawCircle(
+            color = lerp(Color(0xFFFFE8B7), Color(0xFFB8D7DE), darkProgress).copy(alpha = 0.14f),
+            radius = W * 0.22f,
+            center = Offset(W * 0.78f, H * 0.18f)
+        )
+
+        drawScope.drawPath(Path().apply {
+            moveTo(0f, horizon + H * 0.03f)
+            cubicTo(W * 0.2f, horizon - H * 0.08f, W * 0.34f, horizon + H * 0.03f, W * 0.52f, horizon - H * 0.05f)
+            cubicTo(W * 0.7f, horizon - H * 0.13f, W * 0.84f, horizon - H * 0.02f, W, horizon - H * 0.08f)
+            lineTo(W, H)
+            lineTo(0f, H)
+            close()
+        }, lerp(Color(0xFF8EAC9D), Color(0xFF1C303B), darkProgress))
+
+        drawScope.drawPath(Path().apply {
+            moveTo(0f, H * 0.72f)
+            cubicTo(W * 0.2f, H * 0.62f, W * 0.38f, H * 0.76f, W * 0.57f, H * 0.66f)
+            cubicTo(W * 0.76f, H * 0.57f, W * 0.9f, H * 0.71f, W, H * 0.63f)
+            lineTo(W, H)
+            lineTo(0f, H)
+            close()
+        }, lerp(Color(0xFF547B68), Color(0xFF14272D), darkProgress))
+
+        drawScope.drawRect(
+            brush = Brush.verticalGradient(
+                listOf(Color.Transparent, lerp(Color(0xFF304D3F), Color(0xFF08151C), darkProgress).copy(alpha = 0.82f)),
+                H * 0.7f,
+                H
+            )
+        )
+    }
+
+    private fun lerp(start: Color, end: Color, amount: Float): Color = Color(
+        red = start.red + (end.red - start.red) * amount,
+        green = start.green + (end.green - start.green) * amount,
+        blue = start.blue + (end.blue - start.blue) * amount,
+        alpha = start.alpha + (end.alpha - start.alpha) * amount
+    )
+
+    private fun DrawScope.drawStylizedTree(
+        centerX: Float,
+        baseY: Float,
+        height: Float,
+        darkProgress: Float,
+        phase: Float,
+        animPhase: Float
+    ) {
+        val sway = if (animPhase == 0f) 0f else sin(animPhase * 0.04f + phase) * 1.2f
+        val foliage = lerp(Color(0xFF315F50), Color(0xFF102A31), darkProgress)
+        val foliageLight = lerp(Color(0xFF5F8F76), Color(0xFF24464A), darkProgress)
+        val trunk = lerp(Color(0xFF755D43), Color(0xFF372F2C), darkProgress)
+        withTransform({ rotate(sway, pivot = Offset(centerX, baseY)) }) {
+            drawRoundRect(
+                color = trunk,
+                topLeft = Offset(centerX - height * 0.025f, baseY - height * 0.2f),
+                size = Size(height * 0.05f, height * 0.2f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(height * 0.02f)
+            )
+            listOf(0.08f to 0.22f, 0.25f to 0.34f, 0.45f to 0.46f, 0.68f to 0.58f).forEachIndexed { index, (offset, width) ->
+                val y = baseY - height * offset
+                val layerHeight = height * 0.34f
+                drawOval(
+                    color = if (index % 2 == 0) foliageLight else foliage,
+                    topLeft = Offset(centerX - height * width * 0.5f, y - layerHeight * 0.5f),
+                    size = Size(height * width, layerHeight)
+                )
+            }
+        }
+    }
+
     val TREE_SLOTS: List<TreeSlot> = listOf(
         // Tier 1: Distant island ridges overlooking the sea (relY: 0.50 .. 0.58)
         TreeSlot(relX = 0.20f, relY = 0.510f, baseScale = 0.42f, variant = 0, phase = 0.2f),
@@ -124,8 +216,8 @@ object ForestTreeRenderer {
     }
 
     /**
-     * Stamped realistic PNG tree sprites placed at fixed coordinate slots based on treeCount.
-     * When treeCount is 0, zero trees are drawn.
+     * Professional vector tree rendering with a more refined silhouette and controlled depth.
+     * It intentionally avoids the crowded photo-sprite look and uses consistent geometric forms.
      */
     fun drawDynamicForestTrees(
         drawScope: DrawScope,
@@ -144,127 +236,109 @@ object ForestTreeRenderer {
         for (i in 0 until treeCount) {
             val baseSlot = TREE_SLOTS[i % totalSlots]
             val cycle = i / totalSlots
-            val jitterX = if (cycle > 0) sin(i * 1.7f) * 0.025f else 0f
-            val jitterY = if (cycle > 0) cos(i * 2.3f) * 0.012f else 0f
+            val jitterX = if (cycle > 0) sin(i * 1.9f) * 0.018f else 0f
+            val jitterY = if (cycle > 0) cos(i * 2.5f) * 0.010f else 0f
             val slot = baseSlot.copy(
-                relX = (baseSlot.relX + jitterX).coerceIn(0.05f, 0.95f),
-                relY = (baseSlot.relY + jitterY).coerceIn(0.52f, 0.95f)
+                relX = (baseSlot.relX + jitterX).coerceIn(0.08f, 0.92f),
+                relY = (baseSlot.relY + jitterY).coerceIn(0.55f, 0.95f)
             )
             activeSlots.add(slot to baseSlot.phase)
         }
 
-        // Sort by relY ascending so farther trees are strictly drawn behind nearer ones
         val sortedSlots = activeSlots.sortedBy { it.first.relY }
 
         for ((slot, phase) in sortedSlots) {
             val cx = slot.relX * W
             val baseY = slot.relY * H
-
-            // Depth perspective scaling
             val scaleFactor = slot.baseScale * (W / 1080f).coerceAtLeast(0.85f)
+            val treeHeight = 170f * scaleFactor
 
-            // Select light and dark bitmap variants based on slot.variant
-            val (lightBmp, darkBmp) = when (slot.variant) {
-                0 -> treeBitmaps.spruceLight to treeBitmaps.spruceDark
-                1 -> treeBitmaps.pineLight to treeBitmaps.pineDark
-                2 -> treeBitmaps.oakLight to treeBitmaps.oakDark
-                else -> treeBitmaps.birchLight to treeBitmaps.birchDark
-            }
-
-            // Calculate tree sprite dimensions maintaining original aspect ratio
-            val srcW = lightBmp.width.toFloat()
-            val srcH = lightBmp.height.toFloat()
-            val aspect = srcW / srcH
-            val dstH = (650f * scaleFactor)
-            val dstW = dstH * aspect
-
-            val dstLeft = cx - dstW / 2f
-            val dstTop = baseY - dstH
-
-            val swayAngle = if (animPhase != 0f) {
-                sin(animPhase * 0.04f + phase) * (0.8f * (slot.baseScale * 0.6f).coerceAtMost(1f))
-            } else 0f
-
-            // Realistic ground contact shadow with natural turf color and sun direction
-            val shadowAlpha = if (darkProgress < 0.5f) {
-                (0.24f * (1f - darkProgress * 0.3f) * (slot.baseScale * 0.6f).coerceIn(0.4f, 1f)).coerceIn(0.10f, 0.28f)
+            val foliageA = if (darkProgress < 0.5f) {
+                Color(0xFF34614D)
             } else {
-                (0.32f * darkProgress * (slot.baseScale * 0.6f).coerceIn(0.4f, 1f)).coerceIn(0.12f, 0.35f)
+                Color(0xFF16363E)
             }
-            val shadowColor = if (darkProgress < 0.5f) Color(0xFF1E2808) else Color(0xFF020E12)
-            val shadowW = dstW * 0.72f
-            val shadowH = dstH * 0.085f
-            val shadowOffsetX = if (darkProgress < 0.5f) dstW * 0.06f else 0f
-            val shadowOffsetY = dstH * 0.02f
+            val foliageB = if (darkProgress < 0.5f) {
+                Color(0xFF5D876E)
+            } else {
+                Color(0xFF2A5057)
+            }
+            val trunk = if (darkProgress < 0.5f) {
+                Color(0xFF6D503B)
+            } else {
+                Color(0xFF3A302D)
+            }
+            val shadowColor = if (darkProgress < 0.5f) {
+                Color(0xFF1D2F1C)
+            } else {
+                Color(0xFF08181E)
+            }
+
+            val sway = sin(animPhase * 0.035f + phase) * 6f
 
             drawScope.drawOval(
-                color = shadowColor.copy(alpha = shadowAlpha),
-                topLeft = Offset(cx - shadowW / 2f + shadowOffsetX, baseY - shadowH * 0.55f + shadowOffsetY),
-                size = Size(shadowW, shadowH)
+                color = shadowColor.copy(alpha = 0.25f),
+                topLeft = Offset(cx - treeHeight * 0.58f, baseY - treeHeight * 0.06f),
+                size = Size(treeHeight * 1.16f, treeHeight * 0.14f)
             )
 
-            // Draw tree sprite with gentle wind sway anchored at base
             drawScope.withTransform({
-                if (swayAngle != 0f) {
-                    rotate(swayAngle, pivot = Offset(cx, baseY))
-                }
+                rotate(sway, pivot = Offset(cx, baseY))
             }) {
-                val dstOffset = IntOffset(dstLeft.toInt(), dstTop.toInt())
-                val dstSize = IntSize(dstW.toInt(), dstH.toInt())
+                drawScope.drawRoundRect(
+                    color = trunk,
+                    topLeft = Offset(cx - treeHeight * 0.085f, baseY - treeHeight * 0.72f),
+                    size = Size(treeHeight * 0.17f, treeHeight * 0.38f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(treeHeight * 0.06f)
+                )
 
-                if (darkProgress <= 0.001f) {
-                    drawImage(
-                        image = lightBmp,
-                        srcOffset = IntOffset.Zero,
-                        srcSize = IntSize(lightBmp.width, lightBmp.height),
-                        dstOffset = dstOffset,
-                        dstSize = dstSize,
-                        alpha = 1f
+                val layerOffsets = listOf(
+                    0.16f to treeHeight * 0.38f,
+                    0.30f to treeHeight * 0.44f,
+                    0.48f to treeHeight * 0.54f,
+                    0.62f to treeHeight * 0.58f
+                )
+
+                layerOffsets.forEachIndexed { index, pair ->
+                    val (yRatio, radius) = pair
+                    val y = baseY - treeHeight * yRatio
+                    val color = if (index % 2 == 0) foliageA else foliageB
+                    drawScope.drawOval(
+                        color = color,
+                        topLeft = Offset(cx - radius * 0.5f, y - radius * 0.5f),
+                        size = Size(radius, radius * 0.86f)
                     )
-                } else if (darkProgress >= 0.999f) {
-                    drawImage(
-                        image = darkBmp,
-                        srcOffset = IntOffset.Zero,
-                        srcSize = IntSize(darkBmp.width, darkBmp.height),
-                        dstOffset = dstOffset,
-                        dstSize = dstSize,
-                        alpha = 1f
-                    )
-                } else {
-                    drawImage(
-                        image = lightBmp,
-                        srcOffset = IntOffset.Zero,
-                        srcSize = IntSize(lightBmp.width, lightBmp.height),
-                        dstOffset = dstOffset,
-                        dstSize = dstSize,
-                        alpha = 1f - darkProgress
-                    )
-                    drawImage(
-                        image = darkBmp,
-                        srcOffset = IntOffset.Zero,
-                        srcSize = IntSize(darkBmp.width, darkBmp.height),
-                        dstOffset = dstOffset,
-                        dstSize = dstSize,
-                        alpha = darkProgress
+                }
+
+                if (slot.variant in listOf(1, 2)) {
+                    val topY = baseY - treeHeight * 0.75f
+                    val half = treeHeight * 0.18f
+                    drawScope.drawTriangle(
+                        color = foliageB,
+                        apex = Offset(cx, topY),
+                        left = Offset(cx - half, baseY - treeHeight * 0.45f),
+                        right = Offset(cx + half, baseY - treeHeight * 0.45f)
                     )
                 }
             }
-
-            // Root base atmospheric grass blending (soft turf integration so trees are embedded into soil)
-            val turfAlpha = if (darkProgress < 0.5f) 0.16f * (1f - darkProgress * 0.3f) else 0.12f * darkProgress
-            val turfColor = if (darkProgress < 0.5f) Color(0xFF425618) else Color(0xFF0F3235)
-            val turfW = dstW * 0.38f
-            val turfH = dstH * 0.045f
-            drawScope.drawOval(
-                brush = Brush.radialGradient(
-                    colors = listOf(turfColor.copy(alpha = turfAlpha), Color.Transparent),
-                    center = Offset(cx, baseY - turfH * 0.2f),
-                    radius = turfW / 2f
-                ),
-                topLeft = Offset(cx - turfW / 2f, baseY - turfH),
-                size = Size(turfW, turfH)
-            )
         }
+    }
+
+    private fun DrawScope.drawTriangle(
+        color: Color,
+        apex: Offset,
+        left: Offset,
+        right: Offset
+    ) {
+        drawScope.drawPath(
+            path = Path().apply {
+                moveTo(apex.x, apex.y)
+                lineTo(left.x, left.y)
+                lineTo(right.x, right.y)
+                close()
+            },
+            color = color
+        )
     }
 
     /**
