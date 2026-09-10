@@ -330,7 +330,7 @@ object ForestTreeRenderer {
         left: Offset,
         right: Offset
     ) {
-        drawScope.drawPath(
+        drawPath(
             path = Path().apply {
                 moveTo(apex.x, apex.y)
                 lineTo(left.x, left.y)
