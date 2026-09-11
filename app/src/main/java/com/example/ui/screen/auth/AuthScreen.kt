@@ -81,7 +81,7 @@ fun AuthScreen(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             ForestBackground(
-                forestState = ForestState(treeCount = 5, isDarkTheme = isDark),
+                forestState = ForestState(completedSessions = 5, isDarkTheme = isDark),
                 modifier = Modifier.fillMaxSize()
             )
             Column(

@@ -1991,12 +1991,12 @@ fun SettingsScreen(
                                 }
                                 val effectiveTheme = if (isDarkTheme) com.example.ui.theme.WallpaperTheme.DARK else com.example.ui.theme.WallpaperTheme.LIGHT
 
-                                com.example.ui.components.WallpaperHelper.setForestWallpaper(
+                                com.example.ui.components.WallpaperHelper.setBuildingWallpaper(
                                     context = context,
                                     theme = effectiveTheme,
                                     setHomeScreen = state.wallpaperHomeScreen,
                                     setLockScreen = state.wallpaperLockScreen,
-                                    treeCount = dbSessionCount
+                                    completedSessions = dbSessionCount
                                 ) { success, error ->
                                     if (success) {
                                         Toast.makeText(context, "Auto-Sync Enabled & Wallpaper applied! 🌲", Toast.LENGTH_SHORT).show()
@@ -2041,12 +2041,12 @@ fun SettingsScreen(
                             }
                             val effectiveTheme = if (isDarkTheme) com.example.ui.theme.WallpaperTheme.DARK else com.example.ui.theme.WallpaperTheme.LIGHT
 
-                            com.example.ui.components.WallpaperHelper.setForestWallpaper(
+                            com.example.ui.components.WallpaperHelper.setBuildingWallpaper(
                                 context = context,
                                 theme = effectiveTheme,
                                 setHomeScreen = state.wallpaperHomeScreen,
                                 setLockScreen = state.wallpaperLockScreen,
-                                treeCount = dbSessionCount
+                                completedSessions = dbSessionCount
                             ) { success, error ->
                                 isWallpaperApplyingNow = false
                                 if (success) {

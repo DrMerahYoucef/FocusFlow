@@ -124,7 +124,7 @@ class DayNightLiveWallpaperService : WallpaperService() {
                 }
             }
 
-            val bitmap = WallpaperHelper.renderForestBitmap(
+            val bitmap = WallpaperHelper.renderBuildingBitmap(
                 context = applicationContext,
                 width = width,
                 height = height,

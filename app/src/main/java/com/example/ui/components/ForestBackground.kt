@@ -1,20 +1,15 @@
 package com.example.ui.components
 
 import android.app.Application
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.*
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.res.imageResource
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewModelScope
 import com.example.FocusFlowApplication
 import com.example.R
@@ -23,7 +18,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 data class ForestState(
-    val treeCount: Int = 0,
+    val completedSessions: Int = 0,
     val followSystemTheme: Boolean = true,
     val manualTheme: WallpaperTheme = WallpaperTheme.LIGHT,
     val isDarkTheme: Boolean = false
@@ -49,8 +44,8 @@ class ForestViewModel(application: Application) : AndroidViewModel(application) 
             repository
                 .getSessionCount(0L, Long.MAX_VALUE)
                 .collect { count ->
-                    _forestState.update { it.copy(treeCount = count) }
-                    sharedPrefs.edit().putInt("last_synced_tree_count", count).apply()
+                    _forestState.update { it.copy(completedSessions = count) }
+                    sharedPrefs.edit().putInt("last_synced_completed_sessions", count).apply()
                 }
         }
     }
@@ -63,9 +58,12 @@ class ForestViewModel(application: Application) : AndroidViewModel(application) 
         } catch (e: Exception) {
             WallpaperTheme.LIGHT
         }
-        val savedCount = sharedPrefs.getInt("last_synced_tree_count", 0)
+        val savedCount = sharedPrefs.getInt(
+            "last_synced_completed_sessions",
+            sharedPrefs.getInt("last_synced_tree_count", 0)
+        )
         return ForestState(
-            treeCount = savedCount,
+            completedSessions = savedCount,
             followSystemTheme = followSystem,
             manualTheme = manualTheme,
             isDarkTheme = manualTheme == WallpaperTheme.DARK
@@ -106,12 +104,12 @@ class ForestViewModel(application: Application) : AndroidViewModel(application) 
         val setLock = sharedPrefs.getBoolean("wallpaper_lock_screen", false)
         val theme = if (isDark) WallpaperTheme.DARK else WallpaperTheme.LIGHT
 
-        WallpaperHelper.setForestWallpaper(
+        WallpaperHelper.setBuildingWallpaper(
             context = app,
             theme = theme,
             setHomeScreen = setHome,
             setLockScreen = setLock,
-            treeCount = _forestState.value.treeCount
+            completedSessions = _forestState.value.completedSessions
         ) { _, _ -> }
     }
 
@@ -131,7 +129,7 @@ fun ForestBackground(
 
     ForestBackgroundContent(
         isDark = isDark,
-        treeCount = forestState.treeCount,
+        completedSessions = forestState.completedSessions,
         modifier = modifier
     )
 }
@@ -142,93 +140,13 @@ fun ForestBackgroundContent(
     treeCount: Int = 0,
     modifier: Modifier = Modifier
 ) {
-    // Smooth Crossfade animation between light and dark backgrounds
-    val darkProgress by animateFloatAsState(
-        targetValue = if (isDark) 1f else 0f,
-        animationSpec = tween(1200, easing = LinearOutSlowInEasing),
-        label = "darkProgress"
-    )
-
-    // Premium, low-noise background treatment: keep a soft atmospheric scene instead of busy photo-art.
-    val treeBitmaps = remember {
-        ForestTreeBitmaps(
-            tree1Light = ImageBitmap(1, 1),
-            tree1Dark = ImageBitmap(1, 1),
-            tree2Light = ImageBitmap(1, 1),
-            tree2Dark = ImageBitmap(1, 1),
-            tree3Light = ImageBitmap(1, 1),
-            tree3Dark = ImageBitmap(1, 1),
-            tree4Light = ImageBitmap(1, 1),
-            tree4Dark = ImageBitmap(1, 1)
-        )
-    }
-
-    // Lifecycle-aware Animation Driver (Gentle Sway & Atmospheric Pollen & Fireflies)
-    val lifecycleOwner = LocalLifecycleOwner.current
-    var isAppResumed by remember { mutableStateOf(true) }
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            isAppResumed = event.targetState.isAtLeast(Lifecycle.State.RESUMED)
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
-    val wavePhase = remember { Animatable(0f) }
-    LaunchedEffect(isAppResumed) {
-        if (isAppResumed) {
-            while (true) {
-                wavePhase.animateTo(
-                    targetValue = wavePhase.value + 1000f,
-                    animationSpec = tween(120000, easing = LinearEasing)
-                )
-            }
-        } else {
-            wavePhase.stop()
-        }
-    }
-
-    val currentAnimPhase = wavePhase.value
+    val building = ImageBitmap.imageResource(R.drawable.building_background)
 
     Box(modifier = modifier.fillMaxSize()) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val W = size.width
-            val H = size.height
-
-            // 1. Premium layered landscape: clean atmospheric background with subtle depth.
-            ForestTreeRenderer.drawStylizedBackground(this, W, H, darkProgress)
-
-            // 2. Professional tree silhouettes positioned with disciplined spacing and depth.
-            ForestTreeRenderer.drawDynamicForestTrees(
-                drawScope = this,
-                treeBitmaps = treeBitmaps,
-                W = W,
-                H = H,
-                treeCount = treeCount,
-                darkProgress = darkProgress,
-                animPhase = currentAnimPhase
-            )
-
-            // 3. Ambient Atmospheric Particles (Sun pollen / Bioluminescent fireflies)
-            ForestTreeRenderer.drawAtmosphericParticles(
-                drawScope = this,
-                W = W,
-                H = H,
-                darkProgress = darkProgress,
-                animPhase = currentAnimPhase
-            )
-
-            // 4. Subtle UI Vignette at the bottom for crystal-clear readability
-            drawRect(
-                brush = Brush.verticalGradient(
-                    colors = listOf(Color.Transparent, Color(0x60000000)),
-                    startY = H * 0.78f,
-                    endY = H
-                ),
-                size = Size(W, H)
-            )
+            BuildingBackgroundRenderer.run {
+                drawBuilding(building, treeCount, if (isDark) 1f else 0f)
+            }
         }
     }
 }
