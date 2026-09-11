@@ -137,7 +137,7 @@ fun ForestBackground(
 @Composable
 fun ForestBackgroundContent(
     isDark: Boolean,
-    treeCount: Int = 0,
+    completedSessions: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val building = ImageBitmap.imageResource(R.drawable.building_background)
@@ -145,7 +145,7 @@ fun ForestBackgroundContent(
     Box(modifier = modifier.fillMaxSize()) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             BuildingBackgroundRenderer.run {
-                drawBuilding(building, treeCount, if (isDark) 1f else 0f)
+                drawBuilding(building, completedSessions, if (isDark) 1f else 0f)
             }
         }
     }
