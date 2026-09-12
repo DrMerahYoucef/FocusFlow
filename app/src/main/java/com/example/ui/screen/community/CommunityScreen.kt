@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -508,7 +509,7 @@ private fun DrawScope.drawBuilding(
         val lit = index < lights.coerceAtMost(rows * columns)
         val x = left + 10f + (index % columns) * ((width - 20f) / columns)
         val y = top + 14f + (index / columns) * ((height - 22f) / rows)
-        drawRoundRect(if (lit) Color(0xFFFFC96B) else Color(0xFF3B4269), Offset(x, y), Size(8f, 10f), 2f, 2f)
+        drawRoundRect(if (lit) Color(0xFFFFC96B) else Color(0xFF3B4269), Offset(x, y), Size(8f, 10f), CornerRadius(2f, 2f))
     }
     if (isSelected) drawRect(Color(0xFFBFA7FF), Offset(left - 5f, top - 5f), Size(width + 10f, height + 10f), style = Stroke(3f))
     drawContext.canvas.nativeCanvas.drawText(
