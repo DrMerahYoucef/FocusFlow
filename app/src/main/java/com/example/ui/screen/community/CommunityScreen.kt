@@ -78,7 +78,7 @@ fun CommunityScreen(
                     onClick = { selectedTab = 0 },
                     text = {
                         Text(
-                            "🏝️ Island Map",
+                            "Skyline",
                             fontWeight = FontWeight.Bold,
                             color = if (selectedTab == 0) themeColors.accent else themeColors.secondaryText
                         )
@@ -98,14 +98,14 @@ fun CommunityScreen(
             }
 
             when (selectedTab) {
-                0 -> IslandMapTab(
+                0 -> SkylineTab(
                     friends = friends,
                     pendingReqs = pendingReqs,
                     sentReqs = sentReqs,
                     searchResults = searchResults,
                     searchQuery = searchQuery,
-                    myTreeCount = myProfile?.treeCount ?: 0,
-                    myUsername = myProfile?.username ?: "YOU",
+                    lightsActivated = myProfile?.treeCount ?: 0,
+                    username = myProfile?.username ?: "You",
                     onSearch = {
                         searchQuery = it
                         viewModel.searchUsers(it)
@@ -134,14 +134,14 @@ fun CommunityScreen(
 }
 
 @Composable
-fun IslandMapTab(
+fun SkylineTab(
     friends: List<UserProfile>,
     pendingReqs: List<FriendRequest>,
     sentReqs: List<FriendRequest>,
     searchResults: List<UserProfile>,
     searchQuery: String,
-    myTreeCount: Int,
-    myUsername: String,
+    lightsActivated: Int,
+    username: String,
     onSearch: (String) -> Unit,
     onSendRequest: (UserProfile) -> Unit,
     onAccept: (FriendRequest) -> Unit,
@@ -159,12 +159,8 @@ fun IslandMapTab(
         offset += panChange
     }
 
-    val isDark = com.example.ui.theme.LocalIsDarkTheme.current
-    val backgroundColors = if (isDark) {
-        listOf(Color(0xFF111E36), Color(0xFF040B18))
-    } else {
-        listOf(Color(0xFF4DB8C8), Color(0xFF1A7A8F))
-    }
+    val isDark = true
+    val backgroundColors = listOf(Color(0xFF211A4D), Color(0xFF050916))
 
     Box(
         modifier = Modifier
@@ -190,7 +186,7 @@ fun IslandMapTab(
                 .pointerInput(friends) {
                     detectTapGestures { tap ->
                         friends.forEachIndexed { i, friend ->
-                            val pos = islandPosition(i, friends.size, androidx.compose.ui.geometry.Size(size.width.toFloat(), size.height.toFloat()))
+                            val pos = buildingPosition(i, friends.size, androidx.compose.ui.geometry.Size(size.width.toFloat(), size.height.toFloat()))
                             if ((tap - pos).getDistance() < 90f) {
                                 selectedFriend = friend
                             }
@@ -198,91 +194,24 @@ fun IslandMapTab(
                     }
                 }
         ) {
-            // Celestial body (Sun in the day, Moon at night) in the top-right corner
-            val celestialCenter = Offset(size.width - 150f, 150f)
-            if (isDark) {
-                // Moon glow
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(Color(0x558AB4F8), Color.Transparent),
-                        center = celestialCenter,
-                        radius = 120f
-                    ),
-                    radius = 120f,
-                    center = celestialCenter
-                )
-                // Moon body
-                drawCircle(
-                    color = Color(0xFFF1F5F9),
-                    radius = 35f,
-                    center = celestialCenter
-                )
-                // Moon crescent shadow overlay
-                drawCircle(
-                    color = Color(0xFF111E36),
-                    radius = 30f,
-                    center = celestialCenter - Offset(12f, 12f)
-                )
-            } else {
-                // Sun glow
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(Color(0x66FFFBE2), Color.Transparent),
-                        center = celestialCenter,
-                        radius = 160f
-                    ),
-                    radius = 160f,
-                    center = celestialCenter
-                )
-                // Sun body
-                drawCircle(
-                    color = Color(0xFFFBBF24),
-                    radius = 45f,
-                    center = celestialCenter
-                )
-            }
-
-            // Wave ripples
-            repeat(5) { i ->
-                drawCircle(
-                    color = if (isDark) Color.White.copy(alpha = 0.07f) else Color.White.copy(alpha = 0.15f),
-                    radius = 120f + i * 80f,
-                    center = Offset(size.width / 2f, size.height / 2f),
-                    style = Stroke(3f)
-                )
-            }
-
-            // Central personal island
-            drawIsland(
-                center = Offset(size.width / 2f, size.height / 2f),
-                radius = 110f,
-                treeCount = myTreeCount,
-                label = ((myUsername ?: "YOU").uppercase()) + "'S COVE",
-                isSelected = false,
-                isDark = isDark
-            )
-
-            // Outer Orbit Friends' Islands
+            drawSkylineBackdrop()
+            drawBuilding(Offset(size.width / 2f, size.height * .72f), 150f, lightsActivated, username, false)
             friends.forEachIndexed { i, friend ->
-                val fName = friend.username ?: "FRIEND"
-                drawIsland(
-                    center = islandPosition(i, friends.size, size),
-                    radius = 75f,
-                    treeCount = friend.treeCount,
-                    label = fName.uppercase(),
-                    isSelected = selectedFriend?.uid == friend.uid,
-                    isDark = isDark
-                )
+                drawBuilding(buildingPosition(i, friends.size, size), 76f + (i % 3) * 14f, friend.treeCount, friend.username, selectedFriend?.uid == friend.uid)
             }
+        }
+
+        Column(Modifier.align(Alignment.TopStart).padding(18.dp)) {
+            Text("THE NIGHTLY SKYLINE", color = Color.White.copy(alpha = .62f), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+            Text("Every focused minute lights a window.", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black)
         }
 
         // Selected Friend Profile Card (Frosted Glass Overlay overlaying content)
         selectedFriend?.let { friend ->
             Box(
-                modifier = Modifier
+                modifier = Modifier.fillMaxWidth()
                     .align(Alignment.BottomCenter)
                     .padding(start = 16.dp, end = 16.dp, bottom = 100.dp)
-                    .fillMaxWidth()
             ) {
                 GlassCard(
                     modifier = Modifier.fillMaxWidth()
@@ -292,8 +221,10 @@ fun IslandMapTab(
                         modifier = Modifier.padding(16.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            BuildingPreview(friend.treeCount, Modifier.size(64.dp))
+                            Spacer(Modifier.width(12.dp))
                             Text(
-                                text = "🏝️ ${friend.username}'s Isle",
+                                text = "${friend.username}'s Building",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = themeColors.onSurface,
                                 fontWeight = FontWeight.Black
@@ -309,9 +240,9 @@ fun IslandMapTab(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            LeaderboardStatPill("🌲", "${friend.treeCount}", "Trees")
-                            LeaderboardStatPill("⏱️", "${friend.totalMinutes}", "Time")
-                            LeaderboardStatPill("⭐", "${friend.points}", "Points")
+                            LeaderboardStatPill("💡", "${friend.treeCount}", "Lights")
+                            LeaderboardStatPill("⏱️", "${friend.totalMinutes}m", "Focus time")
+                            LeaderboardStatPill("🎯", "${friend.treeCount}", "Sessions")
                             LeaderboardStatPill("🔥", "${friend.currentStreak}", "Streak")
                         }
 
@@ -331,20 +262,14 @@ fun IslandMapTab(
                                     Text(friend.currentRadio, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                 }
                             } else {
-                                Text("💤 Player is currently focus-studying or offline", color = themeColors.secondaryText, fontSize = 11.sp)
+                                Text("Offline • permanent lights only", color = themeColors.secondaryText, fontSize = 11.sp)
                             }
                         }
 
-                        GlassButton(
-                            label = "Remove Friend",
-                            icon = Icons.Default.Delete,
-                            onClick = {
-                                onRemove(friend)
-                                selectedFriend = null
-                            },
-                            accentColor = Color(0xFFFF6584),
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        GlassButton("Remove Friend", Icons.Default.Delete, {
+                            onRemove(friend)
+                            selectedFriend = null
+                        }, modifier = Modifier.fillMaxWidth(), accentColor = Color(0xFFFF6584))
                     }
                 }
             }
@@ -527,80 +452,72 @@ fun IslandMapTab(
     }
 }
 
-private fun islandPosition(index: Int, total: Int, size: Size): Offset {
-    val totalCount = if (total == 0) 1 else total
-    val angle = (2 * Math.PI / totalCount * index) - Math.PI / 2
-    val radius = minOf(size.width, size.height) * 0.35f
+private fun buildingPosition(index: Int, total: Int, size: Size): Offset {
+    val columns = maxOf(1, minOf(4, total))
+    val row = index / columns
+    val column = index % columns
     return Offset(
-        x = size.width / 2f + (cos(angle) * radius).toFloat(),
-        y = size.height / 2f + (sin(angle) * radius).toFloat()
+        x = size.width * ((column + 1f) / (columns + 1f)),
+        y = size.height * (.34f + (row % 3) * .16f)
     )
 }
 
-private fun DrawScope.drawIsland(
+@Composable
+private fun BuildingPreview(lights: Int, modifier: Modifier = Modifier) {
+    Canvas(
+        modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFF111531))
+    ) {
+        drawBuilding(Offset(size.width / 2f, size.height), size.width * .55f, lights, "", false)
+    }
+}
+
+private fun DrawScope.drawSkylineBackdrop() {
+    repeat(34) { index ->
+        val x = (index * 97f) % size.width
+        val y = 38f + ((index * 47f) % (size.height * .42f))
+        drawCircle(Color.White.copy(alpha = if (index % 4 == 0) .85f else .35f), if (index % 5 == 0) 2.2f else 1.1f, Offset(x, y))
+    }
+    drawCircle(Color(0xFFE9E5FF), 31f, Offset(size.width - 66f, 74f))
+    drawCircle(Color(0xFF211A4D), 28f, Offset(size.width - 53f, 64f))
+    repeat(9) { index ->
+        val x = index * size.width / 8f
+        val height = 70f + (index % 4) * 42f
+        drawRect(Color(0xFF090D20), Offset(x, size.height - height), Size(size.width / 9f + 8f, height))
+    }
+    drawRect(Color(0xFF080B18), Offset(0f, size.height - 28f), Size(size.width, 28f))
+}
+
+private fun DrawScope.drawBuilding(
     center: Offset,
-    radius: Float,
-    treeCount: Int,
+    width: Float,
+    lights: Int,
     label: String?,
-    isSelected: Boolean,
-    isDark: Boolean = false
+    isSelected: Boolean
 ) {
-    val sandColor = if (isDark) Color(0xFF6B5D39) else Color(0xFFD4A853)
-    val grassColor = if (isDark) Color(0xFF1F4D2B) else Color(0xFF3D7A4A)
-    val trunkColor = if (isDark) Color(0xFF132A0D) else Color(0xFF2D5A1B)
-    val leafColor = if (isDark) Color(0xFF235C2B) else Color(0xFF4CAF50)
-
-    // Drop shadow
-    drawCircle(
-        color = Color(0x33000000),
-        radius = radius + 10f,
-        center = center + Offset(6f, 6f)
-    )
-    // Sand coast
-    drawCircle(
-        color = sandColor,
-        radius = radius,
-        center = center
-    )
-    // Grassy core of island
-    drawCircle(
-        color = grassColor,
-        radius = radius * 0.82f,
-        center = center - Offset(0f, radius * 0.08f)
-    )
-
-    // Layout little decorative trees represent count
-    val treesToShow = treeCount.coerceAtMost(16)
-    repeat(treesToShow) { i ->
-        val angle = 2 * Math.PI / treesToShow * i
-        val dist = radius * 0.45f * (0.35f + (i % 3) * 0.22f)
-        val treePos = center + Offset(
-            x = (cos(angle) * dist).toFloat(),
-            y = (sin(angle) * dist).toFloat() - radius * 0.08f
-        )
-        // Draw miniature layered trees
-        drawCircle(trunkColor, 7f, treePos)
-        drawCircle(leafColor, 10f, treePos - Offset(0f, 9f))
+    val height = (width * (1.5f + lights.coerceAtMost(24) / 24f)).coerceIn(width * 1.45f, width * 3.2f)
+    val left = center.x - width / 2f
+    val top = center.y - height
+    drawRect(Color.Black.copy(alpha = .35f), Offset(left + 8f, top + 10f), Size(width, height))
+    drawRect(Color(0xFF171B38), Offset(left, top), Size(width, height))
+    drawRect(Color(0xFFBFA7FF).copy(alpha = .45f), Offset(left, top), Size(width, 5f))
+    val rows = maxOf(3, (height / 22f).toInt())
+    val columns = maxOf(2, (width / 24f).toInt())
+    repeat(rows * columns) { index ->
+        val lit = index < lights.coerceAtMost(rows * columns)
+        val x = left + 10f + (index % columns) * ((width - 20f) / columns)
+        val y = top + 14f + (index / columns) * ((height - 22f) / rows)
+        drawRoundRect(if (lit) Color(0xFFFFC96B) else Color(0xFF3B4269), Offset(x, y), Size(8f, 10f), 2f, 2f)
     }
-
-    // Border highlight if selected
-    if (isSelected) {
-        drawCircle(
-            color = Color(0xFF7C6AF7),
-            radius = radius + 6f,
-            center = center,
-            style = Stroke(4f)
-        )
-    }
-
-    // Canvas Label Text drawing
+    if (isSelected) drawRect(Color(0xFFBFA7FF), Offset(left - 5f, top - 5f), Size(width + 10f, height + 10f), style = Stroke(3f))
     drawContext.canvas.nativeCanvas.drawText(
-        label ?: "",
+        label?.take(14)?.uppercase() ?: "",
         center.x,
-        center.y + radius + 22f,
+        center.y + 18f,
         android.graphics.Paint().apply {
             color = android.graphics.Color.WHITE
-            textSize = 28f
+            textSize = 21f
             textAlign = android.graphics.Paint.Align.CENTER
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             setShadowLayer(4f, 1f, 1f, android.graphics.Color.BLACK)
@@ -701,25 +618,40 @@ fun LeaderboardTab(
 ) {
     val themeColors = LocalAppThemeColors.current
     var searchQuery by remember { mutableStateOf("") }
+    var sortMode by remember { mutableStateOf("Lights") }
 
     val friendUids  = friends.map { it.uid }.toSet()
     val sentToUids  = sentReqs.map { it.toUid }.toSet()
     val pendingFrom = pendingReqs.map { it.fromUid }.toSet()
 
-    val filtered = remember(searchQuery, leaderboard) {
-        if (searchQuery.isBlank()) leaderboard
-        else leaderboard.filter {
-            it.username.contains(searchQuery, ignoreCase = true)
+    val filtered = remember(searchQuery, leaderboard, sortMode) {
+        val matching = if (searchQuery.isBlank()) leaderboard else leaderboard.filter { it.username.contains(searchQuery, ignoreCase = true) }
+        matching.sortedByDescending {
+            when (sortMode) {
+                "Time" -> it.totalMinutes
+                "Streak" -> it.currentStreak
+                "Sessions" -> it.treeCount
+                "Weekly" -> it.points
+                "Monthly" -> it.points
+                else -> it.treeCount
+            }
         }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
 
+        Text("🏆 Top Focus Flow Builders", color = themeColors.onSurface, fontSize = 19.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+        Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf("Lights", "Time", "Streak", "Sessions", "Weekly", "Monthly").forEach { mode ->
+                FilterChip(selected = sortMode == mode, onClick = { sortMode = mode }, label = { Text(mode, fontSize = 11.sp) })
+            }
+        }
+
         // Search bar
         OutlinedTextField(
             value       = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text("Search players...", color = themeColors.secondaryText) },
+            placeholder = { Text("Search username or building...", color = themeColors.secondaryText) },
             leadingIcon = { Icon(Icons.Default.Search, null, tint = themeColors.onSurface) },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
@@ -943,9 +875,9 @@ fun LeaderboardTab(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 modifier = Modifier.weight(1f)
                             ) {
-                                LeaderboardStatPill("🌲", "${entry.treeCount}", "Trees")
-                                LeaderboardStatPill("⏱️", "${entry.totalMinutes}", "Time")
-                                LeaderboardStatPill("⭐", "${entry.points}", "Points")
+                                LeaderboardStatPill("💡", "${entry.treeCount}", "Lights")
+                                LeaderboardStatPill("⏱️", "${entry.totalMinutes}m", "Focus time")
+                                LeaderboardStatPill("⭐", "${entry.points}", "Focus score")
                                 LeaderboardStatPill("🔥", "${entry.currentStreak}", "Streak")
                             }
 

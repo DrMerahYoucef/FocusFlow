@@ -71,7 +71,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Revisions : Screen("revisions", "Revisions", Icons.Default.AutoAwesome)
     object Analytics : Screen("analytics", "Stats", Icons.Default.Analytics)
     object Radio : Screen("radio", "Radio", Icons.Default.Radio)
-    object Community : Screen("community", "Islands", Icons.Default.Public)
+    object Community : Screen("community", "Skyline", Icons.Default.Public)
     object Settings : Screen("settings", "Config", Icons.Default.Settings)
 }
 
@@ -183,20 +183,20 @@ fun MainPagerScreen(
                             ) {
                                 Icon(
                                     imageVector = Screen.Community.icon,
-                                    contentDescription = "Islands Offline",
+                                    contentDescription = "Skyline Offline",
                                     tint = themeColors.secondaryText,
                                     modifier = Modifier.size(64.dp)
                                 )
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Text(
-                                    text = "Islands Offline",
+                                    text = "Skyline Offline",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 20.sp,
                                     color = themeColors.onSurface
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "Online Focus Islands and Leaderboards are currently unavailable. Please check your internet connection or try again later.",
+                                    text = "The Skyline and leaderboard are currently unavailable. Please check your internet connection or try again later.",
                                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                                     fontSize = 14.sp,
                                     color = themeColors.secondaryText
@@ -410,8 +410,8 @@ fun NeumorphicBottomNavigationForPager(
                 // CENTER SPACER FOR FLOATING TIMER CIRCLE
                 Spacer(modifier = Modifier.width(76.dp))
 
-                // Item 3: Islands
-                val isIslands = currentPage == 3
+                // Item 3: Skyline
+                val isSkyline = currentPage == 3
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -424,21 +424,21 @@ fun NeumorphicBottomNavigationForPager(
                         verticalArrangement = Arrangement.Center,
                         modifier = Modifier
                             .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
-                            .background(if (isIslands) activeColor.copy(alpha = 0.14f) else Color.Transparent)
+                            .background(if (isSkyline) activeColor.copy(alpha = 0.14f) else Color.Transparent)
                             .padding(horizontal = 12.dp, vertical = 4.dp)
                     ) {
                         Icon(
                             imageVector = Screen.Community.icon,
                             contentDescription = Screen.Community.title,
-                            tint = if (isIslands) activeColor else inactiveColor,
+                            tint = if (isSkyline) activeColor else inactiveColor,
                             modifier = Modifier.size(22.dp)
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = Screen.Community.title,
                             fontSize = 11.sp,
-                            fontWeight = if (isIslands) FontWeight.Bold else FontWeight.Medium,
-                            color = if (isIslands) activeColor else inactiveColor
+                            fontWeight = if (isSkyline) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isSkyline) activeColor else inactiveColor
                         )
                     }
                 }
