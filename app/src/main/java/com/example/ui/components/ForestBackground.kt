@@ -6,6 +6,9 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.res.imageResource
@@ -19,6 +22,7 @@ import kotlinx.coroutines.launch
 
 data class ForestState(
     val completedSessions: Int = 0,
+    val windowSeed: Long = 0L,
     val followSystemTheme: Boolean = true,
     val manualTheme: WallpaperTheme = WallpaperTheme.LIGHT,
     val isDarkTheme: Boolean = false
@@ -62,8 +66,16 @@ class ForestViewModel(application: Application) : AndroidViewModel(application) 
             "last_synced_completed_sessions",
             sharedPrefs.getInt("last_synced_tree_count", 0)
         )
+        val windowSeed = if (sharedPrefs.contains("building_window_seed")) {
+            sharedPrefs.getLong("building_window_seed", 0L)
+        } else {
+            kotlin.random.Random.nextLong().also {
+                sharedPrefs.edit().putLong("building_window_seed", it).apply()
+            }
+        }
         return ForestState(
             completedSessions = savedCount,
+            windowSeed = windowSeed,
             followSystemTheme = followSystem,
             manualTheme = manualTheme,
             isDarkTheme = manualTheme == WallpaperTheme.DARK
@@ -130,6 +142,7 @@ fun ForestBackground(
     ForestBackgroundContent(
         isDark = isDark,
         completedSessions = forestState.completedSessions,
+        windowSeed = forestState.windowSeed,
         modifier = modifier
     )
 }
@@ -138,14 +151,41 @@ fun ForestBackground(
 fun ForestBackgroundContent(
     isDark: Boolean,
     completedSessions: Int = 0,
+    windowSeed: Long = 0L,
     modifier: Modifier = Modifier
 ) {
     val building = ImageBitmap.imageResource(R.drawable.building_background)
+    val order = remember(windowSeed) {
+        BuildingBackgroundRenderer.shuffledWindowOrder(windowSeed)
+    }
+    val litWindows = remember(completedSessions, windowSeed) {
+        order.take(completedSessions.coerceIn(0, order.size)).toSet()
+    }
+    val animation = remember { Animatable(1f) }
+    var animatingWindowIndex by remember { mutableIntStateOf(-1) }
+    var previousCount by remember { mutableIntStateOf(completedSessions) }
+
+    LaunchedEffect(completedSessions, windowSeed) {
+        if (completedSessions > previousCount) {
+            animatingWindowIndex = order.getOrNull(completedSessions - 1) ?: -1
+            animation.snapTo(0f)
+            animation.animateTo(1f, tween(650, easing = FastOutSlowInEasing))
+        }
+        previousCount = completedSessions
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             BuildingBackgroundRenderer.run {
-                drawBuilding(building, completedSessions, if (isDark) 1f else 0f)
+                drawBuilding(
+                    image = building,
+                    completedSessions = completedSessions,
+                    darkProgress = if (isDark) 1f else 0f,
+                    windowSeed = windowSeed,
+                    litWindows = litWindows,
+                    animatingWindowIndex = animatingWindowIndex,
+                    animationProgress = animation.value
+                )
             }
         }
     }

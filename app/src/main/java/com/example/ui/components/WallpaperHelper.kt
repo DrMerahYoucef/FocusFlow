@@ -33,6 +33,12 @@ object WallpaperHelper {
                 sharedPrefs.getInt("last_synced_tree_count", 0)
             )
         }
+        val windowSeed = app.getSharedPreferences("focusflow_prefs", Context.MODE_PRIVATE)
+            .getLong("building_window_seed", 0L)
+        val windowOrder = BuildingBackgroundRenderer.shuffledWindowOrder(windowSeed)
+        val litWindows = windowOrder
+            .take(count.coerceIn(0, windowOrder.size))
+            .toSet()
 
         val buildingBitmap = BitmapFactory.decodeResource(app.resources, R.drawable.building_background)
 
@@ -48,7 +54,13 @@ object WallpaperHelper {
         ) {
             if (buildingBitmap != null) {
                 BuildingBackgroundRenderer.run {
-                    drawBuilding(buildingBitmap.asImageBitmap(), count, 0f)
+                    drawBuilding(
+                        image = buildingBitmap.asImageBitmap(),
+                        completedSessions = count,
+                        darkProgress = 0f,
+                        windowSeed = windowSeed,
+                        litWindows = litWindows
+                    )
                 }
             }
         }
