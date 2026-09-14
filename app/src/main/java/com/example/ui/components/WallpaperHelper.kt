@@ -40,7 +40,7 @@ object WallpaperHelper {
             .take(count.coerceIn(0, windowOrder.size))
             .toSet()
 
-        val buildingBitmap = BitmapFactory.decodeResource(app.resources, R.drawable.building_background)
+        val buildingBitmap = BitmapFactory.decodeResource(app.resources, R.drawable.building_background_skycrap)
 
         val imageBitmap = ImageBitmap(W.toInt(), H.toInt())
         val composeCanvas = Canvas(imageBitmap)

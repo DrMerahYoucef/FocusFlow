@@ -12,17 +12,17 @@ class BuildingBackgroundRendererTest {
     fun windowGridCoversEveryRowAndColumnInsideSourceImage() {
         val bounds = BuildingBackgroundRenderer.windowBounds
 
-        assertEquals(55, bounds.size)
-        assertEquals(158f, bounds.minOf { it.top }, 0f)
-        assertEquals(581f, bounds.maxOf { it.bottom }, 0f)
-        assertTrue(bounds.all { it.left >= 0f && it.top >= 0f && it.right <= 335f && it.bottom <= 745f })
+        assertEquals(219, bounds.size)
+        assertEquals(7f, bounds.minOf { it.left }, 0f)
+        assertEquals(1246f, bounds.maxOf { it.bottom }, 0f)
+        assertTrue(bounds.all { it.left >= 0f && it.top >= 0f && it.right <= 688f && it.bottom <= 1536f })
     }
 
     @Test
     fun windowOrderIsAFullShuffleAndDoesNotUseSequentialIndexes() {
         val order = BuildingBackgroundRenderer.shuffledWindowOrder(1234L)
 
-        assertEquals((0 until 55).toSet(), order.toSet())
+        assertEquals((0 until BuildingBackgroundRenderer.windowBounds.size).toSet(), order.toSet())
         assertNotEquals((0 until 55).toList(), order)
     }
 }

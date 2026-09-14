@@ -12,18 +12,50 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
-/** Draws the facade and progressively lights its fixed window grid. */
+/** Draws the facade and progressively lights every mapped transparent window. */
 object BuildingBackgroundRenderer {
 
-    private const val SOURCE_WIDTH = 335f
-    private const val SOURCE_HEIGHT = 745f
+    private const val SOURCE_WIDTH = 688f
+    private const val SOURCE_HEIGHT = 1536f
 
     internal val windowBounds = buildList {
-        val columns = listOf(82f, 118f, 154f, 190f, 226f)
-        val rows = listOf(155f, 195f, 235f, 275f, 315f, 355f, 395f, 435f, 475f, 515f, 555f)
+        addFacadeWindows(
+            columns = listOf(226f, 277f, 327f, 378f, 429f),
+            rows = listOf(468f, 524f, 580f, 636f, 693f, 751f, 809f, 865f, 924f, 980f, 1038f, 1094f, 1151f, 1208f),
+            width = 35f,
+            height = 38f
+        )
+        addFacadeWindows(
+            columns = listOf(7f, 38f, 53f, 84f, 99f),
+            rows = listOf(647f, 703f, 761f, 819f, 876f, 934f, 991f, 1048f, 1103f, 1160f, 1218f),
+            width = 14f,
+            height = 21f
+        )
+        addFacadeWindows(
+            columns = listOf(579f, 594f, 625f, 640f, 671f),
+            rows = listOf(648f, 705f, 762f, 820f, 877f, 935f, 993f, 1049f, 1105f, 1163f, 1221f),
+            width = 14f,
+            height = 21f
+        )
+
+        // Rear towers use their own facade rhythm; these windows remain transparent in the source art.
+        addFacadeWindows(listOf(170f), listOf(285f, 301f, 325f, 360f), 27f, 25f)
+        addFacadeWindows(listOf(369f), listOf(266f, 289f, 307f, 346f), 8f, 25f)
+        addFacadeWindows(listOf(401f, 434f), listOf(261f, 300f, 320f, 368f), 25f, 22f)
+        addFacadeWindows(listOf(254f, 276f, 318f), listOf(347f, 368f, 394f), 35f, 28f)
+        addFacadeWindows(listOf(488f, 506f, 563f, 570f), listOf(419f, 439f, 485f, 519f), 28f, 20f)
+        addFacadeWindows(listOf(28f, 146f), listOf(387f, 427f, 456f), 30f, 24f)
+    }
+
+    private fun MutableList<Rect>.addFacadeWindows(
+        columns: List<Float>,
+        rows: List<Float>,
+        width: Float,
+        height: Float
+    ) {
         rows.forEach { top ->
             columns.forEach { left ->
-                add(Rect(left + 3f, top + 3f, left + 24f, top + 26f))
+                add(Rect(left, top, left + width, top + height))
             }
         }
     }
@@ -77,7 +109,6 @@ object BuildingBackgroundRenderer {
                 left + window.right * actualScaleX,
                 top + window.bottom * actualScaleY
             )
-            drawRect(color = Color(0xFF17212A).copy(alpha = 0.92f), topLeft = Offset(scaled.left, scaled.top), size = Size(scaled.width, scaled.height))
             if (index !in litWindows) return@forEachIndexed
 
             val brightness = windowBrightness(index)
