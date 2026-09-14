@@ -57,7 +57,7 @@ object WallpaperHelper {
             val right = left + W * (window.width / 100f).toFloat()
             val bottom = top + H * (window.height / 100f).toFloat()
             val isLit = window.id in litWindows
-            val color = warmWindowColor(window.id).toArgb()
+            val color = windowLightColor(window.id).toArgb()
 
             if (isLit) {
                 val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -73,7 +73,7 @@ object WallpaperHelper {
                 canvas.drawRect(left - W * 0.01f, top - H * 0.005f, right + W * 0.01f, bottom + H * 0.005f, glowPaint)
                 backgroundPaint.color = color
             } else {
-                backgroundPaint.color = android.graphics.Color.rgb(11, 7, 20)
+                backgroundPaint.color = windowOffColor(window.id).toArgb()
             }
             canvas.drawRect(left, top, right, bottom, backgroundPaint)
         }

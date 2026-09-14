@@ -74,6 +74,30 @@ internal fun warmWindowColor(id: String): Color = warmWindowColors[
     (id.hashCode() and Int.MAX_VALUE) % warmWindowColors.size
 ]
 
+internal fun windowOffColor(id: String): Color {
+    val colors = if (id.startsWith("S-")) {
+        listOf(Color(0xFF20202B), Color(0xFF25232D), Color(0xFF1D202A))
+    } else {
+        listOf(Color(0xFF17151C), Color(0xFF1C1920), Color(0xFF211B20))
+    }
+    return colors[(id.hashCode() and Int.MAX_VALUE) % colors.size]
+}
+
+internal fun windowLightColor(id: String): Color {
+    if (id.startsWith("S-")) {
+        val skylineColors = listOf(
+            Color(0xFFF7F4E8),
+            Color(0xFFFFFAEE),
+            Color(0xFFEFF3F5),
+            Color(0xFFFFF1D6),
+            Color(0xFFF8F8F2)
+        )
+        return skylineColors[(id.hashCode() and Int.MAX_VALUE) % skylineColors.size]
+            .copy(alpha = 0.62f)
+    }
+    return warmWindowColor(id)
+}
+
 @Composable
 fun CityBackground(
     lit: Set<String>,
@@ -100,7 +124,7 @@ fun CityBackground(
             windows.forEach { window ->
                 val isLit = window.id in lit
                 val shape = androidx.compose.foundation.shape.RoundedCornerShape(6)
-                val targetColor = if (isLit) warmWindowColor(window.id) else Color(0xFF0B0714)
+                val targetColor = if (isLit) windowLightColor(window.id) else windowOffColor(window.id)
                 val windowColor by animateColorAsState(
                     targetValue = targetColor,
                     label = "windowColor-${window.id}"
