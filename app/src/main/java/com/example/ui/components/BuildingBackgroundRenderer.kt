@@ -5,6 +5,8 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -17,6 +19,16 @@ object BuildingBackgroundRenderer {
 
     private const val SOURCE_WIDTH = 688f
     private const val SOURCE_HEIGHT = 1536f
+    private val DAYLIGHT_FILTER = ColorFilter.colorMatrix(
+        ColorMatrix(
+            floatArrayOf(
+                0.78f, 0.16f, 0.06f, 0f, 52f,
+                0.12f, 0.78f, 0.10f, 0f, 58f,
+                0.08f, 0.18f, 0.74f, 0f, 52f,
+                0f, 0f, 0f, 1f, 0f
+            )
+        )
+    )
 
     internal val windowBounds = buildList {
         addFacadeWindows(
@@ -68,7 +80,15 @@ object BuildingBackgroundRenderer {
         return 0.7f + ((index * 37) % 31) / 100f
     }
 
-    private fun windowTemperature(index: Int): Color {
+    private fun windowTemperature(index: Int, darkProgress: Float): Color {
+        if (darkProgress < 0.5f) {
+            return when (index % 4) {
+                0 -> Color(0xFFFFD36E)
+                1 -> Color(0xFFFFE19A)
+                2 -> Color(0xFFFFB84D)
+                else -> Color(0xFFFFF4C2)
+            }
+        }
         return when (index % 4) {
             0 -> Color(0xFFFFD76A)
             1 -> Color(0xFFFFC857)
@@ -99,7 +119,8 @@ object BuildingBackgroundRenderer {
         drawImage(
             image = image,
             dstOffset = androidx.compose.ui.unit.IntOffset(left, top),
-            dstSize = androidx.compose.ui.unit.IntSize(drawWidth, drawHeight)
+            dstSize = androidx.compose.ui.unit.IntSize(drawWidth, drawHeight),
+            colorFilter = if (darkProgress < 0.5f) DAYLIGHT_FILTER else null
         )
 
         windowBounds.forEachIndexed { index, window ->
@@ -118,7 +139,7 @@ object BuildingBackgroundRenderer {
             )
 
             drawRect(
-                color = Color(0xFF080A10),
+                color = if (darkProgress < 0.5f) Color(0xFF26343A) else Color(0xFF080A10),
                 topLeft = Offset(masked.left, masked.top),
                 size = Size(masked.width, masked.height)
             )
@@ -126,7 +147,7 @@ object BuildingBackgroundRenderer {
 
             val brightness = windowBrightness(index)
             val progress = if (index == animatingWindowIndex) animationProgress.coerceIn(0f, 1f) else 1f
-            val light = windowTemperature(index)
+            val light = windowTemperature(index, darkProgress)
             val glowAlpha = (0.10f + 0.12f * brightness) * progress
 
             drawRect(

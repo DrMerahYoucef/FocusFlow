@@ -57,7 +57,7 @@ object WallpaperHelper {
                     drawBuilding(
                         image = buildingBitmap.asImageBitmap(),
                         completedSessions = count,
-                        darkProgress = 0f,
+                        darkProgress = if (theme == WallpaperTheme.DARK) 1f else 0f,
                         windowSeed = windowSeed,
                         litWindows = litWindows
                     )
