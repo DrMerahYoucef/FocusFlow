@@ -53,7 +53,6 @@ android {
   sourceSets {
     getByName("main").assets {
       srcDir("src/main/java/com/example/data")
-      include("window-map.json")
     }
   }
 
