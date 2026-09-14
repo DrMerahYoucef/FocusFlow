@@ -154,7 +154,7 @@ fun ForestBackgroundContent(
     windowSeed: Long = 0L,
     modifier: Modifier = Modifier
 ) {
-    val building = ImageBitmap.imageResource(R.drawable.building_background_skycrap)
+    val building = ImageBitmap.imageResource(R.drawable.cityscape_windows_transparent)
     val order = remember(windowSeed) {
         BuildingBackgroundRenderer.shuffledWindowOrder(windowSeed)
     }
