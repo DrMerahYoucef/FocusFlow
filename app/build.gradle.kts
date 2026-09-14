@@ -50,6 +50,13 @@ android {
   namespace = "com.example"
   compileSdk = 35
 
+  sourceSets {
+    getByName("main").assets {
+      srcDir("src/main/java/com/example/data")
+      include("window-map.json")
+    }
+  }
+
   defaultConfig {
     applicationId = "com.focusisland"
     minSdk = 26
