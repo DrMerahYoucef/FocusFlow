@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -18,12 +19,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.example.R
 import org.json.JSONObject
+import kotlin.random.Random
 
 private data class CityWindow(
     val id: String,
@@ -35,14 +39,40 @@ private data class CityWindow(
 
 private const val CITY_ASSET = "window-map.json"
 
-fun towerLightIds(completedSessions: Int): Set<String> = buildSet {
-    val count = completedSessions.coerceIn(0, 70)
-    for (lightOrder in 1..count) {
-        val row = 14 - ((lightOrder - 1) / 5)
-        val column = ((lightOrder - 1) % 5) + 1
-        add("T-r${row}c${column}")
+private val cityWindowIds = buildList {
+    for (row in 1..14) {
+        for (column in 1..5) add("T-r${row}c${column}")
     }
+    for (row in 1..11) {
+        for (column in 1..3) {
+            if (row != 11 || column != 1) add("L-r${row}c${column}")
+        }
+    }
+    add("R-r1c1")
+    for (row in 2..12) {
+        for (column in 2..4) add("R-r${row}c${column}")
+    }
+    for (index in 1..49) add("S-${index.toString().padStart(2, '0')}")
 }
+
+fun cityLightIds(completedSessions: Int, windowSeed: Long = 0L): Set<String> {
+    return cityWindowIds
+        .shuffled(Random(windowSeed))
+        .take(completedSessions.coerceIn(0, cityWindowIds.size))
+        .toSet()
+}
+
+private val warmWindowColors = listOf(
+    Color(0xFFFFC857),
+    Color(0xFFFFD166),
+    Color(0xFFFFE08A),
+    Color(0xFFFFB84D),
+    Color(0xFFFFF0B5)
+)
+
+private fun warmWindowColor(id: String): Color = warmWindowColors[
+    (id.hashCode() and Int.MAX_VALUE) % warmWindowColors.size
+]
 
 @Composable
 fun CityBackground(
@@ -69,6 +99,12 @@ fun CityBackground(
         ) {
             windows.forEach { window ->
                 val isLit = window.id in lit
+                val shape = androidx.compose.foundation.shape.RoundedCornerShape(6)
+                val targetColor = if (isLit) warmWindowColor(window.id) else Color(0xFF0B0714)
+                val windowColor by animateColorAsState(
+                    targetValue = targetColor,
+                    label = "windowColor-${window.id}"
+                )
                 Box(
                     modifier = Modifier
                         .offset(
@@ -79,8 +115,14 @@ fun CityBackground(
                             width = maxWidth * (window.width / 100.0).toFloat(),
                             height = maxHeight * (window.height / 100.0).toFloat()
                         )
-                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(6))
-                        .background(if (isLit) Color(0xFFFFF3C4) else Color(0xFF0B0714))
+                        .shadow(
+                            elevation = if (isLit) 7.dp else 0.dp,
+                            shape = shape,
+                            ambientColor = windowColor.copy(alpha = 0.45f),
+                            spotColor = windowColor.copy(alpha = 0.7f)
+                        )
+                        .clip(shape)
+                        .background(windowColor)
                 )
             }
         }

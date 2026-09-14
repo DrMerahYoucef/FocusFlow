@@ -92,7 +92,10 @@ fun ForestScaffold(
                 contentAlignment = androidx.compose.ui.Alignment.Center
             ) {
                 CityBackground(
-                    lit = towerLightIds(forestState.completedSessions)
+                    lit = cityLightIds(
+                        completedSessions = forestState.completedSessions,
+                        windowSeed = forestState.windowSeed
+                    )
                 )
             }
             // Layer 2: app content with transparent scaffold
