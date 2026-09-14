@@ -4,10 +4,13 @@ import android.app.WallpaperManager
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RadialGradient
+import android.graphics.Rect
+import android.graphics.Shader
 import android.os.Build
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.toArgb
 import com.example.R
 import com.example.ui.theme.WallpaperTheme
 
@@ -35,37 +38,53 @@ object WallpaperHelper {
         }
         val windowSeed = app.getSharedPreferences("focusflow_prefs", Context.MODE_PRIVATE)
             .getLong("building_window_seed", 0L)
-        val windowOrder = BuildingBackgroundRenderer.shuffledWindowOrder(windowSeed)
-        val litWindows = windowOrder
-            .take(count.coerceIn(0, windowOrder.size))
-            .toSet()
+        val litWindows = cityLightIds(count, windowSeed)
+        val cityWindows = loadCityWindows(app)
+        val buildingBitmap = BitmapFactory.decodeResource(
+            app.resources,
+            R.drawable.cityscape_windows_transparent
+        ) ?: error("City wallpaper image could not be decoded")
+        val wallpaper = Bitmap.createBitmap(W.toInt(), H.toInt(), Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(wallpaper)
+        val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.rgb(11, 7, 20)
+        }
+        canvas.drawRect(0f, 0f, W, H, backgroundPaint)
 
-        val buildingBitmap = BitmapFactory.decodeResource(app.resources, R.drawable.cityscape_windows_transparent)
+        cityWindows.forEach { window ->
+            val left = W * (window.left / 100f).toFloat()
+            val top = H * (window.top / 100f).toFloat()
+            val right = left + W * (window.width / 100f).toFloat()
+            val bottom = top + H * (window.height / 100f).toFloat()
+            val isLit = window.id in litWindows
+            val color = warmWindowColor(window.id).toArgb()
 
-        val imageBitmap = ImageBitmap(W.toInt(), H.toInt())
-        val composeCanvas = Canvas(imageBitmap)
-        val drawScope = CanvasDrawScope()
-
-        drawScope.draw(
-            density = androidx.compose.ui.unit.Density(app),
-            layoutDirection = androidx.compose.ui.unit.LayoutDirection.Ltr,
-            canvas = composeCanvas,
-            size = Size(W, H)
-        ) {
-            if (buildingBitmap != null) {
-                BuildingBackgroundRenderer.run {
-                    drawBuilding(
-                        image = buildingBitmap.asImageBitmap(),
-                        completedSessions = count,
-                        darkProgress = if (theme == WallpaperTheme.DARK) 1f else 0f,
-                        windowSeed = windowSeed,
-                        litWindows = litWindows
+            if (isLit) {
+                val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    shader = RadialGradient(
+                        (left + right) / 2f,
+                        (top + bottom) / 2f,
+                        maxOf(right - left, bottom - top) * 3f,
+                        color,
+                        android.graphics.Color.TRANSPARENT,
+                        Shader.TileMode.CLAMP
                     )
                 }
+                canvas.drawRect(left - W * 0.01f, top - H * 0.005f, right + W * 0.01f, bottom + H * 0.005f, glowPaint)
+                backgroundPaint.color = color
+            } else {
+                backgroundPaint.color = android.graphics.Color.rgb(11, 7, 20)
             }
+            canvas.drawRect(left, top, right, bottom, backgroundPaint)
         }
 
-        return imageBitmap.asAndroidBitmap()
+        canvas.drawBitmap(
+            buildingBitmap,
+            null,
+            Rect(0, 0, W.toInt(), H.toInt()),
+            Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        )
+        return wallpaper
     }
 
     fun setBuildingWallpaper(

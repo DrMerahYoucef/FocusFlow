@@ -29,7 +29,7 @@ import com.example.R
 import org.json.JSONObject
 import kotlin.random.Random
 
-private data class CityWindow(
+internal data class CityWindow(
     val id: String,
     val left: Double,
     val top: Double,
@@ -37,7 +37,7 @@ private data class CityWindow(
     val height: Double
 )
 
-private const val CITY_ASSET = "window-map.json"
+internal const val CITY_ASSET = "window-map.json"
 
 private val cityWindowIds = buildList {
     for (row in 1..14) {
@@ -62,7 +62,7 @@ fun cityLightIds(completedSessions: Int, windowSeed: Long = 0L): Set<String> {
         .toSet()
 }
 
-private val warmWindowColors = listOf(
+internal val warmWindowColors = listOf(
     Color(0xFFFFC857),
     Color(0xFFFFD166),
     Color(0xFFFFE08A),
@@ -70,7 +70,7 @@ private val warmWindowColors = listOf(
     Color(0xFFFFF0B5)
 )
 
-private fun warmWindowColor(id: String): Color = warmWindowColors[
+internal fun warmWindowColor(id: String): Color = warmWindowColors[
     (id.hashCode() and Int.MAX_VALUE) % warmWindowColors.size
 ]
 
@@ -138,7 +138,7 @@ fun CityBackground(
     }
 }
 
-private fun loadCityWindows(context: Context): List<CityWindow> = runCatching {
+internal fun loadCityWindows(context: Context): List<CityWindow> = runCatching {
     val root = JSONObject(context.assets.open(CITY_ASSET).bufferedReader().use { it.readText() })
     val groups = root.getJSONObject("groups")
     buildList {
