@@ -109,6 +109,19 @@ object BuildingBackgroundRenderer {
                 left + window.right * actualScaleX,
                 top + window.bottom * actualScaleY
             )
+            val maskInset = minOf(actualScaleX, actualScaleY).coerceAtLeast(0.75f)
+            val masked = Rect(
+                scaled.left - maskInset,
+                scaled.top - maskInset,
+                scaled.right + maskInset,
+                scaled.bottom + maskInset
+            )
+
+            drawRect(
+                color = Color(0xFF080A10),
+                topLeft = Offset(masked.left, masked.top),
+                size = Size(masked.width, masked.height)
+            )
             if (index !in litWindows) return@forEachIndexed
 
             val brightness = windowBrightness(index)
