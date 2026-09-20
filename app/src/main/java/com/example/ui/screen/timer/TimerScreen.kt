@@ -51,7 +51,6 @@ import com.example.ui.components.NeumorphicProgressArc
 import com.example.ui.theme.NeumorphicColors
 import com.example.ui.components.GlassButton
 import com.example.ui.components.GlassCard
-import com.example.ui.components.TreePlantedCelebration
 import com.example.ui.components.neumorphicShadow
 
 import com.example.ui.screen.settings.SettingsViewModel
@@ -151,16 +150,6 @@ fun TimerScreen(
     val radioViewModel: com.example.ui.screen.radio.RadioViewModel = viewModel()
     val radioPlaying by radioViewModel.isPlaying.collectAsState()
     val currentStation by radioViewModel.currentStation.collectAsState()
-
-    var showCelebration by remember { mutableStateOf(false) }
-    var celebrationTree by remember { mutableStateOf(0) }
-
-    LaunchedEffect(Unit) {
-        viewModel.treePlanted.collect { treeNumber ->
-            showCelebration = true
-            celebrationTree = treeNumber
-        }
-    }
 
     val totalDurationMs = when (state.phase) {
         Phase.FOCUS -> state.focusDurationMs
@@ -467,11 +456,6 @@ fun TimerScreen(
             }
         }
 
-        if (showCelebration) {
-            TreePlantedCelebration(treeNumber = celebrationTree) {
-                showCelebration = false
-            }
-        }
     }
 }
 

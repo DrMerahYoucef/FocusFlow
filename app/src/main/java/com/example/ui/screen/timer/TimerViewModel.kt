@@ -20,22 +20,7 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
 
     val timerState: StateFlow<TimerState> = PomodoroTimerService.state
 
-    private val _treePlanted = MutableSharedFlow<Int>()
-    val treePlanted = _treePlanted.asSharedFlow()
-
     init {
-        var lastCount = -1
-        timerState
-            .map { it.sessionCount }
-            .distinctUntilChanged()
-            .onEach { count ->
-                if (lastCount != -1 && count > lastCount) {
-                    _treePlanted.emit(count)
-                }
-                lastCount = count
-            }
-            .launchIn(viewModelScope)
-
         // Observe local completed sessions and keep Firebase Firestore up to date
         FocusFlowApplication.instance.sessionRepository.getAllSessions()
             .map { sessions -> sessions.count { it.completed } }

@@ -1,27 +1,28 @@
 package com.example.ui.components
 
 import android.app.Application
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.*
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.res.imageResource
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewModelScope
 import com.example.FocusFlowApplication
+import com.example.R
 import com.example.ui.theme.WallpaperTheme
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 data class ForestState(
-    val treeCount: Int = 0,
+    val completedSessions: Int = 0,
+    val windowSeed: Long = 0L,
     val followSystemTheme: Boolean = true,
     val manualTheme: WallpaperTheme = WallpaperTheme.LIGHT,
     val isDarkTheme: Boolean = false
@@ -47,8 +48,8 @@ class ForestViewModel(application: Application) : AndroidViewModel(application) 
             repository
                 .getSessionCount(0L, Long.MAX_VALUE)
                 .collect { count ->
-                    _forestState.update { it.copy(treeCount = count) }
-                    sharedPrefs.edit().putInt("last_synced_tree_count", count).apply()
+                    _forestState.update { it.copy(completedSessions = count) }
+                    sharedPrefs.edit().putInt("last_synced_completed_sessions", count).apply()
                 }
         }
     }
@@ -61,9 +62,20 @@ class ForestViewModel(application: Application) : AndroidViewModel(application) 
         } catch (e: Exception) {
             WallpaperTheme.LIGHT
         }
-        val savedCount = sharedPrefs.getInt("last_synced_tree_count", 0)
+        val savedCount = sharedPrefs.getInt(
+            "last_synced_completed_sessions",
+            sharedPrefs.getInt("last_synced_tree_count", 0)
+        )
+        val windowSeed = if (sharedPrefs.contains("building_window_seed")) {
+            sharedPrefs.getLong("building_window_seed", 0L)
+        } else {
+            kotlin.random.Random.nextLong().also {
+                sharedPrefs.edit().putLong("building_window_seed", it).apply()
+            }
+        }
         return ForestState(
-            treeCount = savedCount,
+            completedSessions = savedCount,
+            windowSeed = windowSeed,
             followSystemTheme = followSystem,
             manualTheme = manualTheme,
             isDarkTheme = manualTheme == WallpaperTheme.DARK
@@ -104,12 +116,12 @@ class ForestViewModel(application: Application) : AndroidViewModel(application) 
         val setLock = sharedPrefs.getBoolean("wallpaper_lock_screen", false)
         val theme = if (isDark) WallpaperTheme.DARK else WallpaperTheme.LIGHT
 
-        WallpaperHelper.setForestWallpaper(
+        WallpaperHelper.setBuildingWallpaper(
             context = app,
             theme = theme,
             setHomeScreen = setHome,
             setLockScreen = setLock,
-            treeCount = _forestState.value.treeCount
+            completedSessions = _forestState.value.completedSessions
         ) { _, _ -> }
     }
 
@@ -129,7 +141,8 @@ fun ForestBackground(
 
     ForestBackgroundContent(
         isDark = isDark,
-        treeCount = forestState.treeCount,
+        completedSessions = forestState.completedSessions,
+        windowSeed = forestState.windowSeed,
         modifier = modifier
     )
 }
@@ -137,76 +150,43 @@ fun ForestBackground(
 @Composable
 fun ForestBackgroundContent(
     isDark: Boolean,
-    treeCount: Int = 0,
+    completedSessions: Int = 0,
+    windowSeed: Long = 0L,
     modifier: Modifier = Modifier
 ) {
-    // Smooth Crossfade animation between light and dark backgrounds
-    val darkProgress by animateFloatAsState(
-        targetValue = if (isDark) 1f else 0f,
-        animationSpec = tween(1200, easing = LinearOutSlowInEasing),
-        label = "darkProgress"
-    )
-
-    // Lifecycle-aware Animation Driver (Gentle Sway & Atmospheric Pollen & Fireflies)
-    val lifecycleOwner = LocalLifecycleOwner.current
-    var isAppResumed by remember { mutableStateOf(true) }
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            isAppResumed = event.targetState.isAtLeast(Lifecycle.State.RESUMED)
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
+    val building = ImageBitmap.imageResource(R.drawable.cityscape_windows_transparent)
+    val order = remember(windowSeed) {
+        BuildingBackgroundRenderer.shuffledWindowOrder(windowSeed)
     }
-
-    val wavePhase = remember { Animatable(0f) }
-    LaunchedEffect(isAppResumed) {
-        if (isAppResumed) {
-            while (true) {
-                wavePhase.animateTo(
-                    targetValue = wavePhase.value + 1000f,
-                    animationSpec = tween(120000, easing = LinearEasing)
-                )
-            }
-        } else {
-            wavePhase.stop()
-        }
+    val litWindows = remember(completedSessions, windowSeed) {
+        order.take(completedSessions.coerceIn(0, order.size)).toSet()
     }
+    val animation = remember { Animatable(1f) }
+    var animatingWindowIndex by remember { mutableIntStateOf(-1) }
+    var previousCount by remember { mutableIntStateOf(completedSessions) }
 
-    val currentAnimPhase = wavePhase.value
+    LaunchedEffect(completedSessions, windowSeed) {
+        if (completedSessions > previousCount) {
+            animatingWindowIndex = order.getOrNull(completedSessions - 1) ?: -1
+            animation.snapTo(0f)
+            animation.animateTo(1f, tween(650, easing = FastOutSlowInEasing))
+        }
+        previousCount = completedSessions
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val W = size.width
-            val H = size.height
-
-            ForestTreeRenderer.drawModernLandscape(
-                drawScope = this,
-                W = W,
-                H = H,
-                treeCount = treeCount,
-                darkProgress = darkProgress,
-                animPhase = currentAnimPhase
-            )
-
-            ForestTreeRenderer.drawAtmosphericParticles(
-                drawScope = this,
-                W = W,
-                H = H,
-                darkProgress = darkProgress,
-                animPhase = currentAnimPhase
-            )
-
-            // 4. Subtle UI Vignette at the bottom for crystal-clear readability
-            drawRect(
-                brush = Brush.verticalGradient(
-                    colors = listOf(Color.Transparent, Color(0x60000000)),
-                    startY = H * 0.78f,
-                    endY = H
-                ),
-                size = Size(W, H)
-            )
+            BuildingBackgroundRenderer.run {
+                drawBuilding(
+                    image = building,
+                    completedSessions = completedSessions,
+                    darkProgress = if (isDark) 1f else 0f,
+                    windowSeed = windowSeed,
+                    litWindows = litWindows,
+                    animatingWindowIndex = animatingWindowIndex,
+                    animationProgress = animation.value
+                )
+            }
         }
     }
 }

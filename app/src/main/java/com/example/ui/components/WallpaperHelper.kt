@@ -3,62 +3,96 @@ package com.example.ui.components
 import android.app.WallpaperManager
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RadialGradient
+import android.graphics.Rect
+import android.graphics.Shader
 import android.os.Build
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.toArgb
+import com.example.R
 import com.example.ui.theme.WallpaperTheme
 
 object WallpaperHelper {
 
-    fun renderForestBitmap(
+    fun renderBuildingBitmap(
         context: Context,
         width: Int,
         height: Int,
         theme: WallpaperTheme,
-        treeCount: Int = -1
+        completedSessions: Int = -1
     ): Bitmap {
-        val isDark = theme == WallpaperTheme.DARK
         val app = context.applicationContext
         val W = width.coerceAtLeast(1080).toFloat()
         val H = height.coerceAtLeast(1920).toFloat()
 
-        val count = if (treeCount >= 0) {
-            treeCount
+        val count = if (completedSessions >= 0) {
+            completedSessions
         } else {
             val sharedPrefs = app.getSharedPreferences("focusflow_prefs", Context.MODE_PRIVATE)
-            sharedPrefs.getInt("last_synced_tree_count", 0)
-        }
-
-        val imageBitmap = ImageBitmap(W.toInt(), H.toInt())
-        val composeCanvas = Canvas(imageBitmap)
-        val drawScope = CanvasDrawScope()
-
-        drawScope.draw(
-            density = androidx.compose.ui.unit.Density(app),
-            layoutDirection = androidx.compose.ui.unit.LayoutDirection.Ltr,
-            canvas = composeCanvas,
-            size = Size(W, H)
-        ) {
-            ForestTreeRenderer.drawModernLandscape(
-                drawScope = this,
-                W = W,
-                H = H,
-                treeCount = count,
-                darkProgress = if (isDark) 1f else 0f,
-                animPhase = 0f
+            sharedPrefs.getInt(
+                "last_synced_completed_sessions",
+                sharedPrefs.getInt("last_synced_tree_count", 0)
             )
         }
+        val windowSeed = app.getSharedPreferences("focusflow_prefs", Context.MODE_PRIVATE)
+            .getLong("building_window_seed", 0L)
+        val litWindows = cityLightIds(count, windowSeed)
+        val cityWindows = loadCityWindows(app)
+        val buildingBitmap = BitmapFactory.decodeResource(
+            app.resources,
+            R.drawable.cityscape_windows_transparent
+        ) ?: error("City wallpaper image could not be decoded")
+        val wallpaper = Bitmap.createBitmap(W.toInt(), H.toInt(), Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(wallpaper)
+        val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.rgb(11, 7, 20)
+        }
+        canvas.drawRect(0f, 0f, W, H, backgroundPaint)
 
-        return imageBitmap.asAndroidBitmap()
+        cityWindows.forEach { window ->
+            val left = W * (window.left / 100f).toFloat()
+            val top = H * (window.top / 100f).toFloat()
+            val right = left + W * (window.width / 100f).toFloat()
+            val bottom = top + H * (window.height / 100f).toFloat()
+            val isLit = window.id in litWindows
+            val color = windowLightColor(window.id).toArgb()
+
+            if (isLit) {
+                val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    shader = RadialGradient(
+                        (left + right) / 2f,
+                        (top + bottom) / 2f,
+                        maxOf(right - left, bottom - top) * 3f,
+                        color,
+                        android.graphics.Color.TRANSPARENT,
+                        Shader.TileMode.CLAMP
+                    )
+                }
+                canvas.drawRect(left - W * 0.01f, top - H * 0.005f, right + W * 0.01f, bottom + H * 0.005f, glowPaint)
+                backgroundPaint.color = color
+            } else {
+                backgroundPaint.color = windowOffColor(window.id).toArgb()
+            }
+            canvas.drawRect(left, top, right, bottom, backgroundPaint)
+        }
+
+        canvas.drawBitmap(
+            buildingBitmap,
+            null,
+            Rect(0, 0, W.toInt(), H.toInt()),
+            Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        )
+        return wallpaper
     }
 
-    fun setForestWallpaper(
+    fun setBuildingWallpaper(
         context: Context,
         theme: WallpaperTheme,
         setHomeScreen: Boolean,
         setLockScreen: Boolean,
-        treeCount: Int = -1,
+        completedSessions: Int = -1,
         onComplete: (Boolean, String?) -> Unit
     ) {
         val app = context.applicationContext
@@ -74,7 +108,7 @@ object WallpaperHelper {
             val W = metrics.widthPixels.coerceAtLeast(1080)
             val H = metrics.heightPixels.coerceAtLeast(1920)
 
-            val bitmap = renderForestBitmap(context, W, H, theme, treeCount)
+            val bitmap = renderBuildingBitmap(context, W, H, theme, completedSessions)
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 if (setHomeScreen && setLockScreen) {
