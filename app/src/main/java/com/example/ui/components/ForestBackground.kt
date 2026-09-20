@@ -11,13 +11,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.res.imageResource
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewModelScope
 import com.example.FocusFlowApplication
-import com.example.R
 import com.example.ui.theme.WallpaperTheme
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -149,33 +147,6 @@ fun ForestBackgroundContent(
         label = "darkProgress"
     )
 
-    // Load High Resolution Open Meadow Backgrounds
-    val lightBg = ImageBitmap.imageResource(id = R.drawable.open_meadow_light)
-    val darkBg = ImageBitmap.imageResource(id = R.drawable.open_meadow_dark)
-
-    // Load Photorealistic Tree PNG Assets (Light & Dark Variants)
-    val tree1Light = ImageBitmap.imageResource(id = R.drawable.tree_1_light)
-    val tree1Dark = ImageBitmap.imageResource(id = R.drawable.tree_1_dark)
-    val tree2Light = ImageBitmap.imageResource(id = R.drawable.tree_2_light)
-    val tree2Dark = ImageBitmap.imageResource(id = R.drawable.tree_2_dark)
-    val tree3Light = ImageBitmap.imageResource(id = R.drawable.tree_3_light)
-    val tree3Dark = ImageBitmap.imageResource(id = R.drawable.tree_3_dark)
-    val tree4Light = ImageBitmap.imageResource(id = R.drawable.tree_4_light)
-    val tree4Dark = ImageBitmap.imageResource(id = R.drawable.tree_4_dark)
-
-    val treeBitmaps = remember(tree1Light, tree1Dark, tree2Light, tree2Dark, tree3Light, tree3Dark, tree4Light, tree4Dark) {
-        ForestTreeBitmaps(
-            tree1Light = tree1Light,
-            tree1Dark = tree1Dark,
-            tree2Light = tree2Light,
-            tree2Dark = tree2Dark,
-            tree3Light = tree3Light,
-            tree3Dark = tree3Dark,
-            tree4Light = tree4Light,
-            tree4Dark = tree4Dark
-        )
-    }
-
     // Lifecycle-aware Animation Driver (Gentle Sway & Atmospheric Pollen & Fireflies)
     val lifecycleOwner = LocalLifecycleOwner.current
     var isAppResumed by remember { mutableStateOf(true) }
@@ -210,20 +181,8 @@ fun ForestBackgroundContent(
             val W = size.width
             val H = size.height
 
-            // 1. Draw Base Pristine Open Meadow Background Artwork (Aspect-fill cropping, zero distortion or tiling)
-            if (darkProgress <= 0.001f) {
-                ForestTreeRenderer.drawCropBitmap(this, lightBg, W, H, 1f)
-            } else if (darkProgress >= 0.999f) {
-                ForestTreeRenderer.drawCropBitmap(this, darkBg, W, H, 1f)
-            } else {
-                ForestTreeRenderer.drawCropBitmap(this, lightBg, W, H, 1f - darkProgress)
-                ForestTreeRenderer.drawCropBitmap(this, darkBg, W, H, darkProgress)
-            }
-
-            // 2. Dynamic Canvas Tree Sprites Stamped at Fixed Coordinate Slots (0 trees drawn when treeCount == 0)
-            ForestTreeRenderer.drawDynamicForestTrees(
+            ForestTreeRenderer.drawModernLandscape(
                 drawScope = this,
-                treeBitmaps = treeBitmaps,
                 W = W,
                 H = H,
                 treeCount = treeCount,
@@ -231,7 +190,6 @@ fun ForestBackgroundContent(
                 animPhase = currentAnimPhase
             )
 
-            // 3. Ambient Atmospheric Particles (Sun pollen / Bioluminescent fireflies)
             ForestTreeRenderer.drawAtmosphericParticles(
                 drawScope = this,
                 W = W,
