@@ -93,8 +93,8 @@ fun ForestScaffold(
             ) {
                 CityBackground(
                     lit = cityLightIds(
-                        completedSessions = forestState.completedSessions,
-                        windowSeed = forestState.windowSeed
+                        completedSessions = forestState.treeCount,
+                        windowSeed = 0L
                     )
                 )
             }

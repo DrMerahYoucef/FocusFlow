@@ -3,10 +3,12 @@ package com.example.ui.components
 import android.app.WallpaperManager
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Build
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import com.example.R
 import com.example.ui.theme.WallpaperTheme
 
 object WallpaperHelper {
@@ -18,10 +20,32 @@ object WallpaperHelper {
         theme: WallpaperTheme,
         treeCount: Int = -1
     ): Bitmap {
-        val isDark = theme == WallpaperTheme.DARK
         val app = context.applicationContext
+        val count = if (treeCount >= 0) {
+            treeCount
+        } else {
+            val sharedPrefs = app.getSharedPreferences("focusflow_prefs", Context.MODE_PRIVATE)
+            sharedPrefs.getInt("last_synced_tree_count", 0)
+        }
+
+        return renderBuildingBitmap(context, width, height, theme, count)
+    }
+
+    fun renderBuildingBitmap(
+        context: Context,
+        width: Int,
+        height: Int,
+        theme: WallpaperTheme,
+        completedSessions: Int = 0
+    ): Bitmap {
+        val app = context.applicationContext
+        val isDark = theme == WallpaperTheme.DARK
         val W = width.coerceAtLeast(1080).toFloat()
         val H = height.coerceAtLeast(1920).toFloat()
+        val buildingImage = BitmapFactory.decodeResource(
+            app.resources,
+            R.drawable.cityscape_windows_transparent
+        ).asImageBitmap()
 
         val imageBitmap = ImageBitmap(W.toInt(), H.toInt())
         val composeCanvas = Canvas(imageBitmap)
@@ -33,15 +57,13 @@ object WallpaperHelper {
             canvas = composeCanvas,
             size = Size(W, H)
         ) {
-            drawRect(
-                brush = Brush.verticalGradient(
-                    colors = if (isDark) {
-                        listOf(Color(0xFF192338), Color(0xFF29354A))
-                    } else {
-                        listOf(Color(0xFFEAF3EC), Color(0xFFD7E7D9))
-                    }
+            with(BuildingBackgroundRenderer) {
+                drawBuilding(
+                    image = buildingImage,
+                    completedSessions = completedSessions,
+                    darkProgress = if (isDark) 1f else 0f
                 )
-            )
+            }
         }
 
         return imageBitmap.asAndroidBitmap()
@@ -87,5 +109,23 @@ object WallpaperHelper {
             android.util.Log.e("WallpaperHelper", "Failed to set wallpaper", e)
             onComplete(false, e.localizedMessage ?: "Unknown error")
         }
+    }
+
+    fun setBuildingWallpaper(
+        context: Context,
+        theme: WallpaperTheme,
+        setHomeScreen: Boolean,
+        setLockScreen: Boolean,
+        completedSessions: Int = 0,
+        onComplete: (Boolean, String?) -> Unit
+    ) {
+        setForestWallpaper(
+            context = context,
+            theme = theme,
+            setHomeScreen = setHomeScreen,
+            setLockScreen = setLockScreen,
+            treeCount = completedSessions,
+            onComplete = onComplete
+        )
     }
 }
