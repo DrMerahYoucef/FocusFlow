@@ -3,12 +3,10 @@ package com.example.ui.components
 import android.app.WallpaperManager
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.os.Build
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
-import com.example.R
 import com.example.ui.theme.WallpaperTheme
 
 object WallpaperHelper {
@@ -42,10 +40,6 @@ object WallpaperHelper {
         val isDark = theme == WallpaperTheme.DARK
         val W = width.coerceAtLeast(1080).toFloat()
         val H = height.coerceAtLeast(1920).toFloat()
-        val buildingImage = BitmapFactory.decodeResource(
-            app.resources,
-            R.drawable.cityscape_windows_transparent
-        ).asImageBitmap()
 
         val imageBitmap = ImageBitmap(W.toInt(), H.toInt())
         val composeCanvas = Canvas(imageBitmap)
@@ -57,13 +51,14 @@ object WallpaperHelper {
             canvas = composeCanvas,
             size = Size(W, H)
         ) {
-            with(BuildingBackgroundRenderer) {
-                drawBuilding(
-                    image = buildingImage,
-                    completedSessions = completedSessions,
-                    darkProgress = if (isDark) 1f else 0f
-                )
-            }
+            ForestTreeRenderer.drawModernLandscape(
+                drawScope = this,
+                W = W,
+                H = H,
+                treeCount = completedSessions,
+                darkProgress = if (isDark) 1f else 0f,
+                animPhase = 0f
+            )
         }
 
         return imageBitmap.asAndroidBitmap()

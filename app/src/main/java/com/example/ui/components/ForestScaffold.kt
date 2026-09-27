@@ -87,17 +87,10 @@ fun ForestScaffold(
         LocalIsDarkTheme provides !isDay
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            Box(
+            ForestBackground(
                 modifier = Modifier.fillMaxSize(),
-                contentAlignment = androidx.compose.ui.Alignment.Center
-            ) {
-                CityBackground(
-                    lit = cityLightIds(
-                        completedSessions = forestState.treeCount,
-                        windowSeed = 0L
-                    )
-                )
-            }
+                forestState = forestState
+            )
             // Layer 2: app content with transparent scaffold
             Scaffold(
                 containerColor = Color.Transparent,
