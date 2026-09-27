@@ -23,13 +23,6 @@ object WallpaperHelper {
         val W = width.coerceAtLeast(1080).toFloat()
         val H = height.coerceAtLeast(1920).toFloat()
 
-        val count = if (treeCount >= 0) {
-            treeCount
-        } else {
-            val sharedPrefs = app.getSharedPreferences("focusflow_prefs", Context.MODE_PRIVATE)
-            sharedPrefs.getInt("last_synced_tree_count", 0)
-        }
-
         val imageBitmap = ImageBitmap(W.toInt(), H.toInt())
         val composeCanvas = Canvas(imageBitmap)
         val drawScope = CanvasDrawScope()
@@ -40,13 +33,14 @@ object WallpaperHelper {
             canvas = composeCanvas,
             size = Size(W, H)
         ) {
-            ForestTreeRenderer.drawModernLandscape(
-                drawScope = this,
-                W = W,
-                H = H,
-                treeCount = count,
-                darkProgress = if (isDark) 1f else 0f,
-                animPhase = 0f
+            drawRect(
+                brush = Brush.verticalGradient(
+                    colors = if (isDark) {
+                        listOf(Color(0xFF192338), Color(0xFF29354A))
+                    } else {
+                        listOf(Color(0xFFEAF3EC), Color(0xFFD7E7D9))
+                    }
+                )
             )
         }
 
